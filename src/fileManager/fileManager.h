@@ -1,5 +1,4 @@
-#ifndef FILE_MANAGER_H
-#define FILE_MANAGER_H
+#pragma once
 
 #include <string>
 
@@ -11,5 +10,3 @@ public:
 
 	static std::string read(const std::string& filePath);
 };
-
-#endif // FILE_MANAGER_H

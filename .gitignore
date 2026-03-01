@@ -1,0 +1,70 @@
+# =========================
+# Build folders
+# =========================
+build/
+cmake-build-*/
+out/
+bin/
+Debug/
+Release/
+
+# =========================
+# CMake
+# =========================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+compile_commands.json
+CMakePresets.json
+CMakeUserPresets.json
+
+# =========================
+# Conan
+# =========================
+conanbuild/
+conanbuild.bat
+conanrun.bat
+conan_toolchain.cmake
+conaninfo.txt
+conan.lock
+
+# =========================
+# Visual Studio
+# =========================
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.sdf
+*.opensdf
+*.VC.db
+
+# MSVC artifacts
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.ipch
+*.tlog
+
+# =========================
+# Binaries
+# =========================
+*.exe
+*.dll
+*.lib
+*.exp
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log

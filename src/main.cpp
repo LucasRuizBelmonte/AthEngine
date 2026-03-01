@@ -13,6 +13,7 @@
 #include "components/Material.h"
 #include "components/Camera.h"
 #include "components/Spin.h"
+#include "components/CameraController.h"
 
 #include "rendering/MeshFactory.h"
 #include "rendering/Renderer.h"
@@ -20,8 +21,12 @@
 #include "systems/ClearColorSystem.h"
 #include "systems/SpinSystem.h"
 #include "systems/RenderSystem.h"
+#include "systems/CameraControllerSystem.h"
 
 #include "resources/ShaderManager.h"
+
+#include "input/WindowContext.h"
+#include "input/MouseLookCallbacks.h"
 
 static void errorCallback(int error, const char *description)
 {
@@ -51,6 +56,7 @@ int main()
 	}
 
 	glfwMakeContextCurrent(window);
+	glEnable(GL_DEPTH_TEST);
 
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK)
@@ -61,53 +67,56 @@ int main()
 		return -1;
 	}
 
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 	ShaderManager shaderManager;
 	auto simpleShader = shaderManager.Load(
 		"simple",
 		std::string(ASSET_PATH) + "/shader/shader.vs",
-		std::string(ASSET_PATH) + "/shader/shader.fs"
-	);
+		std::string(ASSET_PATH) + "/shader/shader.fs");
 
 	Registry registry;
 
 	Entity camera = registry.Create();
 	registry.Emplace<Camera>(camera);
+	registry.Emplace<CameraController>(camera);
 
-	Entity tri = registry.Create();
-	registry.Emplace<Transform>(tri);
-	registry.Emplace<Mesh>(tri, MeshFactory::CreateTriangle());
-	registry.Emplace<Material>(tri, Material{ simpleShader });
-	registry.Emplace<Spin>(tri, Spin{{0.f, 0.f, -1.f}, 0.8f, 0.25f});
+	Entity triangle = registry.Create();
+	registry.Emplace<Transform>(triangle);
+	registry.Emplace<Mesh>(triangle, MeshFactory::CreateTriangle());
+	registry.Emplace<Material>(triangle, Material{simpleShader});
+	registry.Emplace<Spin>(triangle, Spin{{0.f, 0.f, -1.f}, 0.8f, 0.25f});
+
+	WindowContext windowCtx;
+	windowCtx.registry = &registry;
+	windowCtx.cameraEntity = camera;
+	glfwSetWindowUserPointer(window, &windowCtx);
+	glfwSetCursorPosCallback(window, MouseLookCursorPosCallback);
 
 	ClearColorSystem clearColorSystem;
 	SpinSystem spinSystem;
 	RenderSystem renderSystem;
-	Renderer renderer(shaderManager);
+	CameraControllerSystem cameraControllerSystem;
 
-	double previousTime = glfwGetTime();
-	int frameCount = 0;
+	Renderer renderer(shaderManager);
+	float lastTime = (float)glfwGetTime();
+
 	while (!glfwWindowShouldClose(window))
 	{
-		float timeSec = (float)glfwGetTime();
+		float now = (float)glfwGetTime();
+		float dt = now - lastTime;
+		lastTime = now;
 
-		frameCount++;
-		if (timeSec - previousTime >= 1.0)
-		{
-			glfwSetWindowTitle(window, (std::string("AthEngine - FPS: ") + std::to_string(frameCount)).c_str());
-
-			frameCount = 0;
-			previousTime = timeSec;
-		}
-
-		clearColorSystem.Update(timeSec);
-		spinSystem.Update(registry, timeSec);
+		clearColorSystem.Update(now);
+		cameraControllerSystem.Update(registry, window, dt);
+		spinSystem.Update(registry, now);
 		renderSystem.Render(registry, renderer, window);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-
-	MeshFactory::Destroy(registry.Get<Mesh>(tri));
+	
+	MeshFactory::Destroy(registry.Get<Mesh>(triangle));
 
 	glfwDestroyWindow(window);
 	glfwTerminate();

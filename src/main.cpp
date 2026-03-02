@@ -1,4 +1,5 @@
 #include "app/Application.h"
+#include <fmod.hpp>
 
 int main() {
     Application app;

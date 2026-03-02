@@ -3,6 +3,7 @@
 
 #include "../../rendering/MeshFactory.h"
 #include "../../rendering/Renderer.h"
+#include "../../rendering/ModelLoader.h"
 
 #include "../../fileManager/fileManager.h"
 
@@ -32,7 +33,10 @@ void Test3DScene::RequestLoad(AsyncLoader &loader)
 
 			m_triangle = m_registry.Create();
 			m_registry.Emplace<Transform>(m_triangle);
-			m_registry.Emplace<Mesh>(m_triangle, MeshFactory::CreateTriangle());
+			Mesh model = ModelLoader::LoadFirstMesh(std::string(ASSET_PATH) + "/models/test.fbx");
+			Mesh tri = MeshFactory::CreateTriangle();
+
+			m_registry.Emplace<Mesh>(m_triangle, std::move(model));
 
 			Material mat;
 			mat.shader = shader;

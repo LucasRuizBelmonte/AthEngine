@@ -9,6 +9,8 @@ find_package(glfw3 REQUIRED)
 find_package(glew REQUIRED)
 find_package(glm REQUIRED)
 find_package(imgui REQUIRED)
+find_package(assimp REQUIRED)
+find_package(fmod REQUIRED)
 
 file(GLOB_RECURSE ATH_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
@@ -22,15 +24,16 @@ target_link_libraries(${PROJECT_NAME}
     GLEW::GLEW
     glm::glm
     imgui::imgui
+    assimp::assimp
+    fmod::fmod
 )
-
-list(GET IMGUI_INCLUDE_DIRS 0 IMGUI_INC0)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res/shaders
     $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader
 )
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     ASSET_PATH="${CMAKE_SOURCE_DIR}/res"
 )
@@ -42,5 +45,23 @@ file(GLOB IMGUI_BACKEND_SOURCES
 target_sources(${PROJECT_NAME} PRIVATE ${IMGUI_BACKEND_SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends
+    "${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends"
 )
+
+if (WIN32 AND DEFINED ENV{FMOD_SDK_DIR})
+    set(FMOD_DLL_DIR "$ENV{FMOD_SDK_DIR}/api/core/lib/x64")
+
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FMOD_DLL_DIR}/fmod.dll"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    )
+
+    if (EXISTS "${FMOD_DLL_DIR}/fmodL.dll")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${FMOD_DLL_DIR}/fmodL.dll"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+        )
+    endif()
+endif()

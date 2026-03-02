@@ -3,10 +3,14 @@
 
 #include "../../rendering/MeshFactory.h"
 #include "../../rendering/Renderer.h"
+
 #include "../../fileManager/fileManager.h"
+
 #include "../../utils/Utils2D.h"
 
 #include "../../thirdparty/stb_image.h"
+
+#include "../../input/Input.h"
 
 Test2DScene::Test2DScene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
@@ -14,6 +18,9 @@ Test2DScene::Test2DScene(ShaderManager &shaderManager, TextureManager &textureMa
 	m_vsPath = std::string(ASSET_PATH) + "/shaders/sprite.vs";
 	m_fsPath = std::string(ASSET_PATH) + "/shaders/sprite.fs";
 	m_texPath = std::string(ASSET_PATH) + "/textures/sprite.png";
+
+	m_audio.Init();
+	m_audio.LoadSound("test", std::string(ASSET_PATH) + "/audio/test.wav");
 }
 
 void Test2DScene::RequestLoad(AsyncLoader &loader)
@@ -119,10 +126,12 @@ void Test2DScene::OnDetach(GLFWwindow &window)
 	m_window = nullptr;
 }
 
-void Test2DScene::Update(float, float)
+void Test2DScene::Update(float dt, float)
 {
 	if (!m_loaded || !m_window)
 		return;
+
+	m_audio.Update();
 
 	int width, height;
 	glfwGetFramebufferSize(m_window, &width, &height);
@@ -131,6 +140,18 @@ void Test2DScene::Update(float, float)
 
 	float xPercent = 0.05f;
 	float yPercent = 0.05f;
+
+	if (Input::GetKey(GLFW_KEY_A))
+		xPercent -= 0.25f * dt;
+	if (Input::GetKey(GLFW_KEY_D))
+		xPercent += 0.25f * dt;
+	if (Input::GetKey(GLFW_KEY_S))
+		yPercent -= 0.25f * dt;
+	if (Input::GetKey(GLFW_KEY_W))
+		yPercent += 0.25f * dt;
+
+	if (Input::GetKeyDown(GLFW_KEY_SPACE))
+		m_audio.Play("test");
 
 	glm::vec2 world = Utils2D::PercentToWorld(xPercent, yPercent, width, height, cam);
 

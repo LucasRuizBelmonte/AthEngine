@@ -7,7 +7,7 @@
             "command": "cmd",
             "args": [
                 "/c",
-                "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat\" && conan install . -of=build --build=missing -s build_type=Debug -c tools.cmake.cmaketoolchain:generator=Ninja && cmake --preset conan-debug && cmake --build --preset conan-debug"
+                "\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat\" && conan install . -of=build --build=missing -s build_type=Debug -s compiler.cppstd=20 -c tools.cmake.cmaketoolchain:generator=Ninja -c tools.cmake.cmaketoolchain:toolset_arch=x64 && cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=build\\conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug && cmake --build build"
             ],
             "group": {
                 "kind": "build",

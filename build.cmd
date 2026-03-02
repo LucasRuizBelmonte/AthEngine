@@ -13,10 +13,11 @@ call "%VS_PATH%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
 if exist build rmdir /s /q build
 
 :: Conan install (generates presets)
-conan install . -of=build --build=missing -s build_type=Debug
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE=build\conan_toolchain.cmake
-cmake --build build --config Debug
 
-build\Debug\athengine.exe
+conan install . -of=build --build=missing -s build_type=Debug -c tools.cmake.cmaketoolchain:generator=Ninja
+cmake --preset conan-debug
+cmake --build --preset conan-debug
+
+build/athengine.exe
 
 endlocal

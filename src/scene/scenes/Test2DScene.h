@@ -9,12 +9,14 @@
 #include "../../components/Camera.h"
 #include "../../components/Transform.h"
 #include "../../components/Sprite.h"
+#include "../../components/Mesh.h"
 
 #include "../../resources/ShaderManager.h"
 #include "../../resources/TextureManager.h"
 
-#include "../../components/Mesh.h"
 #include "../../rendering/Texture.h"
+
+#include "../../audio/AudioEngine.h"
 
 class Test2DScene final : public IScene
 {
@@ -53,6 +55,8 @@ private:
 	Mesh m_quadMesh;
 
 	GLFWwindow *m_window = nullptr;
+
+	AudioEngine m_audio;
 
 	bool m_loaded = false;
 

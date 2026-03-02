@@ -6,9 +6,9 @@
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
 
-#include <GLFW/glfw3.h>
 #include <memory>
 #include <vector>
+#include <cstddef>
 
 enum class SceneRequest
 {
@@ -22,21 +22,29 @@ enum class SceneRequest
 class SceneManager
 {
 public:
-    SceneManager(ShaderManager& shaders, TextureManager& textures, GLFWwindow& window);
+    SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window);
 
     void Request(SceneRequest req);
 
     void Update(float dt, float now);
-    void Render3D(Renderer& renderer, int framebufferWidth, int framebufferHeight);
-    void Render2D(Renderer& renderer, int framebufferWidth, int framebufferHeight);
+    void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+    void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+
+    size_t GetLoadedSceneCount() const;
+    const char *GetLoadedSceneName(size_t index) const;
+    bool IsTransitioning() const;
+
+    void RequestRemoveLoadedScene(size_t index);
+    void RequestClearNonCore();
 
 private:
     std::shared_ptr<IScene> CreateScene(SceneRequest req);
+    void ApplyPendingRemovals();
 
 private:
-    ShaderManager& m_shaders;
-    TextureManager& m_textures;
-    GLFWwindow& m_window;
+    ShaderManager &m_shaders;
+    TextureManager &m_textures;
+    GLFWwindow &m_window;
 
     AsyncLoader m_loader;
 
@@ -47,4 +55,7 @@ private:
 
     bool m_isTransitioning = false;
     bool m_isPush = false;
+
+    std::vector<size_t> m_removeQueue;
+    bool m_clearNonCoreRequested = false;
 };

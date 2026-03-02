@@ -1,19 +1,21 @@
 #include "../platform/GL.h"
 #include "SceneManager.h"
 
+#include "scenes/CoreScene.h"
 #include "scenes/LoadingScene.h"
 #include "scenes/Test3DScene.h"
 #include "scenes/Test2DScene.h"
 #include "scenes/MultiScene.h"
 
 #include "../rendering/Renderer.h"
+#include <algorithm>
 
 SceneManager::SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window)
 	: m_shaders(shaders), m_textures(textures), m_window(window)
 {
-	auto base = std::make_shared<LoadingScene>();
-	base->OnAttach(m_window);
-	m_stack.push_back(base);
+	auto core = std::make_shared<CoreScene>(*this);
+	core->OnAttach(m_window);
+	m_stack.push_back(core);
 }
 
 std::shared_ptr<IScene> SceneManager::CreateScene(SceneRequest req)
@@ -46,6 +48,71 @@ void SceneManager::Request(SceneRequest req)
 	m_isPush = push;
 }
 
+size_t SceneManager::GetLoadedSceneCount() const
+{
+	return m_stack.size();
+}
+
+const char *SceneManager::GetLoadedSceneName(size_t index) const
+{
+	if (index >= m_stack.size() || !m_stack[index])
+		return "<null>";
+	return m_stack[index]->GetName();
+}
+
+bool SceneManager::IsTransitioning() const
+{
+	return m_isTransitioning;
+}
+
+void SceneManager::RequestRemoveLoadedScene(size_t index)
+{
+	if (index == 0)
+		return;
+	if (index >= m_stack.size())
+		return;
+	m_removeQueue.push_back(index);
+}
+
+void SceneManager::RequestClearNonCore()
+{
+	m_clearNonCoreRequested = true;
+}
+
+void SceneManager::ApplyPendingRemovals()
+{
+	if (m_clearNonCoreRequested)
+	{
+		for (size_t i = 1; i < m_stack.size(); ++i)
+			m_stack[i]->OnDetach(m_window);
+
+		if (m_stack.size() > 1)
+			m_stack.erase(m_stack.begin() + 1, m_stack.end());
+
+		m_clearNonCoreRequested = false;
+		m_removeQueue.clear();
+		return;
+	}
+
+	if (m_removeQueue.empty())
+		return;
+
+	std::sort(m_removeQueue.begin(), m_removeQueue.end());
+	m_removeQueue.erase(std::unique(m_removeQueue.begin(), m_removeQueue.end()), m_removeQueue.end());
+
+	for (auto it = m_removeQueue.rbegin(); it != m_removeQueue.rend(); ++it)
+	{
+		size_t idx = *it;
+		if (idx == 0 || idx >= m_stack.size())
+			continue;
+
+		m_stack[idx]->OnDetach(m_window);
+		m_stack.erase(m_stack.begin() + (std::ptrdiff_t)idx);
+	}
+
+	m_removeQueue.clear();
+}
+
 void SceneManager::Update(float dt, float now)
 {
 	m_loader.Update();
@@ -54,10 +121,11 @@ void SceneManager::Update(float dt, float now)
 	{
 		if (!m_isPush)
 		{
-			for (auto &s : m_stack)
-				s->OnDetach(m_window);
+			for (size_t i = 1; i < m_stack.size(); ++i)
+				m_stack[i]->OnDetach(m_window);
 
-			m_stack.clear();
+			if (m_stack.size() > 1)
+				m_stack.erase(m_stack.begin() + 1, m_stack.end());
 		}
 
 		m_pending->OnAttach(m_window);
@@ -69,6 +137,8 @@ void SceneManager::Update(float dt, float now)
 
 		m_isTransitioning = false;
 	}
+
+	ApplyPendingRemovals();
 
 	for (auto &s : m_stack)
 		s->Update(dt, now);

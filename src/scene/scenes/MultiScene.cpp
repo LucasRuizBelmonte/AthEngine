@@ -47,3 +47,8 @@ void MultiScene::Render2D(Renderer &renderer, int framebufferWidth, int framebuf
 	m_a->Render2D(renderer, framebufferWidth, framebufferHeight);
 	m_b->Render2D(renderer, framebufferWidth, framebufferHeight);
 }
+
+const char *MultiScene::GetName() const
+{
+	return "MultiScene";
+}

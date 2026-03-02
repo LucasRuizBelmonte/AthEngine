@@ -90,3 +90,8 @@ void Test3DScene::Render3D(Renderer &renderer, int framebufferWidth, int framebu
 void Test3DScene::Render2D(Renderer &, int, int)
 {
 }
+
+const char *Test3DScene::GetName() const
+{
+	return "Test3D";
+}

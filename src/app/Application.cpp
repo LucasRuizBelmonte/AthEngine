@@ -60,33 +60,19 @@ void Application::Run()
 		int width, height;
 		glfwGetFramebufferSize(m_Window->GetNative(), &width, &height);
 
-		BeginImGuiFrame();
 		HandleSceneInput();
-
 		m_Scenes->Update(dt, now);
 
 		m_Renderer->BeginFrame(width, height);
 
+		BeginImGuiFrame();
+
 		m_Scenes->Render3D(*m_Renderer, width, height);
 		m_Scenes->Render2D(*m_Renderer, width, height);
-
-		ImGui::Begin("Scene");
-		if (ImGui::Button("Change to A"))
-			m_Scenes->Request(SceneRequest::Test3D);
-		if (ImGui::Button("Change to B"))
-			m_Scenes->Request(SceneRequest::Test2D);
-		if (ImGui::Button("Set both"))
-			m_Scenes->Request(SceneRequest::Both);
-		if (ImGui::Button("Add A"))
-			m_Scenes->Request(SceneRequest::Push3D);
-		if (ImGui::Button("Add B"))
-			m_Scenes->Request(SceneRequest::Push2D);
-		ImGui::End();
 
 		EndImGuiFrame();
 
 		m_Window->SwapBuffers();
-		m_Window->PollEvents();
 	}
 }
 
@@ -125,7 +111,7 @@ void Application::ToggleMouseCapture()
 {
 	m_MouseCaptured = !m_MouseCaptured;
 
-	GLFWwindow* w = m_Window->GetNative();
+	GLFWwindow *w = m_Window->GetNative();
 
 	if (m_MouseCaptured)
 	{

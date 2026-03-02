@@ -8,6 +8,8 @@ public:
 	LoadingScene() = default;
 	~LoadingScene() override = default;
 
+	const char *GetName() const override;
+
 	void RequestLoad(AsyncLoader &loader) override;
 	bool IsLoaded() const override;
 

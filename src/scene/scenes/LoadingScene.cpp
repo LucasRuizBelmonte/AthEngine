@@ -33,3 +33,5 @@ void LoadingScene::Render3D(Renderer &, int, int)
 void LoadingScene::Render2D(Renderer &, int, int)
 {
 }
+
+const char *LoadingScene::GetName() const { return "Loading"; }

@@ -36,6 +36,7 @@ public:
 	void Update(float dt, float now) override;
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
+	const char *GetName() const override;
 
 private:
 	ShaderManager &m_shaderManager;

@@ -150,3 +150,8 @@ void Test2DScene::Render2D(Renderer &renderer, int framebufferWidth, int framebu
 	glDisable(GL_DEPTH_TEST);
 	m_render2DSystem.Render(m_registry, renderer, m_camera2D, framebufferWidth, framebufferHeight, m_quadMesh);
 }
+
+const char *Test2DScene::GetName() const
+{
+	return "Test2D";
+}

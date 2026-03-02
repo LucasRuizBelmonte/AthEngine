@@ -25,9 +25,9 @@ target_link_libraries(${PROJECT_NAME}
 # Copy shaders from src/shader
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/src/shader
+    ${CMAKE_SOURCE_DIR}/res/shader
     $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    ASSET_PATH="${CMAKE_SOURCE_DIR}/src"
+    ASSET_PATH="${CMAKE_SOURCE_DIR}/res"
 )

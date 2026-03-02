@@ -16,8 +16,8 @@ Application::Application()
 	glEnable(GL_DEPTH_TEST);
 	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-	m_Renderer = std::make_unique<Renderer>(m_ShaderManager);
-	m_Scene = std::make_unique<Scene>(m_ShaderManager, m_Window->GetNative());
+	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
+	m_Scene = std::make_unique<Scene>(m_ShaderManager, m_TextureManager, m_Window->GetNative());
 
 	m_LastTime = (float)glfwGetTime();
 }
@@ -44,7 +44,8 @@ void Application::Run()
 
 		m_Renderer->BeginFrame(width, height);
 
-		m_Scene->Render(*m_Renderer, width, height);
+		m_Scene->Render3D(*m_Renderer, width, height);
+		m_Scene->Render2D(*m_Renderer, width, height);
 
 		m_Window->SwapBuffers();
 		m_Window->PollEvents();

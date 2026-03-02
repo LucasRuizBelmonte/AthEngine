@@ -3,5 +3,6 @@
 
 namespace MeshFactory
 {
-	Mesh CreateTriangle();
+    Mesh CreateTriangle();
+    Mesh CreateQuad();
 }

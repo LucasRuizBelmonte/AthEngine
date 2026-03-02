@@ -2,6 +2,7 @@
 
 #include "../platform/Window.h"
 #include "../resources/ShaderManager.h"
+#include "../resources/TextureManager.h"
 #include "../rendering/Renderer.h"
 #include "../scene/Scene.h"
 
@@ -18,6 +19,7 @@ public:
 private:
 	std::unique_ptr<Window> m_Window;
 	ShaderManager m_ShaderManager;
+	TextureManager m_TextureManager;
 	std::unique_ptr<Renderer> m_Renderer;
 	std::unique_ptr<Scene> m_Scene;
 

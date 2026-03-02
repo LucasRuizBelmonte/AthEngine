@@ -5,9 +5,11 @@
 #include "../components/Material.h"
 #include "../shader/shader.h"
 #include "../resources/ShaderManager.h"
+#include "../resources/TextureManager.h"
+#include "../rendering/Texture.h"
 
-Renderer::Renderer(ShaderManager &shaderManager)
-	: m_shaderManager(shaderManager)
+Renderer::Renderer(ShaderManager &shaderManager, TextureManager &textureManager)
+	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
 }
 
@@ -32,11 +34,26 @@ void Renderer::Submit(const Mesh &mesh,
 		return;
 
 	shader->use();
+
 	shader->setUniform("u_model", model);
 	shader->setUniform("u_view", m_view);
 	shader->setUniform("u_proj", m_proj);
+	shader->setUniform("u_tint", material.tint);
+
+	if (material.texture.IsValid())
+	{
+		Texture *tex = m_textureManager.Get(material.texture);
+		if (tex && tex->GetId())
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, tex->GetId());
+			shader->setUniform("u_tex0", 0);
+		}
+	}
 
 	glBindVertexArray(mesh.vao);
 	glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 }

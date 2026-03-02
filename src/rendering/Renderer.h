@@ -5,11 +5,12 @@ struct Mesh;
 struct Material;
 
 class ShaderManager;
+class TextureManager;
 
 class Renderer
 {
 public:
-	Renderer(ShaderManager &shaderManager);
+	Renderer(ShaderManager &shaderManager, TextureManager &textureManager);
 
 	void BeginFrame(int width, int height);
 	void SetCamera(const glm::mat4 &view, const glm::mat4 &proj);
@@ -20,6 +21,7 @@ public:
 
 private:
 	ShaderManager &m_shaderManager;
+	TextureManager &m_textureManager;
 	glm::mat4 m_view{};
 	glm::mat4 m_proj{};
 };

@@ -164,3 +164,10 @@ void SceneManager::Render2D(Renderer &renderer, int framebufferWidth, int frameb
 	if (m_isTransitioning && m_loading)
 		m_loading->Render2D(renderer, framebufferWidth, framebufferHeight);
 }
+
+std::shared_ptr<IScene> SceneManager::GetLoadedScene(size_t index) const
+{
+	if (index >= m_stack.size())
+		return nullptr;
+	return m_stack[index];
+}

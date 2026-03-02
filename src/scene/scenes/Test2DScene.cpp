@@ -5,12 +5,12 @@
 #include "../../rendering/Renderer.h"
 
 #include "../../fileManager/fileManager.h"
-
 #include "../../utils/Utils2D.h"
-
 #include "../../thirdparty/stb_image.h"
-
 #include "../../input/Input.h"
+
+#include "../../components/Tag.h"
+#include "../../components/Parent.h"
 
 Test2DScene::Test2DScene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
@@ -21,6 +21,18 @@ Test2DScene::Test2DScene(ShaderManager &shaderManager, TextureManager &textureMa
 
 	m_audio.Init();
 	m_audio.LoadSound("test", std::string(ASSET_PATH) + "/audio/test.wav");
+}
+
+Registry &Test2DScene::GetEditorRegistry()
+{
+	return m_registry;
+}
+
+void Test2DScene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
+{
+	out.clear();
+	out.push_back({"AudioEngine", &m_sysAudio});
+	out.push_back({"Render2DSystem", &m_sysRender2D});
 }
 
 void Test2DScene::RequestLoad(AsyncLoader &loader)
@@ -68,6 +80,8 @@ void Test2DScene::RequestLoad(AsyncLoader &loader)
 			m_quadMesh = MeshFactory::CreateQuad();
 
 			m_camera2D = m_registry.Create();
+			m_registry.Emplace<Tag>(m_camera2D, Tag{"Camera2D"});
+			m_registry.Emplace<Parent>(m_camera2D, Parent{kInvalidEntity});
 			{
 				Camera cam;
 				cam.projection = ProjectionType::Orthographic;
@@ -80,6 +94,8 @@ void Test2DScene::RequestLoad(AsyncLoader &loader)
 			}
 
 			m_sprite = m_registry.Create();
+			m_registry.Emplace<Tag>(m_sprite, Tag{"Sprite"});
+			m_registry.Emplace<Parent>(m_sprite, Parent{kInvalidEntity});
 			{
 				Transform t;
 				t.position = {0.f, 0.f, 0.f};
@@ -131,7 +147,8 @@ void Test2DScene::Update(float dt, float)
 	if (!m_loaded || !m_window)
 		return;
 
-	m_audio.Update();
+	if (m_sysAudio)
+		m_audio.Update();
 
 	int width, height;
 	glfwGetFramebufferSize(m_window, &width, &height);
@@ -166,6 +183,9 @@ void Test2DScene::Render3D(Renderer &, int, int)
 void Test2DScene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
 	if (!m_loaded)
+		return;
+
+	if (!m_sysRender2D)
 		return;
 
 	glDisable(GL_DEPTH_TEST);

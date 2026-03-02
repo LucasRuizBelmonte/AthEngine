@@ -2,6 +2,7 @@
 
 #include "../IScene.h"
 #include "../AsyncLoader.h"
+#include "../IEditorScene.h"
 
 #include "../../ecs/Registry.h"
 #include "../../systems/ClearColorSystem.h"
@@ -21,7 +22,7 @@
 
 #include "../../input/WindowContext.h"
 
-class Test3DScene final : public IScene
+class Test3DScene final : public IScene, public IEditorScene
 {
 public:
 	Test3DScene(ShaderManager &shaderManager, TextureManager &textureManager);
@@ -38,6 +39,9 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 	const char *GetName() const override;
 
+	Registry &GetEditorRegistry() override;
+	void GetEditorSystems(std::vector<EditorSystemToggle> &out) override;
+
 private:
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
@@ -48,6 +52,11 @@ private:
 	SpinSystem m_spinSystem;
 	RenderSystem m_renderSystem;
 	CameraControllerSystem m_cameraControllerSystem;
+
+	bool m_sysClearColor = true;
+	bool m_sysCameraController = true;
+	bool m_sysSpin = true;
+	bool m_sysRender = true;
 
 	Entity m_camera3D = kInvalidEntity;
 	Entity m_triangle = kInvalidEntity;

@@ -2,6 +2,7 @@
 
 #include "../IScene.h"
 #include <cstddef>
+#include "../../ecs/Entity.h"
 
 class SceneManager;
 
@@ -24,9 +25,15 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 
 	void RenderSceneAdder();
-	void RenderSceneHierarchy();
+	void RenderSceneList();
+	void RenderEntityHierarchy();
+	void RenderSystems();
+	void RenderInspector();
 
 private:
 	SceneManager &m_scenes;
 	bool m_loaded = true;
+
+	size_t m_selectedScene = 0;
+	Entity m_selectedEntity = kInvalidEntity;
 };

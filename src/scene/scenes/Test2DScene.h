@@ -2,6 +2,7 @@
 
 #include "../IScene.h"
 #include "../AsyncLoader.h"
+#include "../IEditorScene.h"
 
 #include "../../ecs/Registry.h"
 #include "../../systems/Render2DSystem.h"
@@ -15,10 +16,9 @@
 #include "../../resources/TextureManager.h"
 
 #include "../../rendering/Texture.h"
-
 #include "../../audio/AudioEngine.h"
 
-class Test2DScene final : public IScene
+class Test2DScene final : public IScene, public IEditorScene
 {
 public:
 	Test2DScene(ShaderManager &shaderManager, TextureManager &textureManager);
@@ -35,6 +35,9 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 	const char *GetName() const override;
 
+	Registry &GetEditorRegistry() override;
+	void GetEditorSystems(std::vector<EditorSystemToggle> &out) override;
+
 private:
 	struct ImageData
 	{
@@ -48,6 +51,9 @@ private:
 
 	Registry m_registry;
 	Render2DSystem m_render2DSystem;
+
+	bool m_sysAudio = true;
+	bool m_sysRender2D = true;
 
 	Entity m_camera2D = kInvalidEntity;
 	Entity m_sprite = kInvalidEntity;

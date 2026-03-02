@@ -37,6 +37,8 @@ public:
     void RequestRemoveLoadedScene(size_t index);
     void RequestClearNonCore();
 
+    std::shared_ptr<IScene> GetLoadedScene(size_t index) const;
+
 private:
     std::shared_ptr<IScene> CreateScene(SceneRequest req);
     void ApplyPendingRemovals();

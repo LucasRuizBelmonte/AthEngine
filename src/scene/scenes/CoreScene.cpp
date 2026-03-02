@@ -1,6 +1,10 @@
 #include "CoreScene.h"
 #include "../SceneManager.h"
+
 #include <imgui.h>
+
+#include "../IEditorScene.h"
+#include "../../editor/SceneEditor.h"
 
 CoreScene::CoreScene(SceneManager &scenes) : m_scenes(scenes) {}
 
@@ -35,7 +39,11 @@ void CoreScene::Render2D(Renderer &renderer, int framebufferWidth, int framebuff
 	(void)framebufferWidth;
 	(void)framebufferHeight;
 
-	RenderSceneHierarchy();
+	RenderSceneList();
+	RenderEntityHierarchy();
+	RenderSystems();
+	RenderInspector();
+
 	RenderSceneAdder();
 }
 
@@ -55,32 +63,48 @@ void CoreScene::RenderSceneAdder()
 	ImGui::End();
 }
 
-void CoreScene::RenderSceneHierarchy()
+void CoreScene::RenderSceneList()
 {
-	ImGui::Begin("Scene Hierarchy");
+	ImGui::Begin("SceneList");
 
 	if (ImGui::Button("Clear Non-Core"))
+	{
 		m_scenes.RequestClearNonCore();
+		m_selectedScene = 0;
+		m_selectedEntity = kInvalidEntity;
+	}
 
 	ImGui::Separator();
 
 	const auto count = m_scenes.GetLoadedSceneCount();
+	if (m_selectedScene >= count)
+		m_selectedScene = 0;
+
 	for (size_t i = 0; i < count; ++i)
 	{
 		const char *name = m_scenes.GetLoadedSceneName(i);
 
 		ImGui::PushID((int)i);
 
-		if (i == 0)
+		bool selected = (m_selectedScene == i);
+		if (ImGui::Selectable(name, selected))
 		{
-			ImGui::Text("%zu: %s (locked)", i, name);
+			m_selectedScene = i;
+			m_selectedEntity = kInvalidEntity;
 		}
-		else
+
+		if (i != 0)
 		{
-			ImGui::Text("%zu: %s", i, name);
 			ImGui::SameLine();
-			if (ImGui::Button("Delete"))
+			if (ImGui::SmallButton("Delete"))
+			{
 				m_scenes.RequestRemoveLoadedScene(i);
+				if (m_selectedScene == i)
+				{
+					m_selectedScene = 0;
+					m_selectedEntity = kInvalidEntity;
+				}
+			}
 		}
 
 		ImGui::PopID();
@@ -89,8 +113,94 @@ void CoreScene::RenderSceneHierarchy()
 	if (m_scenes.IsTransitioning())
 	{
 		ImGui::Separator();
-		ImGui::Text("Transitioning...");
+		ImGui::TextUnformatted("Transitioning...");
 	}
+
+	ImGui::End();
+}
+
+void CoreScene::RenderEntityHierarchy()
+{
+	ImGui::Begin("Entity Hierarchy");
+
+	auto scene = m_scenes.GetLoadedScene(m_selectedScene);
+	if (!scene)
+	{
+		ImGui::TextUnformatted("No scene.");
+		ImGui::End();
+		return;
+	}
+
+	auto *editorScene = dynamic_cast<IEditorScene *>(scene.get());
+	if (!editorScene)
+	{
+		ImGui::TextUnformatted("Scene is not editor-inspectable.");
+		ImGui::End();
+		return;
+	}
+
+	Registry &reg = editorScene->GetEditorRegistry();
+	SceneEditor::DrawEntityHierarchy(reg, m_selectedEntity);
+
+	ImGui::End();
+}
+
+void CoreScene::RenderSystems()
+{
+	ImGui::Begin("Systems");
+
+	auto scene = m_scenes.GetLoadedScene(m_selectedScene);
+	if (!scene)
+	{
+		ImGui::TextUnformatted("No scene.");
+		ImGui::End();
+		return;
+	}
+
+	auto *editorScene = dynamic_cast<IEditorScene *>(scene.get());
+	if (!editorScene)
+	{
+		ImGui::TextUnformatted("Scene is not editor-inspectable.");
+		ImGui::End();
+		return;
+	}
+
+	std::vector<EditorSystemToggle> sys;
+	editorScene->GetEditorSystems(sys);
+
+	for (auto &s : sys)
+	{
+		if (s.enabled)
+			ImGui::Checkbox(s.name, s.enabled);
+		else
+			ImGui::Text("%s", s.name);
+	}
+
+	ImGui::End();
+}
+
+void CoreScene::RenderInspector()
+{
+	ImGui::Begin("Inspector");
+
+	auto scene = m_scenes.GetLoadedScene(m_selectedScene);
+	if (!scene)
+	{
+		ImGui::TextUnformatted("No scene.");
+		ImGui::End();
+		return;
+	}
+
+	auto *editorScene = dynamic_cast<IEditorScene *>(scene.get());
+	if (!editorScene)
+	{
+		ImGui::TextUnformatted("Scene is not editor-inspectable.");
+		ImGui::End();
+		return;
+	}
+
+	Registry &reg = editorScene->GetEditorRegistry();
+	SceneEditor::DrawInspector(reg, m_selectedEntity);
 
 	ImGui::End();
 }

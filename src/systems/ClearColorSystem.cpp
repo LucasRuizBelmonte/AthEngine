@@ -9,5 +9,4 @@ void ClearColorSystem::Update(float timeSec) const
 	float b = (std::sin(timeSec * 0.7f) + 1.0f) / 4.0f;
 
 	glClearColor(r, g, b, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
 }

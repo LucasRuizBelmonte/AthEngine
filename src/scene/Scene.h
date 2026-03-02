@@ -15,6 +15,8 @@
 
 #include "../resources/ShaderManager.h"
 
+#include "../input/WindowContext.h"
+
 #include <GLFW/glfw3.h>
 
 class Renderer;
@@ -23,10 +25,10 @@ class Scene
 {
 public:
 	Scene(ShaderManager &shaderManager, GLFWwindow *window);
-	~Scene();
+	~Scene() = default;
 
 	void Update(float dt, float now);
-	void Render(Renderer &renderer, GLFWwindow *window);
+	void Render(Renderer &renderer, int framebufferWidth, int framebufferHeight);
 
 private:
 	Registry m_Registry;
@@ -40,4 +42,6 @@ private:
 	Entity m_Triangle = kInvalidEntity;
 
 	GLFWwindow *m_Window = nullptr;
+
+	WindowContext m_WindowCtx;
 };

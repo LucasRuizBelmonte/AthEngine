@@ -42,15 +42,4 @@ namespace MeshFactory
 		mesh.indexCount = 3;
 		return mesh;
 	}
-
-	void Destroy(Mesh &mesh)
-	{
-		if (mesh.vao)
-			glDeleteVertexArrays(1, &mesh.vao);
-		if (mesh.vbo)
-			glDeleteBuffers(1, &mesh.vbo);
-		if (mesh.ebo)
-			glDeleteBuffers(1, &mesh.ebo);
-		mesh = {};
-	}
 }

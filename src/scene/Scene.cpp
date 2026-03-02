@@ -6,18 +6,20 @@
 #include "../input/WindowContext.h"
 #include "../input/MouseLookCallbacks.h"
 
+#include "../utils/Utils2D.h"
+
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow *window)
 	: m_Window(window)
 {
 	auto simpleShader = shaderManager.Load(
 		"simple",
-		std::string(ASSET_PATH) + "/shader/simple.vs",
-		std::string(ASSET_PATH) + "/shader/simple.fs");
+		std::string(ASSET_PATH) + "/shaders/simple.vs",
+		std::string(ASSET_PATH) + "/shaders/simple.fs");
 
 	auto spriteShader = shaderManager.Load(
 		"sprite",
-		std::string(ASSET_PATH) + "/shader/sprite.vs",
-		std::string(ASSET_PATH) + "/shader/sprite.fs");
+		std::string(ASSET_PATH) + "/shaders/sprite.vs",
+		std::string(ASSET_PATH) + "/shaders/sprite.fs");
 
 	auto spriteTex = textureManager.Load(
 		"sprite_tex",
@@ -50,12 +52,25 @@ Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWw
 		mat.shader = simpleShader;
 		m_Registry.Emplace<Material>(m_Triangle, mat);
 	}
-	m_Registry.Emplace<Spin>(m_Triangle, Spin{{0.f, 0.f, -1.f}, 5.8f, 10.25f});
+	m_Registry.Emplace<Spin>(m_Triangle, Spin{{0.f, 0.f, -1.f}, 0.8f, 1.0f});
 
 	m_Sprite = m_Registry.Create();
 	{
+		float xPercent = 0.05f;
+		float yPercent = 0.05f;
+		int width, height;
+		glfwGetFramebufferSize(m_Window, &width, &height);
+		const auto &cam = m_Registry.Get<Camera>(m_Camera2D);
+
+		glm::vec2 world = Utils2D::PercentToWorld(
+			xPercent,
+			yPercent,
+			width,
+			height,
+			cam);
+
 		Transform t;
-		t.position = {0.f, 0.f, 0.f};
+		t.position = {world.x, world.y, 0.f};
 		t.scale = {1.f, 1.f, 1.f};
 		m_Registry.Emplace<Transform>(m_Sprite, t);
 	}
@@ -63,7 +78,7 @@ Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWw
 		Sprite s;
 		s.shader = spriteShader;
 		s.texture = spriteTex;
-		s.size = {2.f, 2.f};
+		s.size = {1.f, 1.f};
 		s.tint = {1.f, 1.f, 1.f, 1.f};
 		s.layer = 0;
 		s.orderInLayer = 0;

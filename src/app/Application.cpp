@@ -1,31 +1,15 @@
-#include "Application.h"
+#define ENGINE_DEBUG
 
 #include "../platform/GL.h"
-#include "../input/MouseLookCallbacks.h"
+
+#include "Application.h"
+#include <stdexcept>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include <stdexcept>
-
-#pragma region Callback Helper
-
-static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
-
-static void CombinedCursorPosCallback(GLFWwindow* window, double xpos, double ypos)
-{
-	if (g_ImGuiCursorPos)
-		g_ImGuiCursorPos(window, xpos, ypos);
-
-	ImGuiIO& io = ImGui::GetIO();
-	if (io.WantCaptureMouse)
-		return;
-
-	MouseLookCursorPosCallback(window, xpos, ypos);
-}
-
-#pragma endregion
+#include "../input/Input.h"
 
 #pragma region Lifecycle
 
@@ -46,6 +30,8 @@ Application::Application()
 
 	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+	Input::AttachWindow(m_Window->GetNative());
+
 	m_LastTime = (float)glfwGetTime();
 }
 
@@ -59,11 +45,13 @@ void Application::Run()
 {
 	while (!m_Window->ShouldClose())
 	{
+		m_Window->PollEvents();
+		Input::Update();
+
 		float now = (float)glfwGetTime();
 		float dt = now - m_LastTime;
 		m_LastTime = now;
 
-		// Clamp delta time
 		if (dt < 0.0f)
 			dt = 0.0f;
 		if (dt > 0.1f)
@@ -78,10 +66,10 @@ void Application::Run()
 		m_Scenes->Update(dt, now);
 
 		m_Renderer->BeginFrame(width, height);
+
 		m_Scenes->Render3D(*m_Renderer, width, height);
 		m_Scenes->Render2D(*m_Renderer, width, height);
 
-		// Debug UI
 		ImGui::Begin("Scene");
 		if (ImGui::Button("Change to A"))
 			m_Scenes->Request(SceneRequest::Test3D);
@@ -105,57 +93,32 @@ void Application::Run()
 #pragma endregion
 
 #pragma region Input Handling
+static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
 
 void Application::HandleSceneInput()
 {
-	static bool tabLatch = false;
-	bool tab = glfwGetKey(m_Window->GetNative(), GLFW_KEY_TAB) == GLFW_PRESS;
-
-	if (tab && !tabLatch)
-	{
-		int mode = glfwGetInputMode(m_Window->GetNative(), GLFW_CURSOR);
-		glfwSetInputMode(
-			m_Window->GetNative(),
-			GLFW_CURSOR,
-			(mode == GLFW_CURSOR_DISABLED) ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
-	}
-	tabLatch = tab;
-
-	ImGuiIO& io = ImGui::GetIO();
-	if (io.WantCaptureKeyboard || io.WantCaptureMouse)
-		return;
-
-	GLFWwindow* w = m_Window->GetNative();
-
-	// Scene switching
-	bool k1 = glfwGetKey(w, GLFW_KEY_1) == GLFW_PRESS;
-	bool k2 = glfwGetKey(w, GLFW_KEY_2) == GLFW_PRESS;
-	bool k3 = glfwGetKey(w, GLFW_KEY_3) == GLFW_PRESS;
-	bool k4 = glfwGetKey(w, GLFW_KEY_4) == GLFW_PRESS;
-	bool k5 = glfwGetKey(w, GLFW_KEY_5) == GLFW_PRESS;
-
-	if (k1 && !m_Key1Latch)
+	if (Input::GetKeyDown(GLFW_KEY_1))
 		m_Scenes->Request(SceneRequest::Test3D);
-	if (k2 && !m_Key2Latch)
+
+	if (Input::GetKeyDown(GLFW_KEY_2))
 		m_Scenes->Request(SceneRequest::Test2D);
-	if (k3 && !m_Key3Latch)
+
+	if (Input::GetKeyDown(GLFW_KEY_3))
 		m_Scenes->Request(SceneRequest::Both);
-	if (k4 && !m_Key4Latch)
+
+	if (Input::GetKeyDown(GLFW_KEY_4))
 		m_Scenes->Request(SceneRequest::Push3D);
-	if (k5 && !m_Key5Latch)
-		m_Scenes->Request(SceneRequest::Push2D);
 
-	m_Key1Latch = k1;
-	m_Key2Latch = k2;
-	m_Key3Latch = k3;
-	m_Key4Latch = k4;
-	m_Key5Latch = k5;
+	if (Input::GetKeyDown(GLFW_KEY_5))
+		m_Scenes->Request(SceneRequest::Push3D);
 
-	// Alt key for mouse capture toggle
-	bool alt = glfwGetKey(w, GLFW_KEY_LEFT_ALT) == GLFW_PRESS;
-	if (alt && !m_AltLatch)
+#ifdef ENGINE_DEBUG
+	if (Input::GetKeyDown(GLFW_KEY_ESCAPE))
+		m_Window->Close();
+#endif
+
+	if (Input::GetKeyDown(GLFW_KEY_LEFT_ALT))
 		ToggleMouseCapture();
-	m_AltLatch = alt;
 }
 
 void Application::ToggleMouseCapture()
@@ -190,10 +153,9 @@ void Application::InitImGui()
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
 
-	GLFWwindow* window = m_Window->GetNative();
+	GLFWwindow *window = m_Window->GetNative();
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	g_ImGuiCursorPos = glfwSetCursorPosCallback(window, CombinedCursorPosCallback);
 	ImGui_ImplOpenGL3_Init("#version 330");
 }
 

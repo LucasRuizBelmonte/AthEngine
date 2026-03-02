@@ -83,6 +83,7 @@ private:
 	#pragma region Core Subsystems
 
 	GlfwContext m_Glfw;
+
 	std::unique_ptr<Window> m_Window;
 	ShaderManager m_ShaderManager;
 	TextureManager m_TextureManager;
@@ -102,17 +103,6 @@ private:
 	double m_LastMouseX = 0.0;
 	double m_LastMouseY = 0.0;
 	bool m_MouseCaptured = true;
-
-	#pragma endregion
-
-	#pragma region Key Latches
-
-	bool m_Key1Latch = false;
-	bool m_Key2Latch = false;
-	bool m_Key3Latch = false;
-	bool m_Key4Latch = false;
-	bool m_Key5Latch = false;
-	bool m_AltLatch = false;
 
 	#pragma endregion
 };

@@ -4,13 +4,10 @@
 #include "../rendering/MeshFactory.h"
 #include "../rendering/Renderer.h"
 
-#include "../input/WindowContext.h"
-#include "../input/MouseLookCallbacks.h"
-
 #include "../utils/Utils2D.h"
 
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow &window)
-	: m_Window(&window)
+    : m_Window(&window)
 {
 	auto simpleShader = shaderManager.Load(
 		"simple",

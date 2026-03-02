@@ -4,7 +4,6 @@
 #include "../../rendering/MeshFactory.h"
 #include "../../rendering/Renderer.h"
 
-#include "../../input/MouseLookCallbacks.h"
 #include "../../fileManager/fileManager.h"
 
 Test3DScene::Test3DScene(ShaderManager &shaderManager, TextureManager &textureManager)
@@ -58,7 +57,6 @@ void Test3DScene::OnAttach(GLFWwindow &window)
 	m_window = &window;
 
 	glfwSetWindowUserPointer(m_window, &m_windowCtx);
-	glfwSetCursorPosCallback(m_window, MouseLookCursorPosCallback);
 }
 
 void Test3DScene::OnDetach(GLFWwindow &window)
@@ -66,7 +64,6 @@ void Test3DScene::OnDetach(GLFWwindow &window)
 	if (&window != m_window)
 		return;
 
-	glfwSetCursorPosCallback(m_window, nullptr);
 	glfwSetWindowUserPointer(m_window, nullptr);
 	m_window = nullptr;
 }

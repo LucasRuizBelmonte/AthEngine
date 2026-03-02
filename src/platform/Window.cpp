@@ -34,3 +34,8 @@ GLFWwindow *Window::GetNative() const
 {
 	return m_Window.get();
 }
+
+void Window::Close() const
+{
+	glfwSetWindowShouldClose(m_Window.get(), GLFW_TRUE);
+}

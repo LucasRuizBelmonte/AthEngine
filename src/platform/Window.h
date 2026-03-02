@@ -69,6 +69,13 @@ public:
 	 */
 	GLFWwindow *GetNative() const;
 
+	/**
+	 * @brief Close the window programmatically.
+	 *
+	 * Sets the window's close flag, causing `ShouldClose()` to return true.
+	 */
+	void Close() const;
+
 private:
 	struct GlfwWindowDeleter
 	{

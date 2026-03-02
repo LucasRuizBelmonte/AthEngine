@@ -37,6 +37,8 @@ public:
 	 */
 	void Run();
 
+	void ToggleMouseCapture();
+
 	void InitImGui();
 	void ShutdownImGui();
 	void BeginImGuiFrame();
@@ -61,10 +63,15 @@ private:
 	std::unique_ptr<SceneManager> m_Scenes;
 
 	float m_LastTime = 0.0f;
+	double m_LastMouseX = 0.0;
+	double m_LastMouseY = 0.0;
 
 	bool m_Key1Latch = false;
 	bool m_Key2Latch = false;
 	bool m_Key3Latch = false;
 	bool m_Key4Latch = false;
 	bool m_Key5Latch = false;
+
+	bool m_MouseCaptured = true;
+	bool m_AltLatch = false;
 };

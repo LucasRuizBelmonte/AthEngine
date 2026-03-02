@@ -57,7 +57,6 @@ void Test3DScene::OnAttach(GLFWwindow &window)
 {
 	m_window = &window;
 
-	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetWindowUserPointer(m_window, &m_windowCtx);
 	glfwSetCursorPosCallback(m_window, MouseLookCursorPosCallback);
 }

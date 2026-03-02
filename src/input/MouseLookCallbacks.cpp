@@ -8,24 +8,33 @@
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 
-static float Clamp(float v, float lo, float hi) {
-    return (v < lo) ? lo : (v > hi) ? hi : v;
+static float Clamp(float v, float lo, float hi)
+{
+    return (v < lo) ? lo : (v > hi) ? hi
+                                    : v;
 }
 
-void MouseLookCursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
-    auto* ctx = static_cast<WindowContext*>(glfwGetWindowUserPointer(window));
-    if (!ctx || !ctx->registry || ctx->cameraEntity == kInvalidEntity) return;
+void MouseLookCursorPosCallback(GLFWwindow *window, double xpos, double ypos)
+{
+    if (glfwGetInputMode(window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED)
+        return;
 
-    auto& registry = *ctx->registry;
-    if (!registry.Has<Camera>(ctx->cameraEntity) || !registry.Has<CameraController>(ctx->cameraEntity)) return;
+    auto *ctx = static_cast<WindowContext *>(glfwGetWindowUserPointer(window));
+    if (!ctx || !ctx->registry || ctx->cameraEntity == kInvalidEntity)
+        return;
 
-    auto& cam = registry.Get<Camera>(ctx->cameraEntity);
-    auto& ctrl = registry.Get<CameraController>(ctx->cameraEntity);
+    auto &registry = *ctx->registry;
+    if (!registry.Has<Camera>(ctx->cameraEntity) || !registry.Has<CameraController>(ctx->cameraEntity))
+        return;
+
+    auto &cam = registry.Get<Camera>(ctx->cameraEntity);
+    auto &ctrl = registry.Get<CameraController>(ctx->cameraEntity);
 
     float x = static_cast<float>(xpos);
     float y = static_cast<float>(ypos);
 
-    if (!ctrl.hasLastMousePos) {
+    if (!ctrl.hasLastMousePos)
+    {
         ctrl.lastMousePos = {x, y};
         ctrl.hasLastMousePos = true;
         return;

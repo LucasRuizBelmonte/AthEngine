@@ -8,6 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(glfw3 REQUIRED)
 find_package(glew REQUIRED)
 find_package(glm REQUIRED)
+find_package(imgui REQUIRED)
 
 file(GLOB_RECURSE ATH_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
@@ -20,9 +21,11 @@ target_link_libraries(${PROJECT_NAME}
     glfw
     GLEW::GLEW
     glm::glm
+    imgui::imgui
 )
 
-# Copy shaders from src/shader
+list(GET IMGUI_INCLUDE_DIRS 0 IMGUI_INC0)
+
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res/shaders
@@ -30,4 +33,14 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     ASSET_PATH="${CMAKE_SOURCE_DIR}/res"
+)
+
+file(GLOB IMGUI_BACKEND_SOURCES
+    "${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends/*.cpp"
+)
+
+target_sources(${PROJECT_NAME} PRIVATE ${IMGUI_BACKEND_SOURCES})
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends
 )

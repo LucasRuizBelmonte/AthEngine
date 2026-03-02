@@ -2,6 +2,10 @@
 #include "Application.h"
 #include <stdexcept>
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 Application::Application()
 {
 	m_Window = std::make_unique<Window>(1200, 900, "AthEngine");
@@ -11,6 +15,7 @@ Application::Application()
 		throw std::runtime_error("Failed to initialize GLEW");
 
 	glEnable(GL_DEPTH_TEST);
+	InitImGui();
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
 	m_Scenes = std::make_unique<SceneManager>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
@@ -40,8 +45,7 @@ void Application::HandleSceneInput()
 		m_Scenes->Request(SceneRequest::Push3D);
 	if (k5 && !m_Key5Latch)
 
-
-	m_Key1Latch = k1;
+		m_Key1Latch = k1;
 	m_Key2Latch = k2;
 	m_Key3Latch = k3;
 	m_Key4Latch = k4;
@@ -73,7 +77,47 @@ void Application::Run()
 		m_Scenes->Render3D(*m_Renderer, width, height);
 		m_Scenes->Render2D(*m_Renderer, width, height);
 
+		BeginImGuiFrame();
+
+		ImGui::Begin("AthEngine");
+		ImGui::Text("Hello ImGui");
+		ImGui::End();
+
+		EndImGuiFrame();
+
 		m_Window->SwapBuffers();
 		m_Window->PollEvents();
 	}
+}
+
+void Application::InitImGui()
+{
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsDark();
+
+	GLFWwindow *window = m_Window->GetNative();
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+}
+
+void Application::ShutdownImGui()
+{
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+}
+
+void Application::BeginImGuiFrame()
+{
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+}
+
+void Application::EndImGuiFrame()
+{
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }

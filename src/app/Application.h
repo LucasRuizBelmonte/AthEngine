@@ -12,12 +12,43 @@
 class Application
 {
 public:
+	/**
+	 * @brief Constructs the application, initializing core subsystems.
+	 *
+	 * Initializes GLFW via `GlfwContext` and allocates managers for shaders,
+	 * textures, rendering, and scene handling. Should be called once at
+	 * program start.
+	 */
 	Application();
+
+	/**
+	 * @brief Destructs the application and releases resources.
+	 *
+	 * Automatically destroys managed objects and shuts down GLFW when the
+	 * last context is gone.
+	 */
 	~Application();
 
+	/**
+	 * @brief Runs the main application loop.
+	 *
+	 * Processes input, updates the active scene, and renders frames until the
+	 * window should close. This call blocks until exit.
+	 */
 	void Run();
 
+	void InitImGui();
+	void ShutdownImGui();
+	void BeginImGuiFrame();
+	void EndImGuiFrame();
+
 private:
+	/**
+	 * @brief Process input related to scene management.
+	 *
+	 * Handles key latches for switching scenes or emitting debug commands.
+	 * Called every frame from `Run()`.
+	 */
 	void HandleSceneInput();
 
 private:

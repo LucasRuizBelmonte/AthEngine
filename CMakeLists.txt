@@ -5,9 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(glfw3 CONFIG REQUIRED)
-find_package(GLEW CONFIG REQUIRED)
-find_package(glm CONFIG REQUIRED)
+find_package(glfw3 REQUIRED)
+find_package(glew REQUIRED)
+find_package(glm REQUIRED)
 
 file(GLOB_RECURSE ATH_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"

@@ -2,16 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug athengine",
+            "name": "Debug AthEngine",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/athengine.exe",
-            "args": [],
-            "stopAtEntry": false,
+            "program": "${workspaceFolder}/build/athengine.exe",
             "cwd": "${workspaceFolder}",
-            "environment": [],
             "console": "integratedTerminal",
-            "preLaunchTask": "Build Debug"
+            "preLaunchTask": "Build"
         }
     ]
 }

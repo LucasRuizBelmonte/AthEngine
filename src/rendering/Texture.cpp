@@ -47,15 +47,11 @@ void Texture::Destroy()
 	m_height = 0;
 }
 
-bool Texture::LoadFromFile(const char *path, bool flipY)
+bool Texture::LoadFromRGBA(int width, int height, const uint8_t *rgba)
 {
 	Destroy();
 
-	stbi_set_flip_vertically_on_load(flipY ? 1 : 0);
-
-	int w = 0, h = 0, comp = 0;
-	unsigned char *data = stbi_load(path, &w, &h, &comp, 4);
-	if (!data)
+	if (!rgba || width <= 0 || height <= 0)
 		return false;
 
 	glGenTextures(1, &m_id);
@@ -67,14 +63,28 @@ bool Texture::LoadFromFile(const char *path, bool flipY)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	stbi_image_free(data);
-
-	m_width = w;
-	m_height = h;
+	m_width = width;
+	m_height = height;
 	return true;
+}
+
+bool Texture::LoadFromFile(const char *path, bool flipY)
+{
+	Destroy();
+
+	stbi_set_flip_vertically_on_load(flipY ? 1 : 0);
+
+	int w = 0, h = 0, comp = 0;
+	unsigned char *data = stbi_load(path, &w, &h, &comp, 4);
+	if (!data)
+		return false;
+
+	bool ok = LoadFromRGBA(w, h, data);
+	stbi_image_free(data);
+	return ok;
 }

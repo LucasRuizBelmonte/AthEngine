@@ -15,6 +15,12 @@ public:
 					  const std::string &vsPath,
 					  const std::string &fsPath);
 
+	ShaderHandle LoadFromSource(const std::string &name,
+								std::string vsSource,
+								std::string fsSource,
+								std::string vsPath = {},
+								std::string fsPath = {});
+
 	Shader *Get(ShaderHandle handle);
 
 	void ReloadAll();
@@ -25,6 +31,7 @@ private:
 		std::unique_ptr<Shader> shader;
 		std::string vsPath;
 		std::string fsPath;
+		bool hasPaths = false;
 	};
 
 	uint32_t m_nextId = 1;

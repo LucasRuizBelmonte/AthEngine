@@ -16,6 +16,8 @@ public:
 	~Texture();
 
 	bool LoadFromFile(const char *path, bool flipY);
+	bool LoadFromRGBA(int width, int height, const uint8_t *rgba);
+
 	void Destroy();
 
 	GLuint GetId() const { return m_id; }

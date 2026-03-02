@@ -11,14 +11,42 @@ Application::Application()
 		throw std::runtime_error("Failed to initialize GLEW");
 
 	glEnable(GL_DEPTH_TEST);
-	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
-	m_Scene = std::make_unique<Scene>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
+	m_Scenes = std::make_unique<SceneManager>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
+
 	m_LastTime = (float)glfwGetTime();
 }
 
 Application::~Application() = default;
+
+void Application::HandleSceneInput()
+{
+	GLFWwindow *w = m_Window->GetNative();
+
+	bool k1 = glfwGetKey(w, GLFW_KEY_1) == GLFW_PRESS;
+	bool k2 = glfwGetKey(w, GLFW_KEY_2) == GLFW_PRESS;
+	bool k3 = glfwGetKey(w, GLFW_KEY_3) == GLFW_PRESS;
+	bool k4 = glfwGetKey(w, GLFW_KEY_4) == GLFW_PRESS;
+	bool k5 = glfwGetKey(w, GLFW_KEY_5) == GLFW_PRESS;
+
+	if (k1 && !m_Key1Latch)
+		m_Scenes->Request(SceneRequest::Test3D);
+	if (k2 && !m_Key2Latch)
+		m_Scenes->Request(SceneRequest::Test2D);
+	if (k3 && !m_Key3Latch)
+		m_Scenes->Request(SceneRequest::Both);
+	if (k4 && !m_Key4Latch)
+		m_Scenes->Request(SceneRequest::Push3D);
+	if (k5 && !m_Key5Latch)
+
+
+	m_Key1Latch = k1;
+	m_Key2Latch = k2;
+	m_Key3Latch = k3;
+	m_Key4Latch = k4;
+	m_Key5Latch = k5;
+}
 
 void Application::Run()
 {
@@ -36,12 +64,14 @@ void Application::Run()
 		int width, height;
 		glfwGetFramebufferSize(m_Window->GetNative(), &width, &height);
 
-		m_Scene->Update(dt, now);
+		HandleSceneInput();
+
+		m_Scenes->Update(dt, now);
 
 		m_Renderer->BeginFrame(width, height);
 
-		m_Scene->Render3D(*m_Renderer, width, height);
-		m_Scene->Render2D(*m_Renderer, width, height);
+		m_Scenes->Render3D(*m_Renderer, width, height);
+		m_Scenes->Render2D(*m_Renderer, width, height);
 
 		m_Window->SwapBuffers();
 		m_Window->PollEvents();

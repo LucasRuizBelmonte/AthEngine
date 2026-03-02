@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <cstdint>
+#include <vector>
 
 #include "ResourceHandle.h"
 #include "../rendering/Texture.h"
@@ -13,6 +14,11 @@ public:
 	using TextureHandle = ResourceHandle<Texture>;
 
 	TextureHandle Load(const std::string &name, const std::string &path, bool flipY = true);
+
+	TextureHandle CreateFromRGBA(const std::string &name,
+								 int width,
+								 int height,
+								 std::vector<uint8_t> rgba);
 
 	Texture *Get(TextureHandle handle);
 

@@ -70,17 +70,16 @@ public:
 	const std::vector<Entity> &Alive() const { return m_alive; }
 
 	template <typename... Ts>
-	std::vector<Entity> ViewEntities() const
+	void ViewEntities(std::vector<Entity> &out) const
 	{
 		const auto &smallest = SmallestPoolEntities<Ts...>();
-		std::vector<Entity> out;
+		out.clear();
 		out.reserve(smallest.size());
 		for (Entity e : smallest)
 		{
 			if ((Pool<Ts>().Has(e) && ...))
 				out.push_back(e);
 		}
-		return out;
 	}
 
 private:

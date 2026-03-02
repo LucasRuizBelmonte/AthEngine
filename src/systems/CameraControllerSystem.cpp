@@ -4,7 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-void CameraControllerSystem::Update(Registry &registry, GLFWwindow *window, Entity cameraEntity, float dt) const
+void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Entity cameraEntity, float dt) const
 {
 	if (cameraEntity == kInvalidEntity)
 		return;
@@ -22,22 +22,22 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow *window, Enti
 	glm::vec3 up = glm::normalize(glm::cross(right, forward));
 
 	float speed = ctrl.moveSpeed;
-	if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
 		speed *= ctrl.fastMultiplier;
 
 	float step = speed * dt;
 
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_W) == GLFW_PRESS)
 		cam.position += forward * step;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_S) == GLFW_PRESS)
 		cam.position -= forward * step;
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_D) == GLFW_PRESS)
 		cam.position += right * step;
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_A) == GLFW_PRESS)
 		cam.position -= right * step;
 
-	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_E) == GLFW_PRESS)
 		cam.position += up * step;
-	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+	if (glfwGetKey(&window, GLFW_KEY_Q) == GLFW_PRESS)
 		cam.position -= up * step;
 }

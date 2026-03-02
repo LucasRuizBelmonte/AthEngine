@@ -63,10 +63,7 @@ void Render2DSystem::Render(Registry &registry,
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	std::vector<Entity> items;
-	{
-		auto entities = registry.ViewEntities<Transform, Sprite>();
-		items.assign(entities.begin(), entities.end());
-	}
+	registry.ViewEntities<Transform, Sprite>(items);
 
 	std::sort(items.begin(), items.end(), [&](Entity a, Entity b)
 			  {

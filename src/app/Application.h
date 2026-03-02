@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../platform/GlfwContext.h"
 #include "../platform/Window.h"
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
@@ -17,6 +18,8 @@ public:
 	void Run();
 
 private:
+	GlfwContext m_Glfw;
+
 	std::unique_ptr<Window> m_Window;
 	ShaderManager m_ShaderManager;
 	TextureManager m_TextureManager;

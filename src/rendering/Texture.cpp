@@ -1,7 +1,6 @@
 #include "Texture.h"
 #include <utility>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include "../thirdparty/stb_image.h"
 
 Texture::Texture(Texture &&other) noexcept

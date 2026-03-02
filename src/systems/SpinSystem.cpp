@@ -3,10 +3,13 @@
 #include "../components/Spin.h"
 #include <glm/glm.hpp>
 #include <cmath>
+#include <vector>
 
 void SpinSystem::Update(Registry &registry, float timeSec) const
 {
-	auto entities = registry.ViewEntities<Transform, Spin>();
+	std::vector<Entity> entities;
+	registry.ViewEntities<Transform, Spin>(entities);
+
 	for (Entity e : entities)
 	{
 		auto &t = registry.Get<Transform>(e);

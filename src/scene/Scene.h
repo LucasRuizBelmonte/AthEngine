@@ -27,7 +27,7 @@ class Renderer;
 class Scene
 {
 public:
-	Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow *window);
+	Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow &window);
 	~Scene();
 
 	void Update(float dt, float now);

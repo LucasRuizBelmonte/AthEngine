@@ -1,8 +1,5 @@
+#include "../platform/GL.h"
 #include "Application.h"
-
-#include <GL/glew.h>
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 #include <stdexcept>
 
 Application::Application()
@@ -17,8 +14,7 @@ Application::Application()
 	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
-	m_Scene = std::make_unique<Scene>(m_ShaderManager, m_TextureManager, m_Window->GetNative());
-
+	m_Scene = std::make_unique<Scene>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
 	m_LastTime = (float)glfwGetTime();
 }
 

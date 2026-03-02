@@ -33,12 +33,12 @@ void Renderer::Submit(const Mesh &mesh,
 	if (!shader)
 		return;
 
-	shader->use();
+	shader->Use();
 
-	shader->setUniform("u_model", model);
-	shader->setUniform("u_view", m_view);
-	shader->setUniform("u_proj", m_proj);
-	shader->setUniform("u_tint", material.tint);
+	shader->SetUniform("u_model", model);
+	shader->SetUniform("u_view", m_view);
+	shader->SetUniform("u_proj", m_proj);
+	shader->SetUniform("u_tint", material.tint);
 
 	if (material.texture.IsValid())
 	{
@@ -47,7 +47,7 @@ void Renderer::Submit(const Mesh &mesh,
 		{
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, tex->GetId());
-			shader->setUniform("u_tex0", 0);
+			shader->SetUniform("u_tex0", 0);
 		}
 	}
 

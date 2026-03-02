@@ -53,7 +53,8 @@ void RenderSystem::Render(Registry &registry,
 
 	renderer.SetCamera(view, proj);
 
-	auto entities = registry.ViewEntities<Transform, Mesh, Material>();
+	std::vector<Entity> entities;
+	registry.ViewEntities<Transform, Mesh, Material>(entities);
 
 	for (Entity e : entities)
 	{
@@ -62,7 +63,6 @@ void RenderSystem::Render(Registry &registry,
 		const auto &mat = registry.Get<Material>(e);
 
 		glm::mat4 model = BuildModel(t);
-
 		renderer.Submit(mesh, mat, model);
 	}
 }

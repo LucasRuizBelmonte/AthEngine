@@ -1,3 +1,4 @@
+#include "../platform/GL.h"
 #include "Scene.h"
 
 #include "../rendering/MeshFactory.h"
@@ -8,8 +9,8 @@
 
 #include "../utils/Utils2D.h"
 
-Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow *window)
-	: m_Window(window)
+Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow &window)
+	: m_Window(&window)
 {
 	auto simpleShader = shaderManager.Load(
 		"simple",
@@ -88,16 +89,23 @@ Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWw
 	m_WindowCtx.registry = &m_Registry;
 	m_WindowCtx.cameraEntity = m_Camera3D;
 
-	glfwSetWindowUserPointer(window, &m_WindowCtx);
-	glfwSetCursorPosCallback(window, MouseLookCursorPosCallback);
+	glfwSetWindowUserPointer(m_Window, &m_WindowCtx);
+	glfwSetCursorPosCallback(m_Window, MouseLookCursorPosCallback);
 }
 
-Scene::~Scene() = default;
+Scene::~Scene()
+{
+	if (m_Window)
+	{
+		glfwSetCursorPosCallback(m_Window, nullptr);
+		glfwSetWindowUserPointer(m_Window, nullptr);
+	}
+}
 
 void Scene::Update(float dt, float now)
 {
 	m_ClearColorSystem.Update(now);
-	m_CameraControllerSystem.Update(m_Registry, m_Window, m_Camera3D, dt);
+	m_CameraControllerSystem.Update(m_Registry, *m_Window, m_Camera3D, dt);
 	m_SpinSystem.Update(m_Registry, now);
 }
 

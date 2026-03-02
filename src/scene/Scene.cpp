@@ -88,19 +88,9 @@ Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWw
 
 	m_WindowCtx.registry = &m_Registry;
 	m_WindowCtx.cameraEntity = m_Camera3D;
-
-	glfwSetWindowUserPointer(m_Window, &m_WindowCtx);
-	glfwSetCursorPosCallback(m_Window, MouseLookCursorPosCallback);
 }
 
-Scene::~Scene()
-{
-	if (m_Window)
-	{
-		glfwSetCursorPosCallback(m_Window, nullptr);
-		glfwSetWindowUserPointer(m_Window, nullptr);
-	}
-}
+Scene::~Scene() = default;
 
 void Scene::Update(float dt, float now)
 {

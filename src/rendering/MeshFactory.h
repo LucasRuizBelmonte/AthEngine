@@ -4,5 +4,4 @@
 namespace MeshFactory
 {
 	Mesh CreateTriangle();
-	void Destroy(Mesh &mesh);
 }

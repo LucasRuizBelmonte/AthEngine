@@ -4,23 +4,16 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
-void CameraControllerSystem::Update(Registry &registry, GLFWwindow *window, float dt) const
+void CameraControllerSystem::Update(Registry &registry, GLFWwindow *window, Entity cameraEntity, float dt) const
 {
-	Entity camE = kInvalidEntity;
-	for (Entity e : registry.Alive())
-	{
-		if (registry.Has<Camera>(e) && registry.Has<CameraController>(e))
-		{
-			camE = e;
-			break;
-		}
-	}
-	
-	if (camE == kInvalidEntity)
+	if (cameraEntity == kInvalidEntity)
 		return;
 
-	auto &cam = registry.Get<Camera>(camE);
-	auto &ctrl = registry.Get<CameraController>(camE);
+	if (!registry.Has<Camera>(cameraEntity) || !registry.Has<CameraController>(cameraEntity))
+		return;
+
+	auto &cam = registry.Get<Camera>(cameraEntity);
+	auto &ctrl = registry.Get<CameraController>(cameraEntity);
 
 	glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
 

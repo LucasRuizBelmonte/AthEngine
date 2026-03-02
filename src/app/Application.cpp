@@ -32,13 +32,19 @@ void Application::Run()
 		float dt = now - m_LastTime;
 		m_LastTime = now;
 
+		if (dt < 0.0f)
+			dt = 0.0f;
+		if (dt > 0.1f)
+			dt = 0.1f;
+
 		int width, height;
 		glfwGetFramebufferSize(m_Window->GetNative(), &width, &height);
 
+		m_Scene->Update(dt, now);
+
 		m_Renderer->BeginFrame(width, height);
 
-		m_Scene->Update(dt, now);
-		m_Scene->Render(*m_Renderer, m_Window->GetNative());
+		m_Scene->Render(*m_Renderer, width, height);
 
 		m_Window->SwapBuffers();
 		m_Window->PollEvents();

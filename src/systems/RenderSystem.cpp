@@ -1,6 +1,3 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-
 #include "RenderSystem.h"
 
 #include "../components/Transform.h"
@@ -29,28 +26,19 @@ static glm::mat4 BuildModel(const Transform &t)
 
 void RenderSystem::Render(Registry &registry,
 						  Renderer &renderer,
-						  GLFWwindow *window) const
+						  Entity cameraEntity,
+						  int framebufferWidth,
+						  int framebufferHeight) const
 {
-	int w = 0, h = 0;
-	glfwGetFramebufferSize(window, &w, &h);
-
-	renderer.BeginFrame(w, h);
-
-	Entity cameraEntity = kInvalidEntity;
-	for (Entity e : registry.Alive())
-	{
-		if (registry.Has<Camera>(e))
-		{
-			cameraEntity = e;
-			break;
-		}
-	}
 	if (cameraEntity == kInvalidEntity)
+		return;
+
+	if (!registry.Has<Camera>(cameraEntity))
 		return;
 
 	const auto &cam = registry.Get<Camera>(cameraEntity);
 
-	float aspect = (h == 0) ? 1.f : (float)w / (float)h;
+	float aspect = (framebufferHeight == 0) ? 1.f : (float)framebufferWidth / (float)framebufferHeight;
 
 	glm::mat4 view = glm::lookAt(
 		cam.position,

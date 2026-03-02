@@ -6,5 +6,5 @@ struct GLFWwindow;
 class CameraControllerSystem
 {
 public:
-	void Update(Registry &registry, GLFWwindow *window, float dt) const;
+	void Update(Registry &registry, GLFWwindow *window, Entity cameraEntity, float dt) const;
 };

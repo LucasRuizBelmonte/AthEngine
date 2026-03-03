@@ -103,6 +103,46 @@ static std::string TrimCopy(std::string text)
 	return std::string(begin, end);
 }
 
+static void AddSystemPopup(IEditorScene *editorScene)
+{
+	if (!editorScene)
+		return;
+
+	if (!ImGui::BeginPopup("AddSystemPopup"))
+		return;
+
+	static char filter[128] = {};
+	ImGui::InputText("Search", filter, sizeof(filter));
+
+	auto pass = [&](const char *name)
+	{
+		if (filter[0] == 0)
+			return true;
+		return std::string(name).find(filter) != std::string::npos;
+	};
+
+	std::vector<EditorSystemToggle> systems;
+	editorScene->GetEditorSystems(systems);
+
+	bool anyAddable = false;
+	for (auto &sys : systems)
+	{
+		if (!sys.enabled || *sys.enabled)
+			continue;
+		if (!pass(sys.name))
+			continue;
+
+		anyAddable = true;
+		if (ImGui::MenuItem(sys.name))
+			*sys.enabled = true;
+	}
+
+	if (!anyAddable)
+		ImGui::TextUnformatted("No systems available to add.");
+
+	ImGui::EndPopup();
+}
+
 static void DrawSceneFilePopups(SceneManager &scenes, EditorUIState &ui)
 {
 	if (ui.saveScenePopupOpen)
@@ -391,6 +431,13 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 		}
 		else
 		{
+			if (ImGui::Button("Add System"))
+				ImGui::OpenPopup("AddSystemPopup");
+
+			AddSystemPopup(editorScene);
+
+			ImGui::Separator();
+
 			std::vector<EditorSystemToggle> sys;
 			editorScene->GetEditorSystems(sys);
 

@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include <cstddef>
+#include <string>
 #include <imgui.h>
 #include "../ecs/Entity.h"
 #pragma endregion
@@ -25,6 +26,15 @@ struct EditorUIState
 	size_t selectedScene = 0;
 
 	bool dockLayoutBuilt = false;
+
+	size_t renamingSceneIndex = static_cast<size_t>(-1);
+	char renameSceneBuf[128] = {};
+
+	bool saveScenePopupOpen = false;
+	bool openScenePopupOpen = false;
+	char savePathBuf[260] = "res/scenes/scene.athscene";
+	char openPathBuf[260] = "res/scenes/scene.athscene";
+	std::string sceneFileStatus;
 };
 
 class EditorUI

@@ -83,6 +83,34 @@ public:
 	 * @brief Executes Get Editor Systems.
 	 */
 	void GetEditorSystems(std::vector<EditorSystemToggle> &out) override;
+	/**
+	 * @brief Gets the serialization scene type.
+	 */
+	const char *GetEditorSceneType() const override;
+	/**
+	 * @brief Saves the scene to disk.
+	 */
+	bool SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError) override;
+	/**
+	 * @brief Loads the scene from disk.
+	 */
+	bool LoadFromFile(const std::string &path, std::string &inOutSceneName, std::string &outError) override;
+	/**
+	 * @brief Applies sprite texture path for editor changes.
+	 */
+	bool EditorSetSpriteTexture(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies sprite material path for editor changes.
+	 */
+	bool EditorSetSpriteMaterial(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies mesh path for editor changes.
+	 */
+	bool EditorSetMeshPath(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies mesh material path for editor changes.
+	 */
+	bool EditorSetMeshMaterial(Entity e, const std::string &path, std::string &outError) override;
 
 	#pragma endregion
 private:

@@ -15,13 +15,14 @@
 #include <memory>
 #include <vector>
 #include <cstddef>
+#include <string>
 #pragma endregion
 
 #pragma region Declarations
 enum class SceneRequest
 {
-    Test3D,
-    Test2D,
+    Basic3D,
+    Basic2D,
     Both,
     Push3D,
     Push2D
@@ -30,7 +31,7 @@ enum class SceneRequest
 class SceneManager
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
     /**
      * @brief Constructs a new SceneManager instance.
      */
@@ -40,6 +41,10 @@ public:
      * @brief Executes Request.
      */
     void Request(SceneRequest req);
+    /**
+     * @brief Adds a new scene to the loaded stack.
+     */
+    void AddScene(SceneRequest req);
 
     /**
      * @brief Executes Update.
@@ -75,6 +80,10 @@ public:
      */
     const char *GetLoadedSceneName(size_t index) const;
     /**
+     * @brief Renames a loaded scene label in the editor.
+     */
+    bool RenameLoadedScene(size_t index, const std::string &newName);
+    /**
      * @brief Executes Is Transitioning.
      */
     bool IsTransitioning() const;
@@ -92,10 +101,18 @@ public:
      * @brief Executes Get Loaded Scene.
      */
     std::shared_ptr<IScene> GetLoadedScene(size_t index) const;
+    /**
+     * @brief Saves a loaded editor scene to disk.
+     */
+    bool SaveLoadedSceneToFile(size_t index, const std::string &path, std::string &outError);
+    /**
+     * @brief Queues loading and opening a scene from disk.
+     */
+    bool QueueOpenSceneFromFile(const std::string &path, std::string &outError);
 
-	#pragma endregion
+#pragma endregion
 private:
-	#pragma region Private Implementation
+#pragma region Private Implementation
     /**
      * @brief Executes Create Scene.
      */
@@ -105,9 +122,9 @@ private:
      */
     void ApplyPendingRemovals();
 
-	#pragma endregion
+#pragma endregion
 private:
-	#pragma region Private Implementation
+#pragma region Private Implementation
     ShaderManager &m_shaders;
     TextureManager &m_textures;
     GLFWwindow &m_window;
@@ -118,12 +135,16 @@ private:
 
     std::shared_ptr<IScene> m_loading;
     std::shared_ptr<IScene> m_pending;
+    std::vector<std::string> m_sceneNames;
 
     bool m_isTransitioning = false;
     bool m_isPush = false;
+    bool m_pendingLoadFromFile = false;
+    std::string m_pendingLoadPath;
+    std::string m_pendingLoadSceneName;
 
     std::vector<size_t> m_removeQueue;
     bool m_clearNonCoreRequested = false;
-	#pragma endregion
+#pragma endregion
 };
 #pragma endregion

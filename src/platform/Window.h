@@ -8,7 +8,7 @@
 #define GLFW_INCLUDE_NONE
 
 #pragma region Includes
-#include <GLFW/glfw3.h>
+#include "../platform/GL.h"
 
 #include <memory>
 #pragma endregion

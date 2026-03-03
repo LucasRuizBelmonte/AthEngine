@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cstdio>
 
+#include "../scene/IEditorScene.h"
 #include "../components/Tag.h"
 #include "../components/Parent.h"
 
@@ -466,7 +467,7 @@ static void RemoveComponentMenu(Registry &r, Entity e, const char *popupId)
 	}
 }
 
-void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st)
+void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene *editorScene)
 {
 	Entity e = st.selectedEntity;
 
@@ -563,15 +564,36 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st)
 		RemoveComponentMenu<Sprite>(r, e, "SpriteCtx");
 
 		auto &s = r.Get<Sprite>(e);
+		char texturePathBuf[512];
+		char materialPathBuf[512];
+		std::snprintf(texturePathBuf, sizeof(texturePathBuf), "%s", s.texturePath.c_str());
+		std::snprintf(materialPathBuf, sizeof(materialPathBuf), "%s", s.materialPath.c_str());
 
-		unsigned texId = s.texture.id;
-		unsigned shId = s.shader.id;
+		if (ImGui::InputText("Texture Path", texturePathBuf, sizeof(texturePathBuf)))
+		{
+			std::string err;
+			s.texturePath = texturePathBuf;
+			if (editorScene)
+			{
+				if (!editorScene->EditorSetSpriteTexture(e, s.texturePath, err))
+					st.inspectorStatus = "Sprite texture error: " + err;
+				else
+					st.inspectorStatus.clear();
+			}
+		}
 
-		ImGui::InputScalar("Texture Handle", ImGuiDataType_U32, &texId);
-		ImGui::InputScalar("Shader Handle", ImGuiDataType_U32, &shId);
-
-		s.texture.id = texId;
-		s.shader.id = shId;
+		if (ImGui::InputText("Material Path", materialPathBuf, sizeof(materialPathBuf)))
+		{
+			std::string err;
+			s.materialPath = materialPathBuf;
+			if (editorScene)
+			{
+				if (!editorScene->EditorSetSpriteMaterial(e, s.materialPath, err))
+					st.inspectorStatus = "Sprite material error: " + err;
+				else
+					st.inspectorStatus.clear();
+			}
+		}
 
 		DrawVec2("Size", &s.size.x, 0.05f);
 		ImGui::DragFloat4("UV", &s.uv.x, 0.01f);
@@ -603,16 +625,41 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st)
 		RemoveComponentMenu<Mesh>(r, e, "MeshCtx");
 
 		auto &m = r.Get<Mesh>(e);
+		char meshPathBuf[512];
+		char materialPathBuf[512];
+		std::snprintf(meshPathBuf, sizeof(meshPathBuf), "%s", m.meshPath.c_str());
+		std::snprintf(materialPathBuf, sizeof(materialPathBuf), "%s", m.materialPath.c_str());
 
-		unsigned vao = m.vao;
-		unsigned vbo = m.vbo;
-		unsigned ebo = m.ebo;
+		if (ImGui::InputText("Mesh Path", meshPathBuf, sizeof(meshPathBuf)))
+		{
+			std::string err;
+			m.meshPath = meshPathBuf;
+			if (editorScene)
+			{
+				if (!editorScene->EditorSetMeshPath(e, m.meshPath, err))
+					st.inspectorStatus = "Mesh path error: " + err;
+				else
+					st.inspectorStatus.clear();
+			}
+		}
 
-		ImGui::InputScalar("VAO", ImGuiDataType_U32, &vao);
-		ImGui::InputScalar("VBO", ImGuiDataType_U32, &vbo);
-		ImGui::InputScalar("EBO", ImGuiDataType_U32, &ebo);
+		if (ImGui::InputText("Material Path", materialPathBuf, sizeof(materialPathBuf)))
+		{
+			std::string err;
+			m.materialPath = materialPathBuf;
+			if (editorScene)
+			{
+				if (!editorScene->EditorSetMeshMaterial(e, m.materialPath, err))
+					st.inspectorStatus = "Mesh material error: " + err;
+				else
+					st.inspectorStatus.clear();
+			}
+		}
 
-		ImGui::InputInt("Index Count", (int *)&m.indexCount);
+		ImGui::Text("Index Count: %d", (int)m.indexCount);
 	}
+
+	if (!st.inspectorStatus.empty())
+		ImGui::TextWrapped("%s", st.inspectorStatus.c_str());
 }
 #pragma endregion

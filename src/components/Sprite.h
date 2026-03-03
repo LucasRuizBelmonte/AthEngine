@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include <glm/glm.hpp>
+#include <string>
 #include "../resources/ResourceHandle.h"
 #pragma endregion
 
@@ -18,6 +19,8 @@ struct Sprite
 {
 	ResourceHandle<Texture> texture;
 	ResourceHandle<Shader> shader;
+	std::string texturePath;
+	std::string materialPath;
 
 	glm::vec2 size{1.f, 1.f};
 	glm::vec4 uv{0.f, 0.f, 1.f, 1.f};

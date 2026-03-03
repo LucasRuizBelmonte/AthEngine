@@ -4,17 +4,30 @@
 
 #include "../../rendering/MeshFactory.h"
 #include "../../rendering/Renderer.h"
+#include "../../rendering/ModelLoader.h"
 
 #include "../../fileManager/fileManager.h"
 #include "../../utils/Utils2D.h"
 #include "../../thirdparty/stb_image.h"
 #include "../../input/Input.h"
+#include "../EditorSceneIO.h"
 
 #include "../../components/Tag.h"
 #include "../../components/Parent.h"
+#include "../../components/Material.h"
+#include <exception>
+#include <functional>
 #pragma endregion
 
 #pragma region Function Definitions
+namespace
+{
+	static std::string EditorAssetName(const char *prefix, const std::string &path)
+	{
+		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
+	}
+}
+
 Test2DScene::Test2DScene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
@@ -36,6 +49,173 @@ void Test2DScene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 	out.clear();
 	out.push_back({"AudioEngine", &m_sysAudio});
 	out.push_back({"Render2DSystem", &m_sysRender2D});
+}
+
+const char *Test2DScene::GetEditorSceneType() const
+{
+	return "Test2D";
+}
+
+bool Test2DScene::SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError)
+{
+	return EditorSceneIO::SaveRegistry(m_registry, GetEditorSceneType(), sceneName, path, outError);
+}
+
+bool Test2DScene::LoadFromFile(const std::string &path, std::string &inOutSceneName, std::string &outError)
+{
+	const bool ok = EditorSceneIO::LoadRegistry(m_registry, GetEditorSceneType(), inOutSceneName, path, outError);
+	if (!ok)
+		return false;
+
+	m_camera2D = kInvalidEntity;
+	m_sprite = kInvalidEntity;
+	for (Entity e : m_registry.Alive())
+	{
+		if (m_camera2D == kInvalidEntity && m_registry.Has<Camera>(e))
+			m_camera2D = e;
+		if (m_sprite == kInvalidEntity && m_registry.Has<Sprite>(e))
+			m_sprite = e;
+
+		if (m_registry.Has<Sprite>(e))
+		{
+			const Sprite &spr = m_registry.Get<Sprite>(e);
+			std::string ignoredError;
+			if (!spr.texturePath.empty())
+				(void)EditorSetSpriteTexture(e, spr.texturePath, ignoredError);
+			if (!spr.materialPath.empty())
+				(void)EditorSetSpriteMaterial(e, spr.materialPath, ignoredError);
+		}
+
+		if (m_registry.Has<Mesh>(e))
+		{
+			const Mesh &mesh = m_registry.Get<Mesh>(e);
+			std::string ignoredError;
+			if (!mesh.meshPath.empty())
+				(void)EditorSetMeshPath(e, mesh.meshPath, ignoredError);
+			if (!mesh.materialPath.empty())
+				(void)EditorSetMeshMaterial(e, mesh.materialPath, ignoredError);
+		}
+	}
+
+	return true;
+}
+
+bool Test2DScene::EditorSetSpriteTexture(Entity e, const std::string &path, std::string &outError)
+{
+	if (!m_registry.IsAlive(e) || !m_registry.Has<Sprite>(e))
+	{
+		outError = "Entity has no Sprite component.";
+		return false;
+	}
+
+	auto &sprite = m_registry.Get<Sprite>(e);
+	sprite.texturePath = path;
+	if (path.empty())
+	{
+		sprite.texture = {0};
+		return true;
+	}
+
+	auto handle = m_textureManager.Load(EditorAssetName("editor_tex_", path), path, true);
+	if (!handle.IsValid())
+	{
+		outError = "Could not load texture: " + path;
+		return false;
+	}
+
+	sprite.texture = handle;
+	return true;
+}
+
+bool Test2DScene::EditorSetSpriteMaterial(Entity e, const std::string &path, std::string &outError)
+{
+	if (!m_registry.IsAlive(e) || !m_registry.Has<Sprite>(e))
+	{
+		outError = "Entity has no Sprite component.";
+		return false;
+	}
+
+	auto &sprite = m_registry.Get<Sprite>(e);
+	sprite.materialPath = path;
+	if (path.empty())
+	{
+		sprite.shader = {0};
+		return true;
+	}
+
+	auto handle = m_shaderManager.Load(EditorAssetName("editor_spr_mat_", path), m_vsPath, path);
+	if (!handle.IsValid())
+	{
+		outError = "Could not load sprite material shader: " + path;
+		return false;
+	}
+
+	sprite.shader = handle;
+	return true;
+}
+
+bool Test2DScene::EditorSetMeshPath(Entity e, const std::string &path, std::string &outError)
+{
+	if (!m_registry.IsAlive(e) || !m_registry.Has<Mesh>(e))
+	{
+		outError = "Entity has no Mesh component.";
+		return false;
+	}
+
+	auto &mesh = m_registry.Get<Mesh>(e);
+	mesh.meshPath = path;
+	if (path.empty())
+	{
+		mesh.Destroy();
+		return true;
+	}
+
+	try
+	{
+		Mesh loaded = ModelLoader::LoadFirstMesh(path);
+		const std::string materialPath = mesh.materialPath;
+		mesh = std::move(loaded);
+		mesh.meshPath = path;
+		mesh.materialPath = materialPath;
+		return true;
+	}
+	catch (const std::exception &ex)
+	{
+		outError = ex.what();
+		return false;
+	}
+}
+
+bool Test2DScene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string &outError)
+{
+	if (!m_registry.IsAlive(e) || !m_registry.Has<Mesh>(e))
+	{
+		outError = "Entity has no Mesh component.";
+		return false;
+	}
+
+	auto &mesh = m_registry.Get<Mesh>(e);
+	mesh.materialPath = path;
+
+	if (!m_registry.Has<Material>(e))
+		m_registry.Emplace<Material>(e);
+
+	auto &mat = m_registry.Get<Material>(e);
+	if (path.empty())
+	{
+		mat.shader = {0};
+		return true;
+	}
+
+	auto shader = m_shaderManager.Load(EditorAssetName("editor_mesh_mat_", path), m_vsPath, path);
+	if (!shader.IsValid())
+	{
+		outError = "Could not load mesh material shader: " + path;
+		return false;
+	}
+
+	mat.shader = shader;
+	return true;
 }
 
 void Test2DScene::RequestLoad(AsyncLoader &loader)
@@ -109,6 +289,8 @@ void Test2DScene::RequestLoad(AsyncLoader &loader)
 				Sprite s;
 				s.shader = {0};
 				s.texture = {0};
+				s.texturePath = m_texPath;
+				s.materialPath = m_fsPath;
 				s.size = {1.f, 1.f};
 				s.tint = {1.f, 1.f, 1.f, 1.f};
 				s.layer = 0;
@@ -149,6 +331,8 @@ void Test2DScene::Update(float dt, float)
 {
 	if (!m_loaded || !m_window)
 		return;
+	if (m_camera2D == kInvalidEntity || !m_registry.IsAlive(m_camera2D) || !m_registry.Has<Camera>(m_camera2D))
+		return;
 
 	if (m_sysAudio)
 		m_audio.Update();
@@ -175,8 +359,11 @@ void Test2DScene::Update(float dt, float)
 
 	glm::vec2 world = Utils2D::PercentToWorld(xPercent, yPercent, width, height, cam);
 
-	auto &tr = m_registry.Get<Transform>(m_sprite);
-	tr.position = {world.x, world.y, 0.f};
+	if (m_sprite != kInvalidEntity && m_registry.IsAlive(m_sprite) && m_registry.Has<Transform>(m_sprite))
+	{
+		auto &tr = m_registry.Get<Transform>(m_sprite);
+		tr.position = {world.x, world.y, 0.f};
+	}
 }
 
 void Test2DScene::Render3D(Renderer &, int, int)
@@ -189,6 +376,8 @@ void Test2DScene::Render2D(Renderer &renderer, int framebufferWidth, int framebu
 		return;
 
 	if (!m_sysRender2D)
+		return;
+	if (m_camera2D == kInvalidEntity || !m_registry.IsAlive(m_camera2D) || !m_registry.Has<Camera>(m_camera2D))
 		return;
 
 	glDisable(GL_DEPTH_TEST);

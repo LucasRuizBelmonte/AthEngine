@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include <cstdint>
+#include <string>
 #include "../ecs/Entity.h"
 #include "../ecs/Registry.h"
 #pragma endregion
@@ -18,7 +19,10 @@ struct SceneEditorState
 	Entity renamingEntity = kInvalidEntity;
 	bool renameFocus = false;
 	char renameBuf[256] = {};
+	std::string inspectorStatus;
 };
+
+class IEditorScene;
 
 class SceneEditor
 {
@@ -31,7 +35,7 @@ public:
 	/**
 	 * @brief Executes Draw Inspector.
 	 */
-	static void DrawInspector(Registry &registry, SceneEditorState &state);
+	static void DrawInspector(Registry &registry, SceneEditorState &state, IEditorScene *editorScene);
 
 	/**
 	 * @brief Executes Create Entity.

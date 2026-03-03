@@ -6,6 +6,8 @@
 #pragma once
 
 #pragma region Includes
+#include "../platform/GL.h"
+
 #include "../ecs/Registry.h"
 #include "../systems/ClearColorSystem.h"
 #include "../systems/SpinSystem.h"
@@ -25,8 +27,6 @@
 #include "../resources/TextureManager.h"
 
 #include "../input/WindowContext.h"
-
-#include <GLFW/glfw3.h>
 #pragma endregion
 
 #pragma region Declarations

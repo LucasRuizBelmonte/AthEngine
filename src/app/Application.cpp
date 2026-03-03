@@ -16,7 +16,7 @@
 
 Application::Application()
 {
-	m_Window = std::make_unique<Window>(1200, 900, "AthEngine");
+	m_Window = std::make_unique<Window>(1280, 720, "AthEngine");
 
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK)
@@ -108,10 +108,10 @@ static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
 void Application::HandleSceneInput()
 {
 	if (Input::GetKeyDown(GLFW_KEY_1))
-		m_Scenes->Request(SceneRequest::Test3D);
+		m_Scenes->Request(SceneRequest::Basic3D);
 
 	if (Input::GetKeyDown(GLFW_KEY_2))
-		m_Scenes->Request(SceneRequest::Test2D);
+		m_Scenes->Request(SceneRequest::Basic2D);
 
 	if (Input::GetKeyDown(GLFW_KEY_3))
 		m_Scenes->Request(SceneRequest::Both);

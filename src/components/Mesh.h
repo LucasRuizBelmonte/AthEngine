@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include <GL/glew.h>
+#include <string>
 #pragma endregion
 
 #pragma region Declarations
@@ -16,6 +17,8 @@ struct Mesh
 	GLuint vbo = 0;
 	GLuint ebo = 0;
 	GLsizei indexCount = 0;
+	std::string meshPath;
+	std::string materialPath;
 
 	/**
 	 * @brief Constructs a new Mesh instance.
@@ -37,6 +40,8 @@ struct Mesh
 		vbo = other.vbo;
 		ebo = other.ebo;
 		indexCount = other.indexCount;
+		meshPath = std::move(other.meshPath);
+		materialPath = std::move(other.materialPath);
 
 		other.vao = 0;
 		other.vbo = 0;
@@ -58,6 +63,8 @@ struct Mesh
 		vbo = other.vbo;
 		ebo = other.ebo;
 		indexCount = other.indexCount;
+		meshPath = std::move(other.meshPath);
+		materialPath = std::move(other.materialPath);
 
 		other.vao = 0;
 		other.vbo = 0;

@@ -3,6 +3,9 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <algorithm>
+#include <cctype>
+#include <cstdio>
 #include "../scene/SceneManager.h"
 #include "../scene/IScene.h"
 #include "../scene/IEditorScene.h"
@@ -88,22 +91,86 @@ static void DrawDockSpace(EditorUIState &state)
 #endif
 }
 
+static std::string TrimCopy(std::string text)
+{
+	const auto begin = std::find_if_not(text.begin(), text.end(), [](unsigned char c)
+										{ return std::isspace(c) != 0; });
+	const auto end = std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c)
+									  { return std::isspace(c) != 0; })
+						 .base();
+	if (begin >= end)
+		return {};
+	return std::string(begin, end);
+}
+
+static void DrawSceneFilePopups(SceneManager &scenes, EditorUIState &ui)
+{
+	if (ui.saveScenePopupOpen)
+	{
+		ImGui::OpenPopup("Save Scene");
+		ui.saveScenePopupOpen = false;
+	}
+	if (ui.openScenePopupOpen)
+	{
+		ImGui::OpenPopup("Open Scene");
+		ui.openScenePopupOpen = false;
+	}
+
+	if (ImGui::BeginPopupModal("Save Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::InputText("Path", ui.savePathBuf, sizeof(ui.savePathBuf));
+		if (ImGui::Button("Save"))
+		{
+			std::string err;
+			if (scenes.SaveLoadedSceneToFile(ui.selectedScene, ui.savePathBuf, err))
+				ui.sceneFileStatus = "Scene saved.";
+			else
+				ui.sceneFileStatus = "Save failed: " + err;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel"))
+			ImGui::CloseCurrentPopup();
+		ImGui::EndPopup();
+	}
+
+	if (ImGui::BeginPopupModal("Open Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::InputText("Path", ui.openPathBuf, sizeof(ui.openPathBuf));
+		if (ImGui::Button("Open"))
+		{
+			std::string err;
+			if (scenes.QueueOpenSceneFromFile(ui.openPathBuf, err))
+			{
+				ui.selectedScene = scenes.GetLoadedSceneCount();
+				ui.sceneFileStatus = "Loading scene...";
+			}
+			else
+			{
+				ui.sceneFileStatus = "Open failed: " + err;
+			}
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel"))
+			ImGui::CloseCurrentPopup();
+		ImGui::EndPopup();
+	}
+}
+
 static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState &se, IEditorScene *es)
 {
 	if (!ImGui::BeginMainMenuBar())
 		return;
 
-	if (ImGui::BeginMenu("Window"))
+	DrawSceneFilePopups(scenes, ui);
+
+	if (ImGui::BeginMenu("File"))
 	{
-		ImGui::MenuItem("SceneList", nullptr, &ui.showSceneList);
-		ImGui::MenuItem("Entity Hierarchy", nullptr, &ui.showEntityHierarchy);
-		ImGui::MenuItem("Systems", nullptr, &ui.showSystems);
-		ImGui::MenuItem("Inspector", nullptr, &ui.showInspector);
-		ImGui::MenuItem("Render", nullptr, &ui.showRender);
-#ifdef IMGUI_HAS_DOCK
-		if (ImGui::MenuItem("Reset Layout"))
-			ui.dockLayoutBuilt = false;
-#endif
+		if (ImGui::MenuItem("Save Selected Scene..."))
+			ui.saveScenePopupOpen = true;
+		if (ImGui::MenuItem("Open Scene From Disk..."))
+			ui.openScenePopupOpen = true;
 		ImGui::EndMenu();
 	}
 
@@ -147,6 +214,37 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 		ImGui::EndMenu();
 	}
 
+	if (ImGui::BeginMenu("View"))
+	{
+		ImGui::MenuItem("SceneList", nullptr, &ui.showSceneList);
+		ImGui::MenuItem("Entity Hierarchy", nullptr, &ui.showEntityHierarchy);
+		ImGui::MenuItem("Systems", nullptr, &ui.showSystems);
+		ImGui::MenuItem("Inspector", nullptr, &ui.showInspector);
+		ImGui::MenuItem("Render", nullptr, &ui.showRender);
+#ifdef IMGUI_HAS_DOCK
+		if (ImGui::MenuItem("Reset Layout"))
+			ui.dockLayoutBuilt = false;
+#endif
+		ImGui::EndMenu();
+	}
+
+	if (ImGui::BeginMenu("Add"))
+	{
+		if (ImGui::MenuItem("Add 3D Scene"))
+		{
+			ui.selectedScene = scenes.GetLoadedSceneCount();
+			scenes.AddScene(SceneRequest::Basic3D);
+		}
+
+		if (ImGui::MenuItem("Add 2D Scene"))
+		{
+			ui.selectedScene = scenes.GetLoadedSceneCount();
+			scenes.AddScene(SceneRequest::Basic2D);
+		}
+
+		ImGui::EndMenu();
+	}
+
 	ImGui::Separator();
 	ImGui::Text("Scene: %zu", ui.selectedScene);
 
@@ -154,6 +252,12 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 	{
 		ImGui::SameLine();
 		ImGui::TextUnformatted("Transitioning...");
+	}
+
+	if (!ui.sceneFileStatus.empty())
+	{
+		ImGui::SameLine();
+		ImGui::Text("| %s", ui.sceneFileStatus.c_str());
 	}
 
 	ImGui::EndMainMenuBar();
@@ -194,21 +298,50 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 			ImGui::PushID((int)i);
 
 			bool sel = (state.selectedScene == i);
+			const bool renaming = (state.renamingSceneIndex == i);
+			const bool canRename = true;
 			const bool canDelete = (i != 0);
 			ImVec2 selectableSize(0.0f, 0.0f);
-			if (canDelete)
+			if (!renaming)
 			{
 				const ImGuiStyle &style = ImGui::GetStyle();
+				const float renameButtonWidth = canRename ? (ImGui::CalcTextSize("Rename").x + style.FramePadding.x * 2.0f) : 0.0f;
 				const float deleteButtonWidth = ImGui::CalcTextSize("Delete").x + style.FramePadding.x * 2.0f;
-				const float spacing = style.ItemSpacing.x;
+				const float spacing = style.ItemSpacing.x * (canDelete ? 2.0f : 1.0f);
 				const float availableWidth = ImGui::GetContentRegionAvail().x;
-				selectableSize.x = ImMax(1.0f, availableWidth - deleteButtonWidth - spacing);
+				float buttonWidth = renameButtonWidth;
+				if (canDelete)
+					buttonWidth += deleteButtonWidth;
+				selectableSize.x = ImMax(1.0f, availableWidth - buttonWidth - spacing);
 			}
 
-			if (ImGui::Selectable(name, sel, 0, selectableSize))
+			if (renaming)
+			{
+				if (ImGui::InputText("##scene_rename", state.renameSceneBuf, sizeof(state.renameSceneBuf), ImGuiInputTextFlags_EnterReturnsTrue))
+				{
+					std::string newName = TrimCopy(state.renameSceneBuf);
+					if (!newName.empty())
+						scenes.RenameLoadedScene(i, newName);
+					state.renamingSceneIndex = static_cast<size_t>(-1);
+				}
+
+				if (!ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+					state.renamingSceneIndex = static_cast<size_t>(-1);
+			}
+			else if (ImGui::Selectable(name, sel, 0, selectableSize))
 			{
 				state.selectedScene = i;
 				se.selectedEntity = kInvalidEntity;
+			}
+
+			if (canRename)
+			{
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Rename"))
+				{
+					state.renamingSceneIndex = i;
+					std::snprintf(state.renameSceneBuf, sizeof(state.renameSceneBuf), "%s", name);
+				}
 			}
 
 			if (canDelete)
@@ -284,7 +417,7 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 		else
 		{
 			Registry &r = editorScene->GetEditorRegistry();
-			SceneEditor::DrawInspector(r, se);
+			SceneEditor::DrawInspector(r, se, editorScene);
 		}
 
 		ImGui::End();

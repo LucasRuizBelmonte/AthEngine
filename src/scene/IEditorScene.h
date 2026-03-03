@@ -4,15 +4,14 @@
 
 struct EditorSystemToggle
 {
-    const char* name = "";
-    bool* enabled = nullptr;
+    const char *name = "";
+    bool *enabled = nullptr;
 };
 
 class IEditorScene
 {
 public:
     virtual ~IEditorScene() = default;
-
-    virtual Registry& GetEditorRegistry() = 0;
-    virtual void GetEditorSystems(std::vector<EditorSystemToggle>& out) = 0;
+    virtual Registry &GetEditorRegistry() = 0;
+    virtual void GetEditorSystems(std::vector<EditorSystemToggle> &out) = 0;
 };

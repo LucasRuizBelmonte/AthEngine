@@ -1,24 +1,24 @@
 #pragma once
-#include <unordered_map>
-#include <vector>
+#include <cstdint>
 #include "../ecs/Entity.h"
 #include "../ecs/Registry.h"
+
+struct SceneEditorState
+{
+	Entity selectedEntity = kInvalidEntity;
+	Entity renamingEntity = kInvalidEntity;
+	bool renameFocus = false;
+	char renameBuf[256] = {};
+};
 
 class SceneEditor
 {
 public:
-	static void DrawEntityHierarchy(Registry &registry, Entity &selectedEntity);
-	static void DrawInspector(Registry &registry, Entity selectedEntity);
+	static void DrawHierarchy(Registry &registry, SceneEditorState &state);
+	static void DrawInspector(Registry &registry, SceneEditorState &state);
 
-private:
-	static void BuildChildrenMap(
-		Registry &registry,
-		std::unordered_map<Entity, std::vector<Entity>> &outChildren,
-		std::vector<Entity> &outRoots);
-
-	static void DrawEntityNode(
-		Registry &registry,
-		Entity e,
-		const std::unordered_map<Entity, std::vector<Entity>> &children,
-		Entity &selectedEntity);
+	static Entity CreateEntity(Registry &registry, const char *name, Entity parent, bool addTransform);
+	static void DestroyEntityRecursive(Registry &registry, Entity e);
+	static Entity DuplicateEntityRecursive(Registry &registry, Entity src);
+	static void BeginRename(Registry &registry, SceneEditorState &state, Entity e);
 };

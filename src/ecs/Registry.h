@@ -163,6 +163,31 @@ public:
 		}
 	}
 
+	/**
+	 * @brief Check if an entity is currently alive.
+	 *
+	 * @param e Entity handle.
+	 * @return true if the entity is alive; false otherwise.
+	 */
+	bool IsAlive(Entity e) const
+	{
+		return std::find(m_alive.begin(), m_alive.end(), e) != m_alive.end();
+	}
+
+	/**
+	 * @brief Remove a component of type T from an entity.
+	 *
+	 * If the entity does not have the component, this is a no-op.
+	 *
+	 * @tparam T Component type to remove.
+	 * @param e Entity handle.
+	 */
+	template <typename T>
+	void Remove(Entity e)
+	{
+		Pool<T>().set.Remove(e);
+	}
+
 private:
 	/**
 	 * @brief Abstract interface for component pools.

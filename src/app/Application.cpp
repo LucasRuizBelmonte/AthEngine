@@ -139,6 +139,11 @@ void Application::InitImGui()
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
 
+	ImGuiIO &io = ImGui::GetIO();
+#ifdef IMGUI_HAS_DOCK
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+#endif
+
 	GLFWwindow *window = m_Window->GetNative();
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);

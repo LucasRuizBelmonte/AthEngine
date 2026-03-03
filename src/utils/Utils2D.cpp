@@ -1,8 +1,11 @@
+#pragma region Includes
 #include "Utils2D.h"
 #include "../components/Camera.h"
 
 #include <glm/glm.hpp>
+#pragma endregion
 
+#pragma region Function Definitions
 glm::vec2 Utils2D::PercentToWorld(
 	float percentX,
 	float percentY,
@@ -22,3 +25,4 @@ glm::vec2 Utils2D::PercentToWorld(
 
 	return {worldX, worldY};
 }
+#pragma endregion

@@ -1,6 +1,9 @@
+#pragma region Includes
 #include "Window.h"
 #include <stdexcept>
+#pragma endregion
 
+#pragma region Function Definitions
 Window::Window(int width, int height, const char *title)
 {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -39,3 +42,4 @@ void Window::Close() const
 {
 	glfwSetWindowShouldClose(m_Window.get(), GLFW_TRUE);
 }
+#pragma endregion

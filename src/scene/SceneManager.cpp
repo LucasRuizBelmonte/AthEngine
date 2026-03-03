@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "../platform/GL.h"
 #include "SceneManager.h"
 
@@ -9,7 +10,9 @@
 
 #include "../rendering/Renderer.h"
 #include <algorithm>
+#pragma endregion
 
+#pragma region Function Definitions
 SceneManager::SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window)
 	: m_shaders(shaders), m_textures(textures), m_window(window)
 {
@@ -190,3 +193,4 @@ std::shared_ptr<IScene> SceneManager::GetLoadedScene(size_t index) const
 		return nullptr;
 	return m_stack[index];
 }
+#pragma endregion

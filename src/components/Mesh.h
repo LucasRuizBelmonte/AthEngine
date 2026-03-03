@@ -1,6 +1,15 @@
-#pragma once
-#include <GL/glew.h>
+/**
+ * @file Mesh.h
+ * @brief Declarations for Mesh.
+ */
 
+#pragma once
+
+#pragma region Includes
+#include <GL/glew.h>
+#pragma endregion
+
+#pragma region Declarations
 struct Mesh
 {
 	GLuint vao = 0;
@@ -8,9 +17,18 @@ struct Mesh
 	GLuint ebo = 0;
 	GLsizei indexCount = 0;
 
+	/**
+	 * @brief Constructs a new Mesh instance.
+	 */
 	Mesh() = default;
 
+	/**
+	 * @brief Constructs a new Mesh instance.
+	 */
 	Mesh(const Mesh &) = delete;
+	/**
+	 * @brief Overloads operator=.
+	 */
 	Mesh &operator=(const Mesh &) = delete;
 
 	Mesh(Mesh &&other) noexcept
@@ -26,6 +44,9 @@ struct Mesh
 		other.indexCount = 0;
 	}
 
+	/**
+	 * @brief Overloads operator=.
+	 */
 	Mesh &operator=(Mesh &&other) noexcept
 	{
 		if (this == &other)
@@ -51,6 +72,9 @@ struct Mesh
 		Destroy();
 	}
 
+	/**
+	 * @brief Executes Destroy.
+	 */
 	void Destroy()
 	{
 		if (vao)
@@ -65,3 +89,4 @@ struct Mesh
 		indexCount = 0;
 	}
 };
+#pragma endregion

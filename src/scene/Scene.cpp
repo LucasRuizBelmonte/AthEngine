@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "../platform/GL.h"
 #include "Scene.h"
 
@@ -5,7 +6,9 @@
 #include "../rendering/Renderer.h"
 
 #include "../utils/Utils2D.h"
+#pragma endregion
 
+#pragma region Function Definitions
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow &window)
     : m_Window(&window)
 {
@@ -107,3 +110,4 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 	glDisable(GL_DEPTH_TEST);
 	m_Render2DSystem.Render(m_Registry, renderer, m_Camera2D, framebufferWidth, framebufferHeight, m_QuadMesh);
 }
+#pragma endregion

@@ -1,4 +1,11 @@
+/**
+ * @file Registry.h
+ * @brief Declarations for Registry.
+ */
+
 #pragma once
+
+#pragma region Includes
 #include <unordered_map>
 #include <typeindex>
 #include <memory>
@@ -9,7 +16,9 @@
 
 #include "Entity.h"
 #include "SparseSet.h"
+#pragma endregion
 
+#pragma region Declarations
 /**
  * @brief Central entity/component registry for the ECS.
  *
@@ -24,6 +33,7 @@
 class Registry
 {
 public:
+	#pragma region Public Interface
 	/**
 	 * @brief Create a new entity handle.
 	 *
@@ -188,7 +198,9 @@ public:
 		Pool<T>().set.Remove(e);
 	}
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
 	/**
 	 * @brief Abstract interface for component pools.
 	 *
@@ -297,4 +309,6 @@ private:
 
 	// Map of component pools keyed by type_index
 	std::unordered_map<std::type_index, std::unique_ptr<IPool>> m_pools;
+	#pragma endregion
 };
+#pragma endregion

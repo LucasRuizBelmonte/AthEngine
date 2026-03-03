@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "CameraControllerSystem.h"
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -6,7 +7,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <cmath>
+#pragma endregion
 
+#pragma region Function Definitions
 static float Clamp(float v, float lo, float hi)
 {
 	return (v < lo) ? lo : (v > hi) ? hi
@@ -72,3 +75,4 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 
 	cam.direction = glm::normalize(dir);
 }
+#pragma endregion

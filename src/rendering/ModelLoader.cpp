@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "../platform/GL.h"
 #include "ModelLoader.h"
 
@@ -8,7 +9,9 @@
 #include <vector>
 #include <stdexcept>
 #include <iostream>
+#pragma endregion
 
+#pragma region File Scope
 namespace
 {
     struct VertexPC
@@ -17,7 +20,9 @@ namespace
         float cr, cg, cb;
     };
 }
+#pragma endregion
 
+#pragma region Function Definitions
 Mesh ModelLoader::LoadFirstMesh(const std::string &path)
 {
     Assimp::Importer importer;
@@ -107,3 +112,4 @@ Mesh ModelLoader::LoadFirstMesh(const std::string &path)
 
     return mesh;
 }
+#pragma endregion

@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "Render2DSystem.h"
 
 #include "../components/Transform.h"
@@ -11,7 +12,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <vector>
 #include <algorithm>
+#pragma endregion
 
+#pragma region Function Definitions
 static glm::mat4 BuildSpriteModel(const Transform &t, const Sprite &s)
 {
 	glm::vec3 pos = t.position;
@@ -91,3 +94,4 @@ void Render2DSystem::Render(Registry &registry,
 
 	glDisable(GL_BLEND);
 }
+#pragma endregion

@@ -1,3 +1,8 @@
+/**
+ * @file Application.h
+ * @brief Declarations for Application.
+ */
+
 #pragma once
 
 #include "../platform/GlfwContext.h"
@@ -60,15 +65,33 @@ public:
 
 	#pragma region ImGui Integration
 
+	/**
+	 * @brief Executes Init Im Gui.
+	 */
 	void InitImGui();
+	/**
+	 * @brief Executes Shutdown Im Gui.
+	 */
 	void ShutdownImGui();
+	/**
+	 * @brief Executes Begin Im Gui Frame.
+	 */
 	void BeginImGuiFrame();
+	/**
+	 * @brief Executes End Im Gui Frame.
+	 */
 	void EndImGuiFrame();
 
 	#pragma endregion
 
 private:
+	/**
+	 * @brief Executes Ensure Scene Render Target.
+	 */
 	void EnsureSceneRenderTarget(int width, int height);
+	/**
+	 * @brief Executes Destroy Scene Render Target.
+	 */
 	void DestroySceneRenderTarget();
 
 	#pragma region Input Processing

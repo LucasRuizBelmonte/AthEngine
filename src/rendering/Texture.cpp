@@ -1,8 +1,11 @@
+#pragma region Includes
 #include "Texture.h"
 #include <utility>
 
 #include "../thirdparty/stb_image.h"
+#pragma endregion
 
+#pragma region Function Definitions
 Texture::Texture(Texture &&other) noexcept
 {
 	m_id = other.m_id;
@@ -88,3 +91,4 @@ bool Texture::LoadFromFile(const char *path, bool flipY)
 	stbi_image_free(data);
 	return ok;
 }
+#pragma endregion

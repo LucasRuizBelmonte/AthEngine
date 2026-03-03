@@ -1,5 +1,11 @@
+/**
+ * @file Test3DScene.h
+ * @brief Declarations for Test3DScene.
+ */
+
 #pragma once
 
+#pragma region Includes
 #include "../IScene.h"
 #include "../AsyncLoader.h"
 #include "../IEditorScene.h"
@@ -21,28 +27,66 @@
 #include "../../resources/TextureManager.h"
 
 #include "../../input/WindowContext.h"
+#pragma endregion
 
+#pragma region Declarations
 class Test3DScene final : public IScene, public IEditorScene
 {
 public:
+	#pragma region Public Interface
+	/**
+	 * @brief Constructs a new Test3DScene instance.
+	 */
 	Test3DScene(ShaderManager &shaderManager, TextureManager &textureManager);
 	~Test3DScene() override = default;
 
+	/**
+	 * @brief Executes Request Load.
+	 */
 	void RequestLoad(AsyncLoader &loader) override;
+	/**
+	 * @brief Executes Is Loaded.
+	 */
 	bool IsLoaded() const override;
 
+	/**
+	 * @brief Executes On Attach.
+	 */
 	void OnAttach(GLFWwindow &window) override;
+	/**
+	 * @brief Executes On Detach.
+	 */
 	void OnDetach(GLFWwindow &window) override;
 
+	/**
+	 * @brief Executes Update.
+	 */
 	void Update(float dt, float now) override;
+	/**
+	 * @brief Executes Render3 D.
+	 */
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
+	/**
+	 * @brief Executes Render2 D.
+	 */
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
+	/**
+	 * @brief Executes Get Name.
+	 */
 	const char *GetName() const override;
 
+	/**
+	 * @brief Executes Get Editor Registry.
+	 */
 	Registry &GetEditorRegistry() override;
+	/**
+	 * @brief Executes Get Editor Systems.
+	 */
 	void GetEditorSystems(std::vector<EditorSystemToggle> &out) override;
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
 
@@ -68,4 +112,6 @@ private:
 
 	std::string m_vsPath;
 	std::string m_fsPath;
+	#pragma endregion
 };
+#pragma endregion

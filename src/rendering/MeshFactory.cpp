@@ -1,8 +1,14 @@
+#pragma region Includes
 #include "MeshFactory.h"
 #include <GL/glew.h>
+#pragma endregion
 
+#pragma region File Scope
 namespace MeshFactory
 {
+#pragma endregion
+
+#pragma region Function Definitions
 	Mesh CreateTriangle()
 	{
 		Mesh mesh;
@@ -74,3 +80,4 @@ namespace MeshFactory
 		return mesh;
 	}
 }
+#pragma endregion

@@ -1,7 +1,10 @@
+#pragma region Includes
 #include "ClearColorSystem.h"
 #include <GL/glew.h>
 #include <cmath>
+#pragma endregion
 
+#pragma region Function Definitions
 void ClearColorSystem::Update(float timeSec) const
 {
 	float r = (std::sin(timeSec * 0.5f) + 1.0f) / 4.0f;
@@ -10,3 +13,4 @@ void ClearColorSystem::Update(float timeSec) const
 
 	glClearColor(r, g, b, 1.0f);
 }
+#pragma endregion

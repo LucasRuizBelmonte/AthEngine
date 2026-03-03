@@ -13,7 +13,6 @@
 #include "../input/Input.h"
 #include "../editor/EditorUI.h"
 
-#pragma region Lifecycle
 
 Application::Application()
 {
@@ -43,7 +42,6 @@ Application::~Application()
 	ShutdownImGui();
 }
 
-#pragma endregion
 
 #pragma region Main Loop
 

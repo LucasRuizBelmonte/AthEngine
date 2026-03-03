@@ -1,5 +1,11 @@
+/**
+ * @file Test2DScene.h
+ * @brief Declarations for Test2DScene.
+ */
+
 #pragma once
 
+#pragma region Includes
 #include "../IScene.h"
 #include "../AsyncLoader.h"
 #include "../IEditorScene.h"
@@ -17,28 +23,66 @@
 
 #include "../../rendering/Texture.h"
 #include "../../audio/AudioEngine.h"
+#pragma endregion
 
+#pragma region Declarations
 class Test2DScene final : public IScene, public IEditorScene
 {
 public:
+	#pragma region Public Interface
+	/**
+	 * @brief Constructs a new Test2DScene instance.
+	 */
 	Test2DScene(ShaderManager &shaderManager, TextureManager &textureManager);
 	~Test2DScene() override = default;
 
+	/**
+	 * @brief Executes Request Load.
+	 */
 	void RequestLoad(AsyncLoader &loader) override;
+	/**
+	 * @brief Executes Is Loaded.
+	 */
 	bool IsLoaded() const override;
 
+	/**
+	 * @brief Executes On Attach.
+	 */
 	void OnAttach(GLFWwindow &window) override;
+	/**
+	 * @brief Executes On Detach.
+	 */
 	void OnDetach(GLFWwindow &window) override;
 
+	/**
+	 * @brief Executes Update.
+	 */
 	void Update(float dt, float now) override;
+	/**
+	 * @brief Executes Render3 D.
+	 */
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
+	/**
+	 * @brief Executes Render2 D.
+	 */
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
+	/**
+	 * @brief Executes Get Name.
+	 */
 	const char *GetName() const override;
 
+	/**
+	 * @brief Executes Get Editor Registry.
+	 */
 	Registry &GetEditorRegistry() override;
+	/**
+	 * @brief Executes Get Editor Systems.
+	 */
 	void GetEditorSystems(std::vector<EditorSystemToggle> &out) override;
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
 	struct ImageData
 	{
 		int w = 0;
@@ -69,4 +113,6 @@ private:
 	std::string m_vsPath;
 	std::string m_fsPath;
 	std::string m_texPath;
+	#pragma endregion
 };
+#pragma endregion

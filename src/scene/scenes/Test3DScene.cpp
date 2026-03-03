@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "../../platform/GL.h"
 #include "Test3DScene.h"
 
@@ -9,7 +10,9 @@
 
 #include "../../components/Tag.h"
 #include "../../components/Parent.h"
+#pragma endregion
 
+#pragma region Function Definitions
 Test3DScene::Test3DScene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
@@ -126,3 +129,4 @@ const char *Test3DScene::GetName() const
 {
 	return "Test3D";
 }
+#pragma endregion

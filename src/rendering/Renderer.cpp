@@ -1,3 +1,4 @@
+#pragma region Includes
 #include <GL/glew.h>
 
 #include "Renderer.h"
@@ -7,7 +8,9 @@
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
 #include "../rendering/Texture.h"
+#pragma endregion
 
+#pragma region Function Definitions
 Renderer::Renderer(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
@@ -57,3 +60,4 @@ void Renderer::Submit(const Mesh &mesh,
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
+#pragma endregion

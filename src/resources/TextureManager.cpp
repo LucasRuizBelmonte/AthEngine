@@ -1,5 +1,8 @@
+#pragma region Includes
 #include "TextureManager.h"
+#pragma endregion
 
+#pragma region Function Definitions
 TextureManager::TextureHandle
 TextureManager::Load(const std::string &name, const std::string &path, bool flipY)
 {
@@ -56,3 +59,4 @@ Texture *TextureManager::Get(TextureHandle handle)
 		return nullptr;
 	return it->second.texture.get();
 }
+#pragma endregion

@@ -1,6 +1,15 @@
-#pragma once
-#include <glm/glm.hpp>
+/**
+ * @file Camera.h
+ * @brief Declarations for Camera.
+ */
 
+#pragma once
+
+#pragma region Includes
+#include <glm/glm.hpp>
+#pragma endregion
+
+#pragma region Declarations
 enum class ProjectionType : uint8_t
 {
     Perspective = 0,
@@ -20,3 +29,4 @@ struct Camera
 
     float orthoHeight = 10.f;
 };
+#pragma endregion

@@ -1,8 +1,17 @@
+/**
+ * @file EditorUI.h
+ * @brief Declarations for EditorUI.
+ */
+
 #pragma once
+
+#pragma region Includes
 #include <cstddef>
 #include <imgui.h>
 #include "../ecs/Entity.h"
+#pragma endregion
 
+#pragma region Declarations
 class SceneManager;
 
 struct EditorUIState
@@ -21,8 +30,20 @@ struct EditorUIState
 class EditorUI
 {
 public:
+	#pragma region Public Interface
+	/**
+	 * @brief Executes Set Render Texture.
+	 */
 	static void SetRenderTexture(ImTextureID textureId);
+	/**
+	 * @brief Executes Get Render Target Size.
+	 */
 	static ImVec2 GetRenderTargetSize();
 
+	/**
+	 * @brief Executes Draw.
+	 */
 	static void Draw(SceneManager &scenes, EditorUIState &state);
+	#pragma endregion
 };
+#pragma endregion

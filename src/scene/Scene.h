@@ -1,5 +1,11 @@
+/**
+ * @file Scene.h
+ * @brief Declarations for Scene.
+ */
+
 #pragma once
 
+#pragma region Includes
 #include "../ecs/Registry.h"
 #include "../systems/ClearColorSystem.h"
 #include "../systems/SpinSystem.h"
@@ -21,20 +27,40 @@
 #include "../input/WindowContext.h"
 
 #include <GLFW/glfw3.h>
+#pragma endregion
 
+#pragma region Declarations
 class Renderer;
 
 class Scene
 {
 public:
+	#pragma region Public Interface
+	/**
+	 * @brief Constructs a new Scene instance.
+	 */
 	Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow &window);
+	/**
+	 * @brief Destroys this Scene instance.
+	 */
 	~Scene();
 
+	/**
+	 * @brief Executes Update.
+	 */
 	void Update(float dt, float now);
+	/**
+	 * @brief Executes Render3 D.
+	 */
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+	/**
+	 * @brief Executes Render2 D.
+	 */
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
 	Registry m_Registry;
 
 	ClearColorSystem m_ClearColorSystem;
@@ -53,4 +79,6 @@ private:
 
 	GLFWwindow *m_Window = nullptr;
 	WindowContext m_WindowCtx;
+	#pragma endregion
 };
+#pragma endregion

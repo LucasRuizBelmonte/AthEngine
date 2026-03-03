@@ -1,10 +1,19 @@
+/**
+ * @file Window.h
+ * @brief Declarations for Window.
+ */
+
 #pragma once
 
 #define GLFW_INCLUDE_NONE
+
+#pragma region Includes
 #include <GLFW/glfw3.h>
 
 #include <memory>
+#pragma endregion
 
+#pragma region Declarations
 /**
  * @class Window
  * @brief Manages a GLFW window context for rendering.
@@ -18,6 +27,7 @@
 class Window
 {
 public:
+	#pragma region Public Interface
 	/**
 	 * @brief Create a window of the specified dimensions and title.
 	 *
@@ -26,7 +36,7 @@ public:
 	 *
 	 * @param width  Initial width of the window in pixels.
 	 * @param height Initial height of the window in pixels.
-	 * @param title  UTF‑8 encoded window title string.
+	 * @param title  UTF-8 encoded window title string.
 	 */
 	Window(int width, int height, const char *title);
 
@@ -76,7 +86,9 @@ public:
 	 */
 	void Close() const;
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
 	struct GlfwWindowDeleter
 	{
 		void operator()(GLFWwindow *w) const noexcept
@@ -87,4 +99,6 @@ private:
 	};
 
 	std::unique_ptr<GLFWwindow, GlfwWindowDeleter> m_Window;
+	#pragma endregion
 };
+#pragma endregion

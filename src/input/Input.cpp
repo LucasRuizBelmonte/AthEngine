@@ -1,6 +1,9 @@
+#pragma region Includes
 #include "Input.h"
 #include <cstring>
+#pragma endregion
 
+#pragma region File Scope
 GLFWwindow *Input::s_Window = nullptr;
 
 bool Input::s_KeyCurr[GLFW_KEY_LAST + 1] = {};
@@ -12,7 +15,9 @@ bool Input::s_MousePrev[GLFW_MOUSE_BUTTON_LAST + 1] = {};
 glm::vec2 Input::s_MousePosCurr = {0.0f, 0.0f};
 glm::vec2 Input::s_MousePosPrev = {0.0f, 0.0f};
 bool Input::s_HasMouse = false;
+#pragma endregion
 
+#pragma region Function Definitions
 void Input::AttachWindow(GLFWwindow *window)
 {
 	s_Window = window;
@@ -109,3 +114,4 @@ void Input::SetCursorMode(int mode)
 		return;
 	glfwSetInputMode(s_Window, GLFW_CURSOR, mode);
 }
+#pragma endregion

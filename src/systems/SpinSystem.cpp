@@ -1,10 +1,13 @@
+#pragma region Includes
 #include "SpinSystem.h"
 #include "../components/Transform.h"
 #include "../components/Spin.h"
 #include <glm/glm.hpp>
 #include <cmath>
 #include <vector>
+#pragma endregion
 
+#pragma region Function Definitions
 void SpinSystem::Update(Registry &registry, float timeSec) const
 {
 	std::vector<Entity> entities;
@@ -31,3 +34,4 @@ void SpinSystem::Update(Registry &registry, float timeSec) const
 		}
 	}
 }
+#pragma endregion

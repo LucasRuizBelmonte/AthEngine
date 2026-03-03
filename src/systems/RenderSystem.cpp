@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "RenderSystem.h"
 
 #include "../components/Transform.h"
@@ -9,7 +10,9 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#pragma endregion
 
+#pragma region Function Definitions
 static glm::mat4 BuildModel(const Transform &t)
 {
 	glm::mat4 T = glm::translate(glm::mat4(1.f), t.position);
@@ -66,3 +69,4 @@ void RenderSystem::Render(Registry &registry,
 		renderer.Submit(mesh, mat, model);
 	}
 }
+#pragma endregion

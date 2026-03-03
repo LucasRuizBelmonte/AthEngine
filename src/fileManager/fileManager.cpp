@@ -1,9 +1,12 @@
+#pragma region Includes
 #include "fileManager.h"
 
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#pragma endregion
 
+#pragma region Function Definitions
 FileManager::FileManager()
 {
 }
@@ -31,3 +34,4 @@ std::string FileManager::read(const std::string &filePath)
 
     return fileStream.str();
 }
+#pragma endregion

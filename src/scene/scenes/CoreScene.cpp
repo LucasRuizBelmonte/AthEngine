@@ -1,7 +1,10 @@
+#pragma region Includes
 #include "CoreScene.h"
 #include "../SceneManager.h"
 #include "../../editor/EditorUI.h"
+#pragma endregion
 
+#pragma region Function Definitions
 CoreScene::CoreScene(SceneManager &scenes) : m_scenes(scenes) {}
 
 const char *CoreScene::GetName() const { return "Core"; }
@@ -38,3 +41,4 @@ void CoreScene::Render2D(Renderer &renderer, int framebufferWidth, int framebuff
 
 	EditorUI::Draw(m_scenes, m_ui);
 }
+#pragma endregion

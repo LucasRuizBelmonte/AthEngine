@@ -1,6 +1,9 @@
+#pragma region Includes
 #include "MultiScene.h"
 #include "../AsyncLoader.h"
+#pragma endregion
 
+#pragma region Function Definitions
 MultiScene::MultiScene(std::shared_ptr<IScene> a,
 					   std::shared_ptr<IScene> b)
 	: m_a(std::move(a)), m_b(std::move(b))
@@ -52,3 +55,4 @@ const char *MultiScene::GetName() const
 {
 	return "MultiScene";
 }
+#pragma endregion

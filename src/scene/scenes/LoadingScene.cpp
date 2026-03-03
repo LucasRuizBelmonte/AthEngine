@@ -1,7 +1,10 @@
+#pragma region Includes
 #include "../../platform/GL.h"
 #include "LoadingScene.h"
 #include <cmath>
+#pragma endregion
 
+#pragma region Function Definitions
 void LoadingScene::RequestLoad(AsyncLoader &)
 {
 }
@@ -35,3 +38,4 @@ void LoadingScene::Render2D(Renderer &, int, int)
 }
 
 const char *LoadingScene::GetName() const { return "Loading"; }
+#pragma endregion

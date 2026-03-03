@@ -1,9 +1,12 @@
+#pragma region Includes
 #include "shader.h"
 
 #include <iostream>
 #include <utility>
 #include <vector>
+#pragma endregion
 
+#pragma region Function Definitions
 Shader::~Shader()
 {
 	Destroy();
@@ -226,3 +229,4 @@ bool Shader::CompileAndLink(const std::string &vertexCode, const std::string &fr
 	m_uniformCache.clear();
 	return true;
 }
+#pragma endregion

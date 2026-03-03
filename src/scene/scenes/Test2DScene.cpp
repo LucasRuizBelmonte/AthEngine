@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "../../platform/GL.h"
 #include "Test2DScene.h"
 
@@ -11,7 +12,9 @@
 
 #include "../../components/Tag.h"
 #include "../../components/Parent.h"
+#pragma endregion
 
+#pragma region Function Definitions
 Test2DScene::Test2DScene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
@@ -196,3 +199,4 @@ const char *Test2DScene::GetName() const
 {
 	return "Test2D";
 }
+#pragma endregion

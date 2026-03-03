@@ -1,8 +1,11 @@
+#pragma region Includes
 #include "AudioEngine.h"
 
 #include <fmod.hpp>
 #include <fmod_errors.h>
+#pragma endregion
 
+#pragma region Function Definitions
 AudioEngine::~AudioEngine()
 {
 	Shutdown();
@@ -74,3 +77,4 @@ FMOD::Channel *AudioEngine::Play(const std::string &id, float volume)
 		channel->setVolume(volume);
 	return channel;
 }
+#pragma endregion

@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "SceneEditor.h"
 
 #include <imgui.h>
@@ -17,7 +18,9 @@
 #include "../components/Material.h"
 #include "../components/Sprite.h"
 #include "../components/Spin.h"
+#pragma endregion
 
+#pragma region Function Definitions
 static const char *EntityLabel(Registry &r, Entity e, char *tmp, int tmpSize)
 {
 	if (r.Has<Tag>(e))
@@ -612,3 +615,4 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st)
 		ImGui::InputInt("Index Count", (int *)&m.indexCount);
 	}
 }
+#pragma endregion

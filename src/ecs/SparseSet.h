@@ -1,15 +1,28 @@
+/**
+ * @file SparseSet.h
+ * @brief Declarations for SparseSet.
+ */
+
 #pragma once
+
+#pragma region Includes
 #include <vector>
 #include <cstddef>
 #include <utility>
 #include "Entity.h"
+#pragma endregion
 
+#pragma region Declarations
 template <typename T>
 class SparseSet
 {
 public:
+	#pragma region Public Interface
 	static constexpr size_t npos = static_cast<size_t>(-1);
 
+	/**
+	 * @brief Executes Has.
+	 */
 	bool Has(Entity e) const
 	{
 		if (e >= m_sparse.size())
@@ -18,16 +31,25 @@ public:
 		return idx != npos && idx < m_denseEntities.size() && m_denseEntities[idx] == e;
 	}
 
+	/**
+	 * @brief Executes Get.
+	 */
 	T &Get(Entity e)
 	{
 		return m_denseComponents[m_sparse[e]];
 	}
 
+	/**
+	 * @brief Executes Get.
+	 */
 	const T &Get(Entity e) const
 	{
 		return m_denseComponents[m_sparse[e]];
 	}
 
+	/**
+	 * @brief Executes Emplace.
+	 */
 	template <typename... Args>
 	T &Emplace(Entity e, Args &&...args)
 	{
@@ -45,6 +67,9 @@ public:
 		return m_denseComponents.back();
 	}
 
+	/**
+	 * @brief Executes Remove.
+	 */
 	void Remove(Entity e)
 	{
 		if (!Has(e))
@@ -66,12 +91,26 @@ public:
 		m_sparse[e] = npos;
 	}
 
+	/**
+	 * @brief Executes Entities.
+	 */
 	const std::vector<Entity> &Entities() const { return m_denseEntities; }
+	/**
+	 * @brief Executes Entities.
+	 */
 	std::vector<Entity> &Entities() { return m_denseEntities; }
 
+	/**
+	 * @brief Executes Size.
+	 */
 	size_t Size() const { return m_denseEntities.size(); }
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
+	/**
+	 * @brief Executes Ensure Sparse.
+	 */
 	void EnsureSparse(Entity e)
 	{
 		if (e < m_sparse.size())
@@ -83,4 +122,6 @@ private:
 	std::vector<size_t> m_sparse;
 	std::vector<Entity> m_denseEntities;
 	std::vector<T> m_denseComponents;
+	#pragma endregion
 };
+#pragma endregion

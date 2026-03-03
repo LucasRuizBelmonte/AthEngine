@@ -1,17 +1,32 @@
+/**
+ * @file AsyncLoader.h
+ * @brief Declarations for AsyncLoader.
+ */
+
 #pragma once
 
+#pragma region Includes
 #include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <vector>
 #include <chrono>
+#pragma endregion
 
+#pragma region Declarations
 class AsyncLoader
 {
 public:
+	#pragma region Public Interface
+    /**
+     * @brief Constructs a new AsyncLoader instance.
+     */
     AsyncLoader() = default;
 
+    /**
+     * @brief Executes Enqueue.
+     */
     template <class T>
     void Enqueue(std::function<T()> backgroundTask, std::function<void(T &&)> mainThreadFinalize)
     {
@@ -45,6 +60,9 @@ public:
         m_pending.emplace_back(std::make_unique<Pending>(std::move(fut), std::move(mainThreadFinalize)));
     }
 
+    /**
+     * @brief Executes Update.
+     */
     void Update()
     {
         std::vector<std::function<void()>> mainLocal;
@@ -68,20 +86,29 @@ public:
             fn();
     }
 
+    /**
+     * @brief Executes Is Idle.
+     */
     bool IsIdle() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         return m_pending.empty();
     }
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
     struct PendingBase
     {
         virtual ~PendingBase() = default;
         virtual bool TryComplete(std::vector<std::function<void()>> &outMain) = 0;
     };
 
+	#pragma endregion
 private:
+	#pragma region Private Implementation
     mutable std::mutex m_mutex;
     std::vector<std::unique_ptr<PendingBase>> m_pending;
+	#pragma endregion
 };
+#pragma endregion

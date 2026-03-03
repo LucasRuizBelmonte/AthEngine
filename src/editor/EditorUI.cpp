@@ -1,3 +1,4 @@
+#pragma region Includes
 #include "EditorUI.h"
 
 #include <imgui.h>
@@ -6,10 +7,14 @@
 #include "../scene/IScene.h"
 #include "../scene/IEditorScene.h"
 #include "SceneEditor.h"
+#pragma endregion
 
+#pragma region File Scope
 static ImTextureID g_renderTexture = nullptr;
 static ImVec2 g_renderTargetSize = ImVec2(1.0f, 1.0f);
+#pragma endregion
 
+#pragma region Function Definitions
 void EditorUI::SetRenderTexture(ImTextureID textureId)
 {
 	g_renderTexture = textureId;
@@ -35,7 +40,7 @@ static void BuildDefaultDock(ImGuiID dockspaceId)
 	ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.25f, nullptr, &dockMain);
 
 	ImGui::DockBuilderDockWindow("SceneList", dockLeft);
-	ImGui::DockBuilderDockWindow("Entity Hierarchy", dockLeft);
+	ImGui::DockBuilderDockWindow("Entity Hierarchy", dockBottom);
 	ImGui::DockBuilderDockWindow("Systems", dockBottom);
 	ImGui::DockBuilderDockWindow("Inspector", dockRight);
 	ImGui::DockBuilderDockWindow("Render", dockMain);
@@ -306,3 +311,4 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 		ImGui::PopStyleVar();
 	}
 }
+#pragma endregion

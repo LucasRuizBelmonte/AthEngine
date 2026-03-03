@@ -1,6 +1,9 @@
+#pragma region Includes
 #include "ShaderManager.h"
 #include "../fileManager/fileManager.h"
+#pragma endregion
 
+#pragma region Function Definitions
 ShaderManager::ShaderHandle
 ShaderManager::Load(const std::string &name,
                     const std::string &vsPath,
@@ -79,3 +82,4 @@ void ShaderManager::ReloadAll()
             FileManager::read(entry.fsPath));
     }
 }
+#pragma endregion

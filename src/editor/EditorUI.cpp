@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <unordered_map>
+#include <unordered_set>
 #include "../scene/SceneManager.h"
 #include "../scene/IScene.h"
 #include "../scene/IEditorScene.h"
@@ -15,6 +17,7 @@
 #pragma region File Scope
 static ImTextureID g_renderTexture = nullptr;
 static ImVec2 g_renderTargetSize = ImVec2(1.0f, 1.0f);
+static std::unordered_map<IEditorScene *, std::unordered_set<std::string>> g_removedSystemsByScene;
 #pragma endregion
 
 #pragma region Function Definitions
@@ -123,18 +126,25 @@ static void AddSystemPopup(IEditorScene *editorScene)
 
 	std::vector<EditorSystemToggle> systems;
 	editorScene->GetEditorSystems(systems);
+	auto &removedSystems = g_removedSystemsByScene[editorScene];
 
 	bool anyAddable = false;
 	for (auto &sys : systems)
 	{
-		if (!sys.enabled || *sys.enabled)
+		const bool isRemoved = removedSystems.find(sys.name) != removedSystems.end();
+		const bool isEnabled = (sys.enabled && *sys.enabled);
+		if (!isRemoved && isEnabled)
 			continue;
 		if (!pass(sys.name))
 			continue;
 
 		anyAddable = true;
 		if (ImGui::MenuItem(sys.name))
-			*sys.enabled = true;
+		{
+			if (sys.enabled)
+				*sys.enabled = true;
+			removedSystems.erase(sys.name);
+		}
 	}
 
 	if (!anyAddable)
@@ -440,19 +450,32 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 
 			std::vector<EditorSystemToggle> sys;
 			editorScene->GetEditorSystems(sys);
+			auto &removedSystems = g_removedSystemsByScene[editorScene];
 
 			for (auto &s : sys)
 			{
-				if (!s.enabled || !*s.enabled)
+				if (removedSystems.find(s.name) != removedSystems.end())
 					continue;
 
 				ImGui::PushID(s.name);
-				ImGui::Checkbox("##enabled", s.enabled);
+				if (s.enabled)
+					ImGui::Checkbox("##enabled", s.enabled);
+				else
+				{
+					bool disabled = false;
+					ImGui::BeginDisabled();
+					ImGui::Checkbox("##enabled", &disabled);
+					ImGui::EndDisabled();
+				}
 				ImGui::SameLine();
 				ImGui::TextUnformatted(s.name);
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Remove"))
-					*s.enabled = false;
+				{
+					removedSystems.insert(s.name);
+					if (s.enabled)
+						*s.enabled = false;
+				}
 				ImGui::PopID();
 			}
 		}

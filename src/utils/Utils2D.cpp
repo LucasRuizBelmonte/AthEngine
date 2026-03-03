@@ -20,8 +20,8 @@ glm::vec2 Utils2D::PercentToWorld(
 	float halfHeight = camera.orthoHeight * 0.5f;
 	float halfWidth = halfHeight * aspect;
 
-	float worldX = -halfWidth + percentX * (2.0f * halfWidth);
-	float worldY = halfHeight - percentY * (2.0f * halfHeight);
+	float worldX = (camera.position.x - halfWidth) + percentX * (2.0f * halfWidth);
+	float worldY = (camera.position.y + halfHeight) - percentY * (2.0f * halfHeight);
 
 	return {worldX, worldY};
 }

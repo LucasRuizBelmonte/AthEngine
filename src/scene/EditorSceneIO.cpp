@@ -23,6 +23,32 @@
 #pragma region File Scope
 namespace
 {
+	static SpritePivot SpritePivotFromStoredValue(int value)
+	{
+		switch (value)
+		{
+		case static_cast<int>(SpritePivot::TopLeft):
+			return SpritePivot::TopLeft;
+		case static_cast<int>(SpritePivot::Top):
+			return SpritePivot::Top;
+		case static_cast<int>(SpritePivot::TopRight):
+			return SpritePivot::TopRight;
+		case static_cast<int>(SpritePivot::Left):
+			return SpritePivot::Left;
+		case static_cast<int>(SpritePivot::Right):
+			return SpritePivot::Right;
+		case static_cast<int>(SpritePivot::BottomLeft):
+			return SpritePivot::BottomLeft;
+		case static_cast<int>(SpritePivot::Bottom):
+			return SpritePivot::Bottom;
+		case static_cast<int>(SpritePivot::BottomRight):
+			return SpritePivot::BottomRight;
+		case static_cast<int>(SpritePivot::Center):
+		default:
+			return SpritePivot::Center;
+		}
+	}
+
 	struct SavedEntity
 	{
 		Entity id = kInvalidEntity;
@@ -164,7 +190,8 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 			out << "TRANSFORM "
 			    << c.position.x << " " << c.position.y << " " << c.position.z << " "
 			    << c.rotationEuler.x << " " << c.rotationEuler.y << " " << c.rotationEuler.z << " "
-			    << c.scale.x << " " << c.scale.y << " " << c.scale.z << "\n";
+			    << c.scale.x << " " << c.scale.y << " " << c.scale.z << " "
+			    << c.pivot.x << " " << c.pivot.y << " " << c.pivot.z << "\n";
 		}
 
 		if (registry.Has<Camera>(e))
@@ -204,7 +231,8 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 			    << c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
 			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
 			    << c.layer << " " << c.orderInLayer << " "
-			    << std::quoted(c.texturePath) << " " << std::quoted(c.materialPath) << "\n";
+			    << std::quoted(c.texturePath) << " " << std::quoted(c.materialPath) << " "
+			    << static_cast<int>(c.pivot) << "\n";
 		}
 
 		if (registry.Has<Material>(e))
@@ -342,6 +370,14 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 					outError = "Failed reading Transform component.";
 					return false;
 				}
+
+				std::string rest;
+				std::getline(in, rest);
+				if (!rest.empty())
+				{
+					std::istringstream ls(rest);
+					(void)(ls >> ent.transform.pivot.x >> ent.transform.pivot.y >> ent.transform.pivot.z);
+				}
 				continue;
 			}
 
@@ -408,6 +444,9 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 				{
 					std::istringstream ls(rest);
 					(void)(ls >> std::quoted(ent.sprite.texturePath) >> std::quoted(ent.sprite.materialPath));
+					int pivot = static_cast<int>(SpritePivot::Center);
+					if (ls >> pivot)
+						ent.sprite.pivot = SpritePivotFromStoredValue(pivot);
 				}
 				continue;
 			}

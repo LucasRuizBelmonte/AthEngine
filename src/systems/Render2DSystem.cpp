@@ -15,12 +15,45 @@
 #pragma endregion
 
 #pragma region Function Definitions
-static glm::mat4 BuildSpriteModel(const Transform &t, const Sprite &s)
+static glm::vec3 PivotToLocalOffset(SpritePivot pivot)
 {
-	glm::vec3 pos = t.position;
+	switch (pivot)
+	{
+	case SpritePivot::TopLeft:
+		return {-0.5f, 0.5f, 0.f};
+	case SpritePivot::Top:
+		return {0.f, 0.5f, 0.f};
+	case SpritePivot::TopRight:
+		return {0.5f, 0.5f, 0.f};
+	case SpritePivot::Left:
+		return {-0.5f, 0.f, 0.f};
+	case SpritePivot::Right:
+		return {0.5f, 0.f, 0.f};
+	case SpritePivot::BottomLeft:
+		return {-0.5f, -0.5f, 0.f};
+	case SpritePivot::Bottom:
+		return {0.f, -0.5f, 0.f};
+	case SpritePivot::BottomRight:
+		return {0.5f, -0.5f, 0.f};
+	case SpritePivot::Center:
+	default:
+		return {0.f, 0.f, 0.f};
+	}
+}
+
+static glm::mat4 BuildSpriteModel(const Transform &t, const Sprite &s, float halfViewportWidth, float halfViewportHeight)
+{
+	// Pivot is interpreted as a normalized viewport anchor in 2D:
+	// x=-1,y=1 is top-left, x=1,y=-1 is bottom-right.
+	glm::vec3 anchorOffset{
+		t.pivot.x * halfViewportWidth,
+		t.pivot.y * halfViewportHeight,
+		t.pivot.z};
+	glm::vec3 pos = t.position + anchorOffset;
 
 	glm::mat4 T = glm::translate(glm::mat4(1.f), pos);
 	glm::mat4 R = glm::rotate(glm::mat4(1.f), t.rotationEuler.z, glm::vec3(0.f, 0.f, 1.f));
+	glm::mat4 P = glm::translate(glm::mat4(1.f), -PivotToLocalOffset(s.pivot));
 
 	glm::vec3 scale = t.scale;
 	scale.x *= s.size.x;
@@ -28,7 +61,7 @@ static glm::mat4 BuildSpriteModel(const Transform &t, const Sprite &s)
 
 	glm::mat4 S = glm::scale(glm::mat4(1.f), scale);
 
-	return T * R * S;
+	return T * R * S * P;
 }
 
 void Render2DSystem::Render(Registry &registry,
@@ -88,7 +121,7 @@ void Render2DSystem::Render(Registry &registry,
 		m.texture = s.texture;
 		m.tint = s.tint;
 
-		glm::mat4 model = BuildSpriteModel(t, s);
+		glm::mat4 model = BuildSpriteModel(t, s, halfW, halfH);
 		renderer.Submit(quadMesh, m, model);
 	}
 

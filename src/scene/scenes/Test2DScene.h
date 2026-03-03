@@ -126,6 +126,7 @@ private:
 
 	bool m_sysAudio = true;
 	bool m_sysRender2D = true;
+	bool m_sysSpriteController = true;
 
 	Entity m_camera2D = kInvalidEntity;
 	Entity m_sprite = kInvalidEntity;
@@ -141,6 +142,8 @@ private:
 	std::string m_vsPath;
 	std::string m_fsPath;
 	std::string m_texPath;
+	float m_spritePercentX = 0.05f;
+	float m_spritePercentY = 0.05f;
 	#pragma endregion
 };
 #pragma endregion

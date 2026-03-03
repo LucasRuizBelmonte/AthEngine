@@ -23,8 +23,9 @@ static glm::mat4 BuildModel(const Transform &t)
 		glm::rotate(glm::mat4(1.f), t.rotationEuler.z, glm::vec3(0, 0, 1));
 
 	glm::mat4 S = glm::scale(glm::mat4(1.f), t.scale);
+	glm::mat4 P = glm::translate(glm::mat4(1.f), -t.pivot);
 
-	return T * R * S;
+	return T * R * S * P;
 }
 
 void RenderSystem::Render(Registry &registry,

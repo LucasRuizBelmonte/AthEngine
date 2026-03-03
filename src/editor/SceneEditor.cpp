@@ -407,6 +407,58 @@ static void DrawColor4(const char *label, float *v)
 	ImGui::ColorEdit4(label, v);
 }
 
+static int SpritePivotToIndex(SpritePivot pivot)
+{
+	switch (pivot)
+	{
+	case SpritePivot::TopLeft:
+		return 1;
+	case SpritePivot::Top:
+		return 2;
+	case SpritePivot::TopRight:
+		return 3;
+	case SpritePivot::Left:
+		return 4;
+	case SpritePivot::Right:
+		return 5;
+	case SpritePivot::BottomLeft:
+		return 6;
+	case SpritePivot::Bottom:
+		return 7;
+	case SpritePivot::BottomRight:
+		return 8;
+	case SpritePivot::Center:
+	default:
+		return 0;
+	}
+}
+
+static SpritePivot SpritePivotFromIndex(int idx)
+{
+	switch (idx)
+	{
+	case 1:
+		return SpritePivot::TopLeft;
+	case 2:
+		return SpritePivot::Top;
+	case 3:
+		return SpritePivot::TopRight;
+	case 4:
+		return SpritePivot::Left;
+	case 5:
+		return SpritePivot::Right;
+	case 6:
+		return SpritePivot::BottomLeft;
+	case 7:
+		return SpritePivot::Bottom;
+	case 8:
+		return SpritePivot::BottomRight;
+	case 0:
+	default:
+		return SpritePivot::Center;
+	}
+}
+
 template <typename T>
 static bool AddComponentItem(Registry &r, Entity e, const char *name)
 {
@@ -514,6 +566,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		DrawVec3("Position", &t.position.x, 0.05f);
 		DrawVec3("RotationEuler", &t.rotationEuler.x, 0.05f);
 		DrawVec3("Scale", &t.scale.x, 0.05f);
+		DrawVec3("Pivot Anchor (-1..1)", &t.pivot.x, 0.05f);
 	}
 
 	if (r.Has<Camera>(e) && ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
@@ -596,6 +649,12 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		}
 
 		DrawVec2("Size", &s.size.x, 0.05f);
+		int spritePivot = SpritePivotToIndex(s.pivot);
+		if (ImGui::Combo("Sprite Pivot", &spritePivot,
+		                 "Center\0Top Left\0Top\0Top Right\0Left\0Right\0Bottom Left\0Bottom\0Bottom Right\0"))
+		{
+			s.pivot = SpritePivotFromIndex(spritePivot);
+		}
 		ImGui::DragFloat4("UV", &s.uv.x, 0.01f);
 		DrawColor4("Tint", &s.tint.x);
 		ImGui::InputInt("Layer", &s.layer);

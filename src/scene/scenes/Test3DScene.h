@@ -127,7 +127,7 @@ private:
 
 	bool m_sysClearColor = true;
 	bool m_sysCameraController = true;
-	bool m_sysSpin = true;
+	bool m_sysSpin = false;
 	bool m_sysRender = true;
 
 	Entity m_camera3D = kInvalidEntity;

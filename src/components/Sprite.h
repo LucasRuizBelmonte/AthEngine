@@ -15,6 +15,19 @@
 class Texture;
 class Shader;
 
+enum class SpritePivot : int
+{
+	Center = 0,
+	TopLeft,
+	Top,
+	TopRight,
+	Left,
+	Right,
+	BottomLeft,
+	Bottom,
+	BottomRight
+};
+
 struct Sprite
 {
 	ResourceHandle<Texture> texture;
@@ -28,5 +41,6 @@ struct Sprite
 
 	int layer = 0;
 	int orderInLayer = 0;
+	SpritePivot pivot = SpritePivot::Center;
 };
 #pragma endregion

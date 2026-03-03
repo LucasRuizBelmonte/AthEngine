@@ -10,6 +10,7 @@
 #include "../../utils/Utils2D.h"
 #include "../../thirdparty/stb_image.h"
 #include "../../input/Input.h"
+#include "../../editor/EditorUI.h"
 #include "../EditorSceneIO.h"
 
 #include "../../components/Tag.h"
@@ -48,6 +49,7 @@ void Test2DScene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 {
 	out.clear();
 	out.push_back({"AudioEngine", &m_sysAudio});
+	out.push_back({"SpriteController", &m_sysSpriteController});
 	out.push_back({"Render2DSystem", &m_sysRender2D});
 }
 
@@ -339,28 +341,47 @@ void Test2DScene::Update(float dt, float)
 
 	int width, height;
 	glfwGetFramebufferSize(m_window, &width, &height);
+	ImVec2 rt = EditorUI::GetRenderTargetSize();
+	if (rt.x > 1.0f && rt.y > 1.0f)
+	{
+		width = static_cast<int>(rt.x);
+		height = static_cast<int>(rt.y);
+	}
 
 	const auto &cam = m_registry.Get<Camera>(m_camera2D);
 
-	float xPercent = 0.05f;
-	float yPercent = 0.05f;
+	bool moved = false;
 
-	if (Input::GetKey(GLFW_KEY_A))
-		xPercent -= 0.25f * dt;
-	if (Input::GetKey(GLFW_KEY_D))
-		xPercent += 0.25f * dt;
-	if (Input::GetKey(GLFW_KEY_S))
-		yPercent -= 0.25f * dt;
-	if (Input::GetKey(GLFW_KEY_W))
-		yPercent += 0.25f * dt;
+	if (m_sysSpriteController)
+	{
+		if (Input::GetKey(GLFW_KEY_A))
+		{
+			m_spritePercentX -= 0.25f * dt;
+			moved = true;
+		}
+		if (Input::GetKey(GLFW_KEY_D))
+		{
+			m_spritePercentX += 0.25f * dt;
+			moved = true;
+		}
+		if (Input::GetKey(GLFW_KEY_S))
+		{
+			m_spritePercentY -= 0.25f * dt;
+			moved = true;
+		}
+		if (Input::GetKey(GLFW_KEY_W))
+		{
+			m_spritePercentY += 0.25f * dt;
+			moved = true;
+		}
+	}
 
 	if (Input::GetKeyDown(GLFW_KEY_SPACE))
 		m_audio.Play("test");
 
-	glm::vec2 world = Utils2D::PercentToWorld(xPercent, yPercent, width, height, cam);
-
-	if (m_sprite != kInvalidEntity && m_registry.IsAlive(m_sprite) && m_registry.Has<Transform>(m_sprite))
+	if (moved && m_sprite != kInvalidEntity && m_registry.IsAlive(m_sprite) && m_registry.Has<Transform>(m_sprite))
 	{
+		glm::vec2 world = Utils2D::PercentToWorld(m_spritePercentX, m_spritePercentY, width, height, cam);
 		auto &tr = m_registry.Get<Transform>(m_sprite);
 		tr.position = {world.x, world.y, 0.f};
 	}

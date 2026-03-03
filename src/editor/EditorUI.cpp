@@ -194,13 +194,24 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 			ImGui::PushID((int)i);
 
 			bool sel = (state.selectedScene == i);
-			if (ImGui::Selectable(name, sel))
+			const bool canDelete = (i != 0);
+			ImVec2 selectableSize(0.0f, 0.0f);
+			if (canDelete)
+			{
+				const ImGuiStyle &style = ImGui::GetStyle();
+				const float deleteButtonWidth = ImGui::CalcTextSize("Delete").x + style.FramePadding.x * 2.0f;
+				const float spacing = style.ItemSpacing.x;
+				const float availableWidth = ImGui::GetContentRegionAvail().x;
+				selectableSize.x = ImMax(1.0f, availableWidth - deleteButtonWidth - spacing);
+			}
+
+			if (ImGui::Selectable(name, sel, 0, selectableSize))
 			{
 				state.selectedScene = i;
 				se.selectedEntity = kInvalidEntity;
 			}
 
-			if (i != 0)
+			if (canDelete)
 			{
 				ImGui::SameLine();
 				if (ImGui::SmallButton("Delete"))

@@ -246,8 +246,7 @@ static void DrawEntityNode(
 	const bool hasChildren = (it != children.end() && !it->second.empty());
 
 	ImGuiTreeNodeFlags flags =
-		ImGuiTreeNodeFlags_OpenOnArrow |
-		ImGuiTreeNodeFlags_SpanAvailWidth;
+		ImGuiTreeNodeFlags_OpenOnArrow;
 
 	if (!hasChildren)
 		flags |= ImGuiTreeNodeFlags_Leaf;
@@ -258,6 +257,8 @@ static void DrawEntityNode(
 	ImGui::PushID((int)e);
 
 	bool open = ImGui::TreeNodeEx("##node", flags);
+	if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+		st.selectedEntity = e;
 
 	ImGui::SameLine();
 
@@ -271,7 +272,8 @@ static void DrawEntityNode(
 		const char *label = EntityLabel(r, e, tmp, 64);
 
 		ImGuiSelectableFlags sflags = ImGuiSelectableFlags_AllowDoubleClick;
-		if (ImGui::Selectable(label, st.selectedEntity == e, sflags))
+		const ImVec2 selectableSize(ImGui::GetContentRegionAvail().x, 0.0f);
+		if (ImGui::Selectable(label, st.selectedEntity == e, sflags, selectableSize))
 			st.selectedEntity = e;
 
 		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))

@@ -29,6 +29,9 @@ public:
     void Update(float dt, float now);
     void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
     void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+    void RenderGame3D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+    void RenderGame2D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+    void RenderEditorUI(Renderer &renderer, int framebufferWidth, int framebufferHeight);
 
     size_t GetLoadedSceneCount() const;
     const char *GetLoadedSceneName(size_t index) const;

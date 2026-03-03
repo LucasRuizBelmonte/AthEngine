@@ -7,6 +7,19 @@
 #include "../scene/IEditorScene.h"
 #include "SceneEditor.h"
 
+static ImTextureID g_renderTexture = nullptr;
+static ImVec2 g_renderTargetSize = ImVec2(1.0f, 1.0f);
+
+void EditorUI::SetRenderTexture(ImTextureID textureId)
+{
+	g_renderTexture = textureId;
+}
+
+ImVec2 EditorUI::GetRenderTargetSize()
+{
+	return g_renderTargetSize;
+}
+
 #ifdef IMGUI_HAS_DOCK
 static void BuildDefaultDock(ImGuiID dockspaceId)
 {
@@ -271,6 +284,24 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Render", &state.showRender, renderFlags);
+
+		ImVec2 avail = ImGui::GetContentRegionAvail();
+		if (avail.x < 1.0f)
+			avail.x = 1.0f;
+		if (avail.y < 1.0f)
+			avail.y = 1.0f;
+
+		g_renderTargetSize = avail;
+
+		if (g_renderTexture)
+		{
+			ImGui::Image(g_renderTexture, avail, ImVec2(0, 1), ImVec2(1, 0));
+		}
+		else
+		{
+			ImGui::TextUnformatted("Render target not ready.");
+		}
+
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}

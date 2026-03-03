@@ -21,5 +21,8 @@ struct EditorUIState
 class EditorUI
 {
 public:
+	static void SetRenderTexture(ImTextureID textureId);
+	static ImVec2 GetRenderTargetSize();
+
 	static void Draw(SceneManager &scenes, EditorUIState &state);
 };

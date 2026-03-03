@@ -68,6 +68,9 @@ public:
 	#pragma endregion
 
 private:
+	void EnsureSceneRenderTarget(int width, int height);
+	void DestroySceneRenderTarget();
+
 	#pragma region Input Processing
 
 	/**
@@ -97,6 +100,12 @@ private:
 	float m_LastTime = 0.0f;
 
 	#pragma endregion
+
+	unsigned int m_SceneFbo = 0;
+	unsigned int m_SceneColorTexture = 0;
+	unsigned int m_SceneDepthRbo = 0;
+	int m_SceneTargetWidth = 0;
+	int m_SceneTargetHeight = 0;
 
 	#pragma region Input State
 

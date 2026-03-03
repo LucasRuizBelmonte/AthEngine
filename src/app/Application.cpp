@@ -4,12 +4,14 @@
 
 #include "Application.h"
 #include <stdexcept>
+#include <cstdint>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
 #include "../input/Input.h"
+#include "../editor/EditorUI.h"
 
 #pragma region Lifecycle
 
@@ -35,7 +37,11 @@ Application::Application()
 	m_LastTime = (float)glfwGetTime();
 }
 
-Application::~Application() = default;
+Application::~Application()
+{
+	DestroySceneRenderTarget();
+	ShutdownImGui();
+}
 
 #pragma endregion
 
@@ -63,12 +69,32 @@ void Application::Run()
 		HandleSceneInput();
 		m_Scenes->Update(dt, now);
 
-		m_Renderer->BeginFrame(width, height);
+		if (m_SceneFbo == 0)
+			EnsureSceneRenderTarget(width, height);
 
 		BeginImGuiFrame();
 
-		m_Scenes->Render3D(*m_Renderer, width, height);
-		m_Scenes->Render2D(*m_Renderer, width, height);
+		EditorUI::SetRenderTexture(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(m_SceneColorTexture)));
+		m_Scenes->RenderEditorUI(*m_Renderer, width, height);
+
+		ImVec2 renderSize = EditorUI::GetRenderTargetSize();
+		int targetWidth = (int)renderSize.x;
+		int targetHeight = (int)renderSize.y;
+		if (targetWidth < 1)
+			targetWidth = 1;
+		if (targetHeight < 1)
+			targetHeight = 1;
+
+		EnsureSceneRenderTarget(targetWidth, targetHeight);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
+		m_Renderer->BeginFrame(targetWidth, targetHeight);
+		m_Scenes->RenderGame3D(*m_Renderer, targetWidth, targetHeight);
+		m_Scenes->RenderGame2D(*m_Renderer, targetWidth, targetHeight);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, width, height);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		EndImGuiFrame();
 
@@ -130,6 +156,66 @@ void Application::ToggleMouseCapture()
 }
 
 #pragma endregion
+
+void Application::EnsureSceneRenderTarget(int width, int height)
+{
+	if (width < 1)
+		width = 1;
+	if (height < 1)
+		height = 1;
+
+	if (m_SceneFbo == 0)
+	{
+		glGenFramebuffers(1, &m_SceneFbo);
+		glGenTextures(1, &m_SceneColorTexture);
+		glGenRenderbuffers(1, &m_SceneDepthRbo);
+	}
+
+	if (m_SceneTargetWidth == width && m_SceneTargetHeight == height)
+		return;
+
+	m_SceneTargetWidth = width;
+	m_SceneTargetHeight = height;
+
+	glBindTexture(GL_TEXTURE_2D, m_SceneColorTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	glBindRenderbuffer(GL_RENDERBUFFER, m_SceneDepthRbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_SceneColorTexture, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_SceneDepthRbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Application::DestroySceneRenderTarget()
+{
+	if (m_SceneDepthRbo)
+	{
+		glDeleteRenderbuffers(1, &m_SceneDepthRbo);
+		m_SceneDepthRbo = 0;
+	}
+
+	if (m_SceneColorTexture)
+	{
+		glDeleteTextures(1, &m_SceneColorTexture);
+		m_SceneColorTexture = 0;
+	}
+
+	if (m_SceneFbo)
+	{
+		glDeleteFramebuffers(1, &m_SceneFbo);
+		m_SceneFbo = 0;
+	}
+
+	m_SceneTargetWidth = 0;
+	m_SceneTargetHeight = 0;
+}
 
 #pragma region ImGui Integration
 

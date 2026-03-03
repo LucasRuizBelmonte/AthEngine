@@ -149,20 +149,39 @@ void SceneManager::Update(float dt, float now)
 
 void SceneManager::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	for (auto &s : m_stack)
-		s->Render3D(renderer, framebufferWidth, framebufferHeight);
+	RenderGame3D(renderer, framebufferWidth, framebufferHeight);
+}
+
+void SceneManager::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
+{
+	RenderGame2D(renderer, framebufferWidth, framebufferHeight);
+	RenderEditorUI(renderer, framebufferWidth, framebufferHeight);
+}
+
+void SceneManager::RenderGame3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
+{
+	for (size_t i = 1; i < m_stack.size(); ++i)
+		m_stack[i]->Render3D(renderer, framebufferWidth, framebufferHeight);
 
 	if (m_isTransitioning && m_loading)
 		m_loading->Render3D(renderer, framebufferWidth, framebufferHeight);
 }
 
-void SceneManager::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
+void SceneManager::RenderGame2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	for (auto &s : m_stack)
-		s->Render2D(renderer, framebufferWidth, framebufferHeight);
+	for (size_t i = 1; i < m_stack.size(); ++i)
+		m_stack[i]->Render2D(renderer, framebufferWidth, framebufferHeight);
 
 	if (m_isTransitioning && m_loading)
 		m_loading->Render2D(renderer, framebufferWidth, framebufferHeight);
+}
+
+void SceneManager::RenderEditorUI(Renderer &renderer, int framebufferWidth, int framebufferHeight)
+{
+	if (m_stack.empty() || !m_stack[0])
+		return;
+
+	m_stack[0]->Render2D(renderer, framebufferWidth, framebufferHeight);
 }
 
 std::shared_ptr<IScene> SceneManager::GetLoadedScene(size_t index) const

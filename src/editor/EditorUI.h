@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <imgui.h>
 #include "../ecs/Entity.h"
 
 class SceneManager;
@@ -10,12 +11,11 @@ struct EditorUIState
 	bool showEntityHierarchy = true;
 	bool showSystems = true;
 	bool showInspector = true;
+	bool showRender = true;
 
 	size_t selectedScene = 0;
 
-#ifdef IMGUI_HAS_DOCK
 	bool dockLayoutBuilt = false;
-#endif
 };
 
 class EditorUI

@@ -1,6 +1,7 @@
 #include "EditorUI.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include "../scene/SceneManager.h"
 #include "../scene/IScene.h"
 #include "../scene/IEditorScene.h"
@@ -24,6 +25,7 @@ static void BuildDefaultDock(ImGuiID dockspaceId)
 	ImGui::DockBuilderDockWindow("Entity Hierarchy", dockLeft);
 	ImGui::DockBuilderDockWindow("Systems", dockBottom);
 	ImGui::DockBuilderDockWindow("Inspector", dockRight);
+	ImGui::DockBuilderDockWindow("Render", dockMain);
 
 	ImGui::DockBuilderFinish(dockspaceId);
 }
@@ -39,7 +41,8 @@ static void DrawDockSpace(EditorUIState &state)
 		ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoMove |
 		ImGuiWindowFlags_NoBringToFrontOnFocus |
-		ImGuiWindowFlags_NoNavFocus;
+		ImGuiWindowFlags_NoNavFocus |
+		ImGuiWindowFlags_NoBackground;
 
 	ImGuiViewport *vp = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(vp->WorkPos);
@@ -78,6 +81,7 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 		ImGui::MenuItem("Entity Hierarchy", nullptr, &ui.showEntityHierarchy);
 		ImGui::MenuItem("Systems", nullptr, &ui.showSystems);
 		ImGui::MenuItem("Inspector", nullptr, &ui.showInspector);
+		ImGui::MenuItem("Render", nullptr, &ui.showRender);
 #ifdef IMGUI_HAS_DOCK
 		if (ImGui::MenuItem("Reset Layout"))
 			ui.dockLayoutBuilt = false;
@@ -255,5 +259,19 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 		}
 
 		ImGui::End();
+	}
+
+	if (state.showRender)
+	{
+		ImGuiWindowFlags renderFlags =
+			ImGuiWindowFlags_NoScrollbar |
+			ImGuiWindowFlags_NoScrollWithMouse |
+			ImGuiWindowFlags_NoCollapse |
+			ImGuiWindowFlags_NoBackground;
+
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+		ImGui::Begin("Render", &state.showRender, renderFlags);
+		ImGui::End();
+		ImGui::PopStyleVar();
 	}
 }

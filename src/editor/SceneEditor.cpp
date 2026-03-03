@@ -19,6 +19,7 @@
 #include "../components/Material.h"
 #include "../components/Sprite.h"
 #include "../components/Spin.h"
+#include "../components/LightEmitter.h"
 #pragma endregion
 
 #pragma region Function Definitions
@@ -163,6 +164,7 @@ static Entity DuplicateRecurse(
 	CopyIfPresent<Material>(r, src, dst);
 	CopyIfPresent<Sprite>(r, src, dst);
 	CopyIfPresent<Spin>(r, src, dst);
+	CopyIfPresent<LightEmitter>(r, src, dst);
 
 	auto it = children.find(src);
 	if (it != children.end())
@@ -501,6 +503,8 @@ static void AddComponentPopup(Registry &r, Entity e)
 		(void)AddComponentItem<Material>(r, e, "Material");
 	if (pass("Mesh"))
 		(void)AddComponentItem<Mesh>(r, e, "Mesh");
+	if (pass("LightEmitter"))
+		(void)AddComponentItem<LightEmitter>(r, e, "LightEmitter");
 
 	ImGui::EndPopup();
 }
@@ -610,6 +614,37 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		DrawVec3("Axis", &s.axis.x, 0.05f);
 		ImGui::DragFloat("Freq", &s.freq, 0.01f, 0.f, 1000.f);
 		ImGui::DragFloat("Amplitude", &s.amplitude, 0.01f, 0.f, 1000.f);
+	}
+
+	if (r.Has<LightEmitter>(e) && ImGui::CollapsingHeader("LightEmitter", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		RemoveComponentMenu<LightEmitter>(r, e, "LightEmitterCtx");
+
+		auto &l = r.Get<LightEmitter>(e);
+		int type = static_cast<int>(l.type);
+		if (ImGui::Combo("Type", &type, "Directional\0Point\0Spot\0"))
+		{
+			switch (type)
+			{
+			case 1:
+				l.type = LightType::Point;
+				break;
+			case 2:
+				l.type = LightType::Spot;
+				break;
+			case 0:
+			default:
+				l.type = LightType::Directional;
+				break;
+			}
+		}
+
+		ImGui::ColorEdit3("Color", &l.color.x);
+		ImGui::DragFloat("Intensity", &l.intensity, 0.01f, 0.0f, 1000.0f);
+		ImGui::DragFloat("Range", &l.range, 0.05f, 0.0f, 10000.0f);
+		ImGui::DragFloat("Inner Cone", &l.innerCone, 0.005f, 0.0f, 1.0f);
+		ImGui::DragFloat("Outer Cone", &l.outerCone, 0.005f, 0.0f, 1.0f);
+		ImGui::Checkbox("Cast Shadows", &l.castShadows);
 	}
 
 	if (r.Has<Sprite>(e) && ImGui::CollapsingHeader("Sprite", ImGuiTreeNodeFlags_DefaultOpen))

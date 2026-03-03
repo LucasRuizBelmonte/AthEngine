@@ -20,5 +20,13 @@ namespace MeshFactory
      * @brief Executes Create Quad.
      */
     Mesh CreateQuad();
+    /**
+     * @brief Executes Create Lit Box.
+     */
+    Mesh CreateLitBox();
+    /**
+     * @brief Executes Create Lit Plane.
+     */
+    Mesh CreateLitPlane();
 }
 #pragma endregion

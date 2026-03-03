@@ -51,8 +51,8 @@ namespace
 Test3DScene::Test3DScene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
-	m_vsPath = std::string(ASSET_PATH) + "/shaders/simple.vs";
-	m_fsPath = std::string(ASSET_PATH) + "/shaders/simple.fs";
+	m_vsPath = std::string(ASSET_PATH) + "/shaders/lit3d.vs";
+	m_fsPath = std::string(ASSET_PATH) + "/shaders/lit3d.fs";
 }
 
 Registry &Test3DScene::GetEditorRegistry()

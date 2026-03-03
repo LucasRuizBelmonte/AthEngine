@@ -3,6 +3,7 @@
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
+#include "../components/LightEmitter.h"
 #include "../components/Material.h"
 #include "../components/Mesh.h"
 #include "../components/Parent.h"
@@ -69,6 +70,9 @@ namespace
 
 		bool hasSpin = false;
 		Spin spin;
+
+		bool hasLight = false;
+		LightEmitter light;
 
 		bool hasSprite = false;
 		Sprite sprite;
@@ -220,6 +224,18 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 			out << "SPIN "
 			    << c.axis.x << " " << c.axis.y << " " << c.axis.z << " "
 			    << c.freq << " " << c.amplitude << "\n";
+		}
+
+		if (registry.Has<LightEmitter>(e))
+		{
+			const LightEmitter &c = registry.Get<LightEmitter>(e);
+			out << "LIGHT "
+			    << static_cast<int>(c.type) << " "
+			    << c.color.x << " " << c.color.y << " " << c.color.z << " "
+			    << c.intensity << " "
+			    << c.range << " "
+			    << c.innerCone << " " << c.outerCone << " "
+			    << (c.castShadows ? 1 : 0) << "\n";
 		}
 
 		if (registry.Has<Sprite>(e))
@@ -432,6 +448,40 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 				continue;
 			}
 
+			if (key == "LIGHT")
+			{
+				ent.hasLight = true;
+				int type = static_cast<int>(LightType::Directional);
+				int castShadows = 0;
+				if (!(in >> type
+				      >> ent.light.color.x >> ent.light.color.y >> ent.light.color.z
+				      >> ent.light.intensity
+				      >> ent.light.range
+				      >> ent.light.innerCone >> ent.light.outerCone
+				      >> castShadows))
+				{
+					outError = "Failed reading LightEmitter component.";
+					return false;
+				}
+
+				switch (type)
+				{
+				case 1:
+					ent.light.type = LightType::Point;
+					break;
+				case 2:
+					ent.light.type = LightType::Spot;
+					break;
+				case 0:
+				default:
+					ent.light.type = LightType::Directional;
+					break;
+				}
+
+				ent.light.castShadows = (castShadows != 0);
+				continue;
+			}
+
 			if (key == "SPRITE")
 			{
 				ent.hasSprite = true;
@@ -559,6 +609,8 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 			registry.Emplace<CameraController>(e, ent.cameraController);
 		if (ent.hasSpin)
 			registry.Emplace<Spin>(e, ent.spin);
+		if (ent.hasLight)
+			registry.Emplace<LightEmitter>(e, ent.light);
 		if (ent.hasSprite)
 			registry.Emplace<Sprite>(e, ent.sprite);
 		if (ent.hasMaterial)

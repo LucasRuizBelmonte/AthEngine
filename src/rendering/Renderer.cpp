@@ -9,6 +9,9 @@
 #include "../resources/TextureManager.h"
 #include "../rendering/Texture.h"
 #include <glm/gtc/matrix_inverse.hpp>
+#include <algorithm>
+#include <cstddef>
+#include <string>
 #pragma endregion
 
 #pragma region Function Definitions
@@ -27,6 +30,12 @@ void Renderer::SetCamera(const glm::mat4 &view, const glm::mat4 &proj)
 {
 	m_view = view;
 	m_proj = proj;
+}
+
+void Renderer::SetLights(const std::vector<LightData> &lights)
+{
+	const size_t count = std::min(lights.size(), static_cast<size_t>(MAX_LIGHTS));
+	m_lights.assign(lights.begin(), lights.begin() + static_cast<std::ptrdiff_t>(count));
 }
 
 void Renderer::Submit(const Mesh &mesh,
@@ -51,7 +60,25 @@ void Renderer::Submit(const Mesh &mesh,
 	const glm::mat4 invView = glm::inverse(m_view);
 	const glm::vec3 viewPos = glm::vec3(invView[3]);
 	shader->SetUniform("u_viewPos", viewPos);
-	shader->SetUniform("u_lightDir", glm::normalize(glm::vec3(-0.4f, -1.0f, -0.25f)));
+	if (!m_lights.empty())
+		shader->SetUniform("u_lightDir", m_lights[0].direction);
+	else
+		shader->SetUniform("u_lightDir", glm::normalize(glm::vec3(-0.4f, -1.0f, -0.25f)));
+
+	shader->SetUniform("lightCount", static_cast<int>(m_lights.size()));
+	for (size_t i = 0; i < m_lights.size(); ++i)
+	{
+		const LightData &l = m_lights[i];
+		const std::string prefix = "lights[" + std::to_string(i) + "]";
+		shader->SetUniform(prefix + ".type", l.type);
+		shader->SetUniform(prefix + ".position", l.position);
+		shader->SetUniform(prefix + ".direction", l.direction);
+		shader->SetUniform(prefix + ".color", l.color);
+		shader->SetUniform(prefix + ".intensity", l.intensity);
+		shader->SetUniform(prefix + ".range", l.range);
+		shader->SetUniform(prefix + ".innerCone", l.innerCone);
+		shader->SetUniform(prefix + ".outerCone", l.outerCone);
+	}
 
 	auto bindTextureSlot = [&](GLenum textureUnit,
 	                           int samplerUnit,

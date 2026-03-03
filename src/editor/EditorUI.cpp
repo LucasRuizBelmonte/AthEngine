@@ -11,6 +11,9 @@
 #include "../scene/SceneManager.h"
 #include "../scene/IScene.h"
 #include "../scene/IEditorScene.h"
+#include "../components/Mesh.h"
+#include "../components/Material.h"
+#include "../rendering/MeshFactory.h"
 #include "SceneEditor.h"
 #pragma endregion
 
@@ -104,6 +107,45 @@ static std::string TrimCopy(std::string text)
 	if (begin >= end)
 		return {};
 	return std::string(begin, end);
+}
+
+enum class BasicShapeKind
+{
+	Box,
+	Plane
+};
+
+static bool IsEditable3DScene(IEditorScene *editorScene)
+{
+	return editorScene && std::string(editorScene->GetEditorSceneType()) == "Test3D";
+}
+
+static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, const char *name, BasicShapeKind kind)
+{
+	if (!editorScene)
+		return kInvalidEntity;
+
+	Registry &r = editorScene->GetEditorRegistry();
+	Entity e = SceneEditor::CreateEntity(r, name, kInvalidEntity, true);
+
+	if (kind == BasicShapeKind::Box)
+		r.Emplace<Mesh>(e, MeshFactory::CreateLitBox());
+	else
+		r.Emplace<Mesh>(e, MeshFactory::CreateLitPlane());
+
+	auto &mesh = r.Get<Mesh>(e);
+	mesh.materialPath = std::string(ASSET_PATH) + "/shaders/lit3d.fs";
+
+	if (!r.Has<Material>(e))
+		r.Emplace<Material>(e);
+
+	std::string err;
+	if (!editorScene->EditorSetMeshMaterial(e, mesh.materialPath, err))
+		se.inspectorStatus = "Basic shape material error: " + err;
+	else
+		se.inspectorStatus.clear();
+
+	return e;
 }
 
 static void AddSystemPopup(IEditorScene *editorScene)
@@ -226,23 +268,6 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 
 	bool canEdit = (es != nullptr);
 
-	if (ImGui::BeginMenu("Create"))
-	{
-		if (ImGui::MenuItem("Entity", nullptr, false, canEdit))
-		{
-			Registry &r = es->GetEditorRegistry();
-			se.selectedEntity = SceneEditor::CreateEntity(r, "New Entity", kInvalidEntity, true);
-		}
-
-		if (ImGui::MenuItem("Child Entity", nullptr, false, canEdit && se.selectedEntity != kInvalidEntity))
-		{
-			Registry &r = es->GetEditorRegistry();
-			se.selectedEntity = SceneEditor::CreateEntity(r, "New Entity", se.selectedEntity, true);
-		}
-
-		ImGui::EndMenu();
-	}
-
 	if (ImGui::BeginMenu("Edit"))
 	{
 		if (ImGui::MenuItem("Duplicate", nullptr, false, canEdit && se.selectedEntity != kInvalidEntity))
@@ -280,13 +305,37 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 
 	if (ImGui::BeginMenu("Add"))
 	{
-		if (ImGui::MenuItem("Add 3D Scene"))
+		if (ImGui::MenuItem("Entity", nullptr, false, canEdit))
+		{
+			Registry &r = es->GetEditorRegistry();
+			se.selectedEntity = SceneEditor::CreateEntity(r, "New Entity", kInvalidEntity, true);
+		}
+
+		if (ImGui::MenuItem("Child Entity", nullptr, false, canEdit && se.selectedEntity != kInvalidEntity))
+		{
+			Registry &r = es->GetEditorRegistry();
+			se.selectedEntity = SceneEditor::CreateEntity(r, "New Entity", se.selectedEntity, true);
+		}
+
+		if (ImGui::BeginMenu("Add Basic Shape"))
+		{
+			const bool canAddShape = canEdit && IsEditable3DScene(es);
+			if (ImGui::MenuItem("Box", nullptr, false, canAddShape))
+				se.selectedEntity = AddBasicShape(es, se, "Box", BasicShapeKind::Box);
+			if (ImGui::MenuItem("Plane", nullptr, false, canAddShape))
+				se.selectedEntity = AddBasicShape(es, se, "Plane", BasicShapeKind::Plane);
+			ImGui::EndMenu();
+		}
+
+		ImGui::Separator();
+
+		if (ImGui::MenuItem("3D Scene"))
 		{
 			ui.selectedScene = scenes.GetLoadedSceneCount();
 			scenes.AddScene(SceneRequest::Basic3D);
 		}
 
-		if (ImGui::MenuItem("Add 2D Scene"))
+		if (ImGui::MenuItem("2D Scene"))
 		{
 			ui.selectedScene = scenes.GetLoadedSceneCount();
 			scenes.AddScene(SceneRequest::Basic2D);

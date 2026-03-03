@@ -443,10 +443,17 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 
 			for (auto &s : sys)
 			{
-				if (s.enabled)
-					ImGui::Checkbox(s.name, s.enabled);
-				else
-					ImGui::Text("%s", s.name);
+				if (!s.enabled || !*s.enabled)
+					continue;
+
+				ImGui::PushID(s.name);
+				ImGui::Checkbox("##enabled", s.enabled);
+				ImGui::SameLine();
+				ImGui::TextUnformatted(s.name);
+				ImGui::SameLine();
+				if (ImGui::SmallButton("Remove"))
+					*s.enabled = false;
+				ImGui::PopID();
 			}
 		}
 

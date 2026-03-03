@@ -23,7 +23,6 @@ enum class SceneRequest
 {
     Basic3D,
     Basic2D,
-    Both,
     Push3D,
     Push2D
 };

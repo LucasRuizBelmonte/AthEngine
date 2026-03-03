@@ -27,7 +27,7 @@ Application::Application()
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
 	m_Scenes = std::make_unique<SceneManager>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
-	m_Scenes->Request(SceneRequest::Both);
+	m_Scenes->Request(SceneRequest::Basic2D);
 
 	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -114,7 +114,7 @@ void Application::HandleSceneInput()
 	// 	m_Scenes->Request(SceneRequest::Basic2D);
 
 	// if (Input::GetKeyDown(GLFW_KEY_3))
-	// 	m_Scenes->Request(SceneRequest::Both);
+	// 	m_Scenes->Request(SceneRequest::Basic2D);
 
 	// if (Input::GetKeyDown(GLFW_KEY_4))
 	// 	m_Scenes->Request(SceneRequest::Push3D);

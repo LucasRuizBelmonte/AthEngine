@@ -6,7 +6,6 @@
 #include "scenes/LoadingScene.h"
 #include "scenes/Test3DScene.h"
 #include "scenes/Test2DScene.h"
-#include "scenes/MultiScene.h"
 
 #include "../rendering/Renderer.h"
 #include "IEditorScene.h"
@@ -32,9 +31,7 @@ std::shared_ptr<IScene> SceneManager::CreateScene(SceneRequest req)
 	if (req == SceneRequest::Basic2D || req == SceneRequest::Push2D)
 		return std::make_shared<Test2DScene>(m_shaders, m_textures);
 
-	auto a = std::make_shared<Test3DScene>(m_shaders, m_textures);
-	auto b = std::make_shared<Test2DScene>(m_shaders, m_textures);
-	return std::make_shared<MultiScene>(a, b);
+	return std::make_shared<Test2DScene>(m_shaders, m_textures);
 }
 
 void SceneManager::Request(SceneRequest req)

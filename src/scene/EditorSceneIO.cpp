@@ -240,7 +240,14 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 			const Material &c = registry.Get<Material>(e);
 			out << "MATERIAL "
 			    << c.shader.id << " " << c.texture.id << " "
-			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << "\n";
+			    << c.specularTexture.id << " " << c.normalTexture.id << " " << c.emissionTexture.id << " "
+			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
+			    << c.specularStrength << " " << c.shininess << " "
+			    << c.normalStrength << " " << c.emissionStrength << " "
+			    << std::quoted(c.texturePath) << " "
+			    << std::quoted(c.specularTexturePath) << " "
+			    << std::quoted(c.normalTexturePath) << " "
+			    << std::quoted(c.emissionTexturePath) << "\n";
 		}
 
 		if (registry.Has<Mesh>(e))
@@ -454,11 +461,41 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 			if (key == "MATERIAL")
 			{
 				ent.hasMaterial = true;
-				if (!(in >> ent.material.shader.id >> ent.material.texture.id >>
-				      ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
+				if (!(in >> ent.material.shader.id >> ent.material.texture.id))
 				{
 					outError = "Failed reading Material component.";
 					return false;
+				}
+
+				std::string rest;
+				std::getline(in, rest);
+				if (!rest.empty())
+				{
+					std::istringstream ls(rest);
+
+					// Backward compatible:
+					// Old layout: tint4
+					// New layout: spec/normal/emission handles + tint4 + scalar params + paths.
+					if (!(ls >> ent.material.specularTexture.id >> ent.material.normalTexture.id >> ent.material.emissionTexture.id >>
+					      ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
+					{
+						ls.clear();
+						ls.str(rest);
+						if (!(ls >> ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
+						{
+							outError = "Failed reading Material component.";
+							return false;
+						}
+					}
+					else
+					{
+						(void)(ls >> ent.material.specularStrength >> ent.material.shininess >>
+						      ent.material.normalStrength >> ent.material.emissionStrength);
+						(void)(ls >> std::quoted(ent.material.texturePath) >>
+						      std::quoted(ent.material.specularTexturePath) >>
+						      std::quoted(ent.material.normalTexturePath) >>
+						      std::quoted(ent.material.emissionTexturePath));
+					}
 				}
 				continue;
 			}

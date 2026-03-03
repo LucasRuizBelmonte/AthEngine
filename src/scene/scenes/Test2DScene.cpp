@@ -9,7 +9,6 @@
 #include "../../fileManager/fileManager.h"
 #include "../../utils/Utils2D.h"
 #include "../../thirdparty/stb_image.h"
-#include "../../input/Input.h"
 #include "../../editor/EditorUI.h"
 #include "../EditorSceneIO.h"
 
@@ -26,6 +25,29 @@ namespace
 	static std::string EditorAssetName(const char *prefix, const std::string &path)
 	{
 		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
+	}
+
+	static bool ApplyMaterialTextureSlot(TextureManager &textureManager,
+	                                     ResourceHandle<Texture> &slot,
+	                                     const std::string &path,
+	                                     const char *namePrefix,
+	                                     std::string &outError)
+	{
+		if (path.empty())
+		{
+			slot = {0};
+			return true;
+		}
+
+		auto handle = textureManager.Load(EditorAssetName(namePrefix, path), path, true);
+		if (!handle.IsValid())
+		{
+			outError = std::string("Could not load texture: ") + path;
+			return false;
+		}
+
+		slot = handle;
+		return true;
 	}
 }
 
@@ -96,6 +118,12 @@ bool Test2DScene::LoadFromFile(const std::string &path, std::string &inOutSceneN
 				(void)EditorSetMeshPath(e, mesh.meshPath, ignoredError);
 			if (!mesh.materialPath.empty())
 				(void)EditorSetMeshMaterial(e, mesh.materialPath, ignoredError);
+		}
+
+		if (m_registry.Has<Material>(e))
+		{
+			std::string ignoredError;
+			(void)EditorApplyMaterial(e, ignoredError);
 		}
 	}
 
@@ -217,6 +245,28 @@ bool Test2DScene::EditorSetMeshMaterial(Entity e, const std::string &path, std::
 	}
 
 	mat.shader = shader;
+	return true;
+}
+
+bool Test2DScene::EditorApplyMaterial(Entity e, std::string &outError)
+{
+	if (!m_registry.IsAlive(e) || !m_registry.Has<Material>(e))
+	{
+		outError = "Entity has no Material component.";
+		return false;
+	}
+
+	auto &mat = m_registry.Get<Material>(e);
+
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.texture, mat.texturePath, "editor_mat_base_", outError))
+		return false;
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.specularTexture, mat.specularTexturePath, "editor_mat_spec_", outError))
+		return false;
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.normalTexture, mat.normalTexturePath, "editor_mat_norm_", outError))
+		return false;
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.emissionTexture, mat.emissionTexturePath, "editor_mat_emit_", outError))
+		return false;
+
 	return true;
 }
 
@@ -351,33 +401,6 @@ void Test2DScene::Update(float dt, float)
 	const auto &cam = m_registry.Get<Camera>(m_camera2D);
 
 	bool moved = false;
-
-	if (m_sysSpriteController)
-	{
-		if (Input::GetKey(GLFW_KEY_A))
-		{
-			m_spritePercentX -= 0.25f * dt;
-			moved = true;
-		}
-		if (Input::GetKey(GLFW_KEY_D))
-		{
-			m_spritePercentX += 0.25f * dt;
-			moved = true;
-		}
-		if (Input::GetKey(GLFW_KEY_S))
-		{
-			m_spritePercentY -= 0.25f * dt;
-			moved = true;
-		}
-		if (Input::GetKey(GLFW_KEY_W))
-		{
-			m_spritePercentY += 0.25f * dt;
-			moved = true;
-		}
-	}
-
-	if (Input::GetKeyDown(GLFW_KEY_SPACE))
-		m_audio.Play("test");
 
 	if (moved && m_sprite != kInvalidEntity && m_registry.IsAlive(m_sprite) && m_registry.Has<Transform>(m_sprite))
 	{

@@ -666,17 +666,52 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		RemoveComponentMenu<Material>(r, e, "MaterialCtx");
 
 		auto &m = r.Get<Material>(e);
+		char basePathBuf[512];
+		char specPathBuf[512];
+		char normalPathBuf[512];
+		char emissionPathBuf[512];
 
-		unsigned shId = m.shader.id;
-		unsigned txId = m.texture.id;
+		std::snprintf(basePathBuf, sizeof(basePathBuf), "%s", m.texturePath.c_str());
+		std::snprintf(specPathBuf, sizeof(specPathBuf), "%s", m.specularTexturePath.c_str());
+		std::snprintf(normalPathBuf, sizeof(normalPathBuf), "%s", m.normalTexturePath.c_str());
+		std::snprintf(emissionPathBuf, sizeof(emissionPathBuf), "%s", m.emissionTexturePath.c_str());
 
-		ImGui::InputScalar("Shader Handle", ImGuiDataType_U32, &shId);
-		ImGui::InputScalar("Texture Handle", ImGuiDataType_U32, &txId);
-
-		m.shader.id = shId;
-		m.texture.id = txId;
+		bool materialPathChanged = false;
+		if (ImGui::InputText("Base Color Path", basePathBuf, sizeof(basePathBuf)))
+		{
+			m.texturePath = basePathBuf;
+			materialPathChanged = true;
+		}
+		if (ImGui::InputText("Specular Path", specPathBuf, sizeof(specPathBuf)))
+		{
+			m.specularTexturePath = specPathBuf;
+			materialPathChanged = true;
+		}
+		if (ImGui::InputText("Normal Path", normalPathBuf, sizeof(normalPathBuf)))
+		{
+			m.normalTexturePath = normalPathBuf;
+			materialPathChanged = true;
+		}
+		if (ImGui::InputText("Emission Path", emissionPathBuf, sizeof(emissionPathBuf)))
+		{
+			m.emissionTexturePath = emissionPathBuf;
+			materialPathChanged = true;
+		}
 
 		DrawColor4("Tint", &m.tint.x);
+		ImGui::DragFloat("Specular Strength", &m.specularStrength, 0.01f, 0.0f, 8.0f);
+		ImGui::DragFloat("Shininess", &m.shininess, 0.1f, 1.0f, 512.0f);
+		ImGui::DragFloat("Normal Strength", &m.normalStrength, 0.01f, 0.0f, 4.0f);
+		ImGui::DragFloat("Emission Strength", &m.emissionStrength, 0.01f, 0.0f, 16.0f);
+
+		if ((materialPathChanged || ImGui::Button("Apply Material Textures")) && editorScene)
+		{
+			std::string err;
+			if (!editorScene->EditorApplyMaterial(e, err))
+				st.inspectorStatus = "Material apply error: " + err;
+			else
+				st.inspectorStatus.clear();
+		}
 	}
 
 	if (r.Has<Mesh>(e) && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))

@@ -107,6 +107,10 @@ public:
 	 * @brief Applies mesh material path for editor changes.
 	 */
 	bool EditorSetMeshMaterial(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies material texture slots for editor changes.
+	 */
+	bool EditorApplyMaterial(Entity e, std::string &outError) override;
 
 	#pragma endregion
 private:

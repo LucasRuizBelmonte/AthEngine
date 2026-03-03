@@ -14,10 +14,12 @@
 #pragma region File Scope
 namespace
 {
-    struct VertexPC
+    struct VertexPUNT
     {
         float px, py, pz;
-        float cr, cg, cb;
+        float u, v;
+        float nx, ny, nz;
+        float tx, ty, tz;
     };
 }
 #pragma endregion
@@ -29,6 +31,7 @@ Mesh ModelLoader::LoadFirstMesh(const std::string &path)
 
     const aiScene *scene = importer.ReadFile(
         path, aiProcess_Triangulate |
+                  aiProcess_CalcTangentSpace |
                   aiProcess_JoinIdenticalVertices |
                   aiProcess_GenNormals |
                   aiProcess_ImproveCacheLocality |
@@ -37,13 +40,7 @@ Mesh ModelLoader::LoadFirstMesh(const std::string &path)
     if (!scene || !scene->HasMeshes())
         throw std::runtime_error("Assimp failed to load mesh: " + path);
 
-    struct VertexPC
-    {
-        float px, py, pz;
-        float cr, cg, cb;
-    };
-
-    std::vector<VertexPC> vertices;
+    std::vector<VertexPUNT> vertices;
     std::vector<unsigned int> indices;
 
     vertices.reserve(10000);
@@ -58,12 +55,17 @@ Mesh ModelLoader::LoadFirstMesh(const std::string &path)
         for (unsigned i = 0; i < src->mNumVertices; ++i)
         {
             const aiVector3D &p = src->mVertices[i];
+            const aiVector3D uv = src->HasTextureCoords(0) ? src->mTextureCoords[0][i] : aiVector3D(0.f, 0.f, 0.f);
+            const aiVector3D n = src->HasNormals() ? src->mNormals[i] : aiVector3D(0.f, 0.f, 1.f);
+            const aiVector3D t = src->HasTangentsAndBitangents() ? src->mTangents[i] : aiVector3D(1.f, 0.f, 0.f);
 
-            vertices.push_back(VertexPC{
+            vertices.push_back(VertexPUNT{
                 p.x * 0.01f,
                 p.y * 0.01f,
                 p.z * 0.01f,
-                1.0f, 1.0f, 1.0f});
+                uv.x, uv.y,
+                n.x, n.y, n.z,
+                t.x, t.y, t.z});
         }
 
         for (unsigned i = 0; i < src->mNumFaces; ++i)
@@ -90,7 +92,7 @@ Mesh ModelLoader::LoadFirstMesh(const std::string &path)
 
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
     glBufferData(GL_ARRAY_BUFFER,
-                 vertices.size() * sizeof(VertexPC),
+                 vertices.size() * sizeof(VertexPUNT),
                  vertices.data(),
                  GL_STATIC_DRAW);
 
@@ -100,11 +102,17 @@ Mesh ModelLoader::LoadFirstMesh(const std::string &path)
                  indices.data(),
                  GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPC), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPUNT), (void *)0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPC), (void *)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexPUNT), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPUNT), (void *)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(VertexPUNT), (void *)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 

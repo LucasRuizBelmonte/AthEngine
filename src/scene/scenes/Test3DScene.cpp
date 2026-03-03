@@ -23,6 +23,29 @@ namespace
 	{
 		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
 	}
+
+	static bool ApplyMaterialTextureSlot(TextureManager &textureManager,
+	                                     ResourceHandle<Texture> &slot,
+	                                     const std::string &path,
+	                                     const char *namePrefix,
+	                                     std::string &outError)
+	{
+		if (path.empty())
+		{
+			slot = {0};
+			return true;
+		}
+
+		auto handle = textureManager.Load(EditorAssetName(namePrefix, path), path, true);
+		if (!handle.IsValid())
+		{
+			outError = std::string("Could not load texture: ") + path;
+			return false;
+		}
+
+		slot = handle;
+		return true;
+	}
 }
 
 Test3DScene::Test3DScene(ShaderManager &shaderManager, TextureManager &textureManager)
@@ -89,6 +112,12 @@ bool Test3DScene::LoadFromFile(const std::string &path, std::string &inOutSceneN
 				(void)EditorSetMeshPath(e, mesh.meshPath, ignoredError);
 			if (!mesh.materialPath.empty())
 				(void)EditorSetMeshMaterial(e, mesh.materialPath, ignoredError);
+		}
+
+		if (m_registry.Has<Material>(e))
+		{
+			std::string ignoredError;
+			(void)EditorApplyMaterial(e, ignoredError);
 		}
 	}
 
@@ -215,6 +244,28 @@ bool Test3DScene::EditorSetMeshMaterial(Entity e, const std::string &path, std::
 	return true;
 }
 
+bool Test3DScene::EditorApplyMaterial(Entity e, std::string &outError)
+{
+	if (!m_registry.IsAlive(e) || !m_registry.Has<Material>(e))
+	{
+		outError = "Entity has no Material component.";
+		return false;
+	}
+
+	auto &mat = m_registry.Get<Material>(e);
+
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.texture, mat.texturePath, "editor_mat_base_", outError))
+		return false;
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.specularTexture, mat.specularTexturePath, "editor_mat_spec_", outError))
+		return false;
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.normalTexture, mat.normalTexturePath, "editor_mat_norm_", outError))
+		return false;
+	if (!ApplyMaterialTextureSlot(m_textureManager, mat.emissionTexture, mat.emissionTexturePath, "editor_mat_emit_", outError))
+		return false;
+
+	return true;
+}
+
 void Test3DScene::RequestLoad(AsyncLoader &loader)
 {
 	m_loaded = false;
@@ -239,14 +290,24 @@ void Test3DScene::RequestLoad(AsyncLoader &loader)
 			m_registry.Emplace<Parent>(m_triangle, Parent{kInvalidEntity});
 			m_registry.Emplace<Transform>(m_triangle);
 
-			Mesh model = ModelLoader::LoadFirstMesh(std::string(ASSET_PATH) + "/models/test.fbx");
-			model.meshPath = std::string(ASSET_PATH) + "/models/test.fbx";
+			const std::string dragonMeshPath = std::string(ASSET_PATH) + "/models/test.fbx";
+			Mesh model = ModelLoader::LoadFirstMesh(dragonMeshPath);
+			model.meshPath = dragonMeshPath;
 			model.materialPath = m_fsPath;
 			m_registry.Emplace<Mesh>(m_triangle, std::move(model));
 
 			Material mat;
 			mat.shader = shader;
+			mat.texturePath = std::string(ASSET_PATH) + "/textures/dragon/Dragon_ground_color.jpg";
+			mat.specularTexturePath = std::string(ASSET_PATH) + "/textures/dragon/Dragon_Bump_Col2.jpg";
+			mat.normalTexturePath = std::string(ASSET_PATH) + "/textures/dragon/Dragon_Nor.jpg";
+			mat.specularStrength = 1.0f;
+			mat.shininess = 64.0f;
 			m_registry.Emplace<Material>(m_triangle, mat);
+			{
+				std::string ignoredError;
+				(void)EditorApplyMaterial(m_triangle, ignoredError);
+			}
 
 			m_registry.Emplace<Spin>(m_triangle, Spin{{0.f, 0.f, -1.f}, 0.8f, 1.0f});
 

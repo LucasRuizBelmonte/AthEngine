@@ -63,6 +63,10 @@ public:
      * @brief Applies a mesh material path to an entity.
      */
     virtual bool EditorSetMeshMaterial(Entity e, const std::string &path, std::string &outError) = 0;
+    /**
+     * @brief Applies material texture slots/parameters after editor changes.
+     */
+    virtual bool EditorApplyMaterial(Entity e, std::string &outError) = 0;
 	#pragma endregion
 };
 #pragma endregion

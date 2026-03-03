@@ -107,20 +107,20 @@ static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
 
 void Application::HandleSceneInput()
 {
-	if (Input::GetKeyDown(GLFW_KEY_1))
-		m_Scenes->Request(SceneRequest::Basic3D);
+	// if (Input::GetKeyDown(GLFW_KEY_1))
+	// 	m_Scenes->Request(SceneRequest::Basic3D);
 
-	if (Input::GetKeyDown(GLFW_KEY_2))
-		m_Scenes->Request(SceneRequest::Basic2D);
+	// if (Input::GetKeyDown(GLFW_KEY_2))
+	// 	m_Scenes->Request(SceneRequest::Basic2D);
 
-	if (Input::GetKeyDown(GLFW_KEY_3))
-		m_Scenes->Request(SceneRequest::Both);
+	// if (Input::GetKeyDown(GLFW_KEY_3))
+	// 	m_Scenes->Request(SceneRequest::Both);
 
-	if (Input::GetKeyDown(GLFW_KEY_4))
-		m_Scenes->Request(SceneRequest::Push3D);
+	// if (Input::GetKeyDown(GLFW_KEY_4))
+	// 	m_Scenes->Request(SceneRequest::Push3D);
 
-	if (Input::GetKeyDown(GLFW_KEY_5))
-		m_Scenes->Request(SceneRequest::Push3D);
+	// if (Input::GetKeyDown(GLFW_KEY_5))
+	// 	m_Scenes->Request(SceneRequest::Push3D);
 
 #ifdef ENGINE_DEBUG
 	if (Input::GetKeyDown(GLFW_KEY_ESCAPE))

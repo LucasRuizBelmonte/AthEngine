@@ -223,9 +223,9 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 		{
 			const Transform &c = registry.Get<Transform>(e);
 			out << "TRANSFORM "
-			    << c.position.x << " " << c.position.y << " " << c.position.z << " "
-			    << c.rotationEuler.x << " " << c.rotationEuler.y << " " << c.rotationEuler.z << " "
-			    << c.scale.x << " " << c.scale.y << " " << c.scale.z << " "
+			    << c.localPosition.x << " " << c.localPosition.y << " " << c.localPosition.z << " "
+			    << c.localRotation.x << " " << c.localRotation.y << " " << c.localRotation.z << " "
+			    << c.localScale.x << " " << c.localScale.y << " " << c.localScale.z << " "
 			    << c.pivot.x << " " << c.pivot.y << " " << c.pivot.z << "\n";
 		}
 
@@ -420,9 +420,9 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 			if (key == "TRANSFORM")
 			{
 				ent.hasTransform = true;
-				if (!(in >> ent.transform.position.x >> ent.transform.position.y >> ent.transform.position.z >>
-				      ent.transform.rotationEuler.x >> ent.transform.rotationEuler.y >> ent.transform.rotationEuler.z >>
-				      ent.transform.scale.x >> ent.transform.scale.y >> ent.transform.scale.z))
+				if (!(in >> ent.transform.localPosition.x >> ent.transform.localPosition.y >> ent.transform.localPosition.z >>
+				      ent.transform.localRotation.x >> ent.transform.localRotation.y >> ent.transform.localRotation.z >>
+				      ent.transform.localScale.x >> ent.transform.localScale.y >> ent.transform.localScale.z))
 				{
 					outError = "Failed reading Transform component.";
 					return false;

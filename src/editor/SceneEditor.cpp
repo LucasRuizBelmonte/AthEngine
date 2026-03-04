@@ -1089,9 +1089,9 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		RemoveComponentMenu<Transform>(r, e, "TransformCtx");
 
 		auto &t = r.Get<Transform>(e);
-		DrawVec3("Position", &t.position.x, 0.05f);
-		DrawRotationEulerDegrees("RotationEuler", t.rotationEuler, 0.5f);
-		DrawVec3("Scale", &t.scale.x, 0.05f);
+		DrawVec3("Local Position", &t.localPosition.x, 0.05f);
+		DrawRotationEulerDegrees("Local Rotation", t.localRotation, 0.5f);
+		DrawVec3("Local Scale", &t.localScale.x, 0.05f);
 		DrawVec3("Pivot Anchor (-1..1)", &t.pivot.x, 0.05f);
 	}
 

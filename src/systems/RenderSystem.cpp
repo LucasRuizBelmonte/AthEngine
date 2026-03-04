@@ -16,27 +16,8 @@
 #pragma region Function Definitions
 static glm::mat4 BuildModel(const Transform &t)
 {
-	glm::mat4 T = glm::translate(glm::mat4(1.f), t.position);
-
-	glm::mat4 R =
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.x, glm::vec3(1, 0, 0)) *
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.y, glm::vec3(0, 1, 0)) *
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.z, glm::vec3(0, 0, 1));
-
-	glm::mat4 S = glm::scale(glm::mat4(1.f), t.scale);
-	glm::mat4 P = glm::translate(glm::mat4(1.f), -t.pivot);
-
-	return T * R * S * P;
-}
-
-static glm::mat3 BuildRotation(const Transform &t)
-{
-	const glm::mat4 R =
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.x, glm::vec3(1, 0, 0)) *
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.y, glm::vec3(0, 1, 0)) *
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.z, glm::vec3(0, 0, 1));
-
-	return glm::mat3(R);
+	const glm::mat4 pivot = glm::translate(glm::mat4(1.f), -t.pivot);
+	return t.worldMatrix * pivot;
 }
 
 void RenderSystem::Render(Registry &registry,
@@ -81,15 +62,16 @@ void RenderSystem::Render(Registry &registry,
 
 		Renderer::LightData out{};
 		out.type = static_cast<int>(l.type);
-		out.position = t.position;
+		out.position = glm::vec3(t.worldMatrix[3]);
 		out.color = l.color;
 		out.intensity = l.intensity;
 		out.range = l.range;
 		out.innerCone = l.innerCone;
 		out.outerCone = l.outerCone;
 
-		const glm::vec3 forward = BuildRotation(t) * glm::vec3(0.f, 0.f, -1.f);
-		out.direction = glm::normalize(forward);
+		const glm::vec3 forward = glm::vec3(t.worldMatrix * glm::vec4(0.f, 0.f, -1.f, 0.f));
+		const float forwardLen = glm::length(forward);
+		out.direction = (forwardLen > 1e-6f) ? (forward / forwardLen) : glm::vec3(0.f, 0.f, -1.f);
 
 		lights.push_back(out);
 	}

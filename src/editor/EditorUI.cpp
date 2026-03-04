@@ -170,7 +170,7 @@ static std::string TrimCopy(std::string text)
 static std::string ToLowerCopy(std::string text)
 {
 	std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c)
-	               { return static_cast<char>(std::tolower(c)); });
+				   { return static_cast<char>(std::tolower(c)); });
 	return text;
 }
 
@@ -241,12 +241,12 @@ static Entity GetAliveParent(Registry &r, Entity e)
 
 static glm::mat4 BuildLocalTransformMatrix(const Transform &t)
 {
-	const glm::mat4 T = glm::translate(glm::mat4(1.f), t.position);
+	const glm::mat4 T = glm::translate(glm::mat4(1.f), t.localPosition);
 	const glm::mat4 R =
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.x, glm::vec3(1.f, 0.f, 0.f)) *
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.y, glm::vec3(0.f, 1.f, 0.f)) *
-		glm::rotate(glm::mat4(1.f), t.rotationEuler.z, glm::vec3(0.f, 0.f, 1.f));
-	const glm::mat4 S = glm::scale(glm::mat4(1.f), t.scale);
+		glm::rotate(glm::mat4(1.f), t.localRotation.x, glm::vec3(1.f, 0.f, 0.f)) *
+		glm::rotate(glm::mat4(1.f), t.localRotation.y, glm::vec3(0.f, 1.f, 0.f)) *
+		glm::rotate(glm::mat4(1.f), t.localRotation.z, glm::vec3(0.f, 0.f, 1.f));
+	const glm::mat4 S = glm::scale(glm::mat4(1.f), t.localScale);
 	return T * R * S;
 }
 
@@ -313,7 +313,7 @@ static void DrawSelectedForwardArrow(
 
 	ImVec2 p0, pDirSample;
 	if (!ProjectWorldToViewport(origin, view, projection, rectMin, rectSize, p0) ||
-	    !ProjectWorldToViewport(origin + forward, view, projection, rectMin, rectSize, pDirSample))
+		!ProjectWorldToViewport(origin + forward, view, projection, rectMin, rectSize, pDirSample))
 	{
 		return;
 	}
@@ -353,19 +353,19 @@ static Transform DecomposeTransform(const glm::mat4 &matrix, const Transform &ke
 	float scale[3] = {1.f, 1.f, 1.f};
 	ImGuizmo::DecomposeMatrixToComponents(m, translation, rotationDeg, scale);
 
-	out.position = glm::vec3(translation[0], translation[1], translation[2]);
-	out.rotationEuler = glm::radians(glm::vec3(rotationDeg[0], rotationDeg[1], rotationDeg[2]));
-	out.scale = glm::vec3(scale[0], scale[1], scale[2]);
+	out.localPosition = glm::vec3(translation[0], translation[1], translation[2]);
+	out.localRotation = glm::radians(glm::vec3(rotationDeg[0], rotationDeg[1], rotationDeg[2]));
+	out.localScale = glm::vec3(scale[0], scale[1], scale[2]);
 	return out;
 }
 
 static bool TransformEqualEpsilon(const Transform &a, const Transform &b)
 {
 	constexpr float eps = 1e-4f;
-	return glm::all(glm::lessThanEqual(glm::abs(a.position - b.position), glm::vec3(eps))) &&
-	       glm::all(glm::lessThanEqual(glm::abs(a.rotationEuler - b.rotationEuler), glm::vec3(eps))) &&
-	       glm::all(glm::lessThanEqual(glm::abs(a.scale - b.scale), glm::vec3(eps))) &&
-	       glm::all(glm::lessThanEqual(glm::abs(a.pivot - b.pivot), glm::vec3(eps)));
+	return glm::all(glm::lessThanEqual(glm::abs(a.localPosition - b.localPosition), glm::vec3(eps))) &&
+		   glm::all(glm::lessThanEqual(glm::abs(a.localRotation - b.localRotation), glm::vec3(eps))) &&
+		   glm::all(glm::lessThanEqual(glm::abs(a.localScale - b.localScale), glm::vec3(eps))) &&
+		   glm::all(glm::lessThanEqual(glm::abs(a.pivot - b.pivot), glm::vec3(eps)));
 }
 
 static Entity FindEditorCameraEntity(Registry &r)
@@ -470,18 +470,18 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 		g_gizmoState.isManipulating = false;
 
 		if (g_gizmoState.activeScene == editorScene &&
-		    g_gizmoState.activeEntity != kInvalidEntity &&
-		    r.IsAlive(g_gizmoState.activeEntity) &&
-		    r.Has<Transform>(g_gizmoState.activeEntity))
+			g_gizmoState.activeEntity != kInvalidEntity &&
+			r.IsAlive(g_gizmoState.activeEntity) &&
+			r.Has<Transform>(g_gizmoState.activeEntity))
 		{
 			const Transform endTransform = r.Get<Transform>(g_gizmoState.activeEntity);
 			if (!TransformEqualEpsilon(g_gizmoState.beginTransform, endTransform))
 			{
 				TransformHistory &history = g_transformHistoryByScene[editorScene];
 				PushTransformCommand(history, TransformEditCommand{
-					g_gizmoState.activeEntity,
-					g_gizmoState.beginTransform,
-					endTransform});
+												  g_gizmoState.activeEntity,
+												  g_gizmoState.beginTransform,
+												  endTransform});
 			}
 		}
 
@@ -591,17 +591,17 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 		Transform updatedTransform = DecomposeTransform(localMatrix, localTransform);
 		if (g_gizmoState.operation == ImGuizmo::TRANSLATE)
 		{
-			updatedTransform.rotationEuler = transformBeforeFrame.rotationEuler;
-			updatedTransform.scale = transformBeforeFrame.scale;
+			updatedTransform.localRotation = transformBeforeFrame.localRotation;
+			updatedTransform.localScale = transformBeforeFrame.localScale;
 		}
 		else if (g_gizmoState.operation == ImGuizmo::SCALE)
 		{
-			updatedTransform.rotationEuler = transformBeforeFrame.rotationEuler;
+			updatedTransform.localRotation = transformBeforeFrame.localRotation;
 		}
 		else if (g_gizmoState.operation == ImGuizmo::ROTATE)
 		{
-			updatedTransform.position = transformBeforeFrame.position;
-			updatedTransform.scale = transformBeforeFrame.scale;
+			updatedTransform.localPosition = transformBeforeFrame.localPosition;
+			updatedTransform.localScale = transformBeforeFrame.localScale;
 		}
 
 		localTransform = updatedTransform;
@@ -634,8 +634,8 @@ static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, con
 
 	auto &mesh = r.Get<Mesh>(e);
 	const std::string meshPath = (kind == BasicShapeKind::Box)
-	                                 ? "res/models/basicShapes/cube.fbx"
-	                                 : "res/models/basicShapes/plane.fbx";
+									 ? "res/models/basicShapes/cube.fbx"
+									 : "res/models/basicShapes/plane.fbx";
 	mesh.meshPath = meshPath;
 	mesh.materialPath = "res/shaders/lit3D.fs";
 
@@ -1031,7 +1031,7 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 		{
 			int sceneDimIndex = (editorScene->GetEditorSceneDimension() == EditorSceneDimension::Scene3D) ? 0 : 1;
 			if (ImGui::Combo("Scene Type", &sceneDimIndex, "3D\0"
-			                                              "2D\0"))
+														   "2D\0"))
 			{
 				const EditorSceneDimension newDim = (sceneDimIndex == 0) ? EditorSceneDimension::Scene3D : EditorSceneDimension::Scene2D;
 				editorScene->SetEditorSceneDimension(newDim);
@@ -1253,18 +1253,18 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 
 				ImGui::SetCursorScreenPos(ImVec2(imageMin.x + 8.0f, imageMin.y + 8.0f));
 				ImGui::BeginChild("##GizmoDebugOverlay",
-				                  ImVec2(430.0f, 148.0f),
-				                  true,
-				                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNav);
+								  ImVec2(430.0f, 148.0f),
+								  true,
+								  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNav);
 				ImGui::Text("Focused:%d  ImageHovered:%d  WantCaptureMouse:%d",
-				            viewportFocused ? 1 : 0,
-				            imageHovered ? 1 : 0,
-				            io.WantCaptureMouse ? 1 : 0);
+							viewportFocused ? 1 : 0,
+							imageHovered ? 1 : 0,
+							io.WantCaptureMouse ? 1 : 0);
 				ImGui::Text("Target:%d  GizmoEnabled:%d  GizmoOver:%d  GizmoUsing:%d",
-				            g_gizmoRuntimeDebug.hasTarget ? 1 : 0,
-				            g_gizmoRuntimeDebug.enabled ? 1 : 0,
-				            g_gizmoRuntimeDebug.isOver ? 1 : 0,
-				            g_gizmoRuntimeDebug.isUsing ? 1 : 0);
+							g_gizmoRuntimeDebug.hasTarget ? 1 : 0,
+							g_gizmoRuntimeDebug.enabled ? 1 : 0,
+							g_gizmoRuntimeDebug.isOver ? 1 : 0,
+							g_gizmoRuntimeDebug.isUsing ? 1 : 0);
 				ImGui::Text("Mouse:(%.1f, %.1f)", io.MousePos.x, io.MousePos.y);
 				ImGui::Text("HoveredWindow:%s", hoveredName);
 				ImGui::Text("HoveredID:0x%08X  ActiveID:0x%08X", hoveredId, activeId);
@@ -1273,18 +1273,18 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 				if (imageHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 				{
 					std::printf("[GizmoClick] Focused=%d ImageHovered=%d WantCaptureMouse=%d Target=%d Enabled=%d Over=%d Using=%d Mouse=(%.1f,%.1f) HoveredWindow=%s HoveredID=0x%08X ActiveID=0x%08X\n",
-					            viewportFocused ? 1 : 0,
-					            imageHovered ? 1 : 0,
-					            io.WantCaptureMouse ? 1 : 0,
-					            g_gizmoRuntimeDebug.hasTarget ? 1 : 0,
-					            g_gizmoRuntimeDebug.enabled ? 1 : 0,
-					            g_gizmoRuntimeDebug.isOver ? 1 : 0,
-					            g_gizmoRuntimeDebug.isUsing ? 1 : 0,
-					            io.MousePos.x,
-					            io.MousePos.y,
-					            hoveredName,
-					            hoveredId,
-					            activeId);
+								viewportFocused ? 1 : 0,
+								imageHovered ? 1 : 0,
+								io.WantCaptureMouse ? 1 : 0,
+								g_gizmoRuntimeDebug.hasTarget ? 1 : 0,
+								g_gizmoRuntimeDebug.enabled ? 1 : 0,
+								g_gizmoRuntimeDebug.isOver ? 1 : 0,
+								g_gizmoRuntimeDebug.isUsing ? 1 : 0,
+								io.MousePos.x,
+								io.MousePos.y,
+								hoveredName,
+								hoveredId,
+								activeId);
 				}
 			}
 		}

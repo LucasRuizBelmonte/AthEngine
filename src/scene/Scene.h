@@ -13,6 +13,7 @@
 #include "../ecs/Registry.h"
 #include "../systems/ClearColorSystem.h"
 #include "../systems/SpinSystem.h"
+#include "../systems/TransformSystem.h"
 #include "../systems/RenderSystem.h"
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
@@ -148,6 +149,7 @@ private:
 
 	ClearColorSystem m_clearColorSystem;
 	SpinSystem m_spinSystem;
+	TransformSystem m_transformSystem;
 	RenderSystem m_renderSystem;
 	Render2DSystem m_render2DSystem;
 	CameraControllerSystem m_cameraControllerSystem;

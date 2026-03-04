@@ -22,15 +22,15 @@ void SpinSystem::Update(Registry &registry, float timeSec) const
 
 		if (s.axis.x == 0.f && s.axis.y == 0.f && s.axis.z == 1.f)
 		{
-			t.rotationEuler.z = angle;
+			t.localRotation.z = angle;
 		}
 		else if (s.axis.x == 0.f && s.axis.y == 0.f && s.axis.z == -1.f)
 		{
-			t.rotationEuler.z = -angle;
+			t.localRotation.z = -angle;
 		}
 		else
 		{
-			t.rotationEuler = s.axis * angle;
+			t.localRotation = s.axis * angle;
 		}
 	}
 }

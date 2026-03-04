@@ -9,6 +9,7 @@
 #include "EditorSceneIO.h"
 
 #include "../components/Tag.h"
+#include "../components/Parent.h"
 
 #include <exception>
 #include <functional>
@@ -201,6 +202,8 @@ void Scene::Update(float dt, float now)
 	if (m_sysClearColor)
 		m_clearColorSystem.Update(now);
 
+	m_transformSystem.Update(m_registry);
+
 	const Entity camera = ResolvePrimaryCamera();
 	if (camera != kInvalidEntity)
 	{
@@ -214,12 +217,18 @@ void Scene::Update(float dt, float now)
 
 	if (m_sysSpin)
 		m_spinSystem.Update(m_registry, now);
+
+	m_transformSystem.Update(m_registry);
+	if (camera != kInvalidEntity)
+		SyncCameraFromTransform(camera);
 }
 
 void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
 	if (!m_loaded || !m_sysRender || m_dimension != EditorSceneDimension::Scene3D)
 		return;
+
+	m_transformSystem.Update(m_registry);
 
 	const Entity camera = ResolvePrimaryCamera();
 	if (camera == kInvalidEntity)
@@ -235,6 +244,8 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 {
 	if (!m_loaded || !m_sysRender2D || m_dimension != EditorSceneDimension::Scene2D)
 		return;
+
+	m_transformSystem.Update(m_registry);
 
 	const Entity camera = ResolvePrimaryCamera();
 	if (camera == kInvalidEntity)
@@ -507,7 +518,7 @@ void Scene::BuildBaseTemplate()
 	m_registry.Emplace<Tag>(cameraEntity, Tag{"Camera"});
 	{
 		Transform t;
-		t.position = glm::vec3(0.f, 0.f, 2.f);
+		t.localPosition = glm::vec3(0.f, 0.f, 2.f);
 		m_registry.Emplace<Transform>(cameraEntity, t);
 	}
 	m_registry.Emplace<Camera>(cameraEntity);
@@ -551,17 +562,35 @@ void Scene::SyncCameraFromTransform(Entity cameraEntity)
 
 	const Transform &transform = m_registry.Get<Transform>(cameraEntity);
 	Camera &camera = m_registry.Get<Camera>(cameraEntity);
-	camera.position = transform.position;
+	camera.position = glm::vec3(transform.worldMatrix[3]);
 
-	const float pitch = transform.rotationEuler.x;
-	const float yaw = transform.rotationEuler.y;
-	const glm::vec3 dir{
-		std::cos(yaw) * std::cos(pitch),
-		std::sin(pitch),
-		std::sin(yaw) * std::cos(pitch)};
-	const float len = glm::length(dir);
-	if (len > 1e-6f)
-		camera.direction = glm::normalize(dir);
+	Entity parentEntity = kInvalidEntity;
+	if (m_registry.Has<Parent>(cameraEntity))
+	{
+		parentEntity = m_registry.Get<Parent>(cameraEntity).parent;
+		if (parentEntity != kInvalidEntity && !m_registry.IsAlive(parentEntity))
+			parentEntity = kInvalidEntity;
+	}
+
+	if (parentEntity != kInvalidEntity && m_registry.Has<Transform>(parentEntity))
+	{
+		const glm::vec3 dir = glm::vec3(transform.worldMatrix * glm::vec4(0.f, 0.f, -1.f, 0.f));
+		const float len = glm::length(dir);
+		if (len > 1e-6f)
+			camera.direction = glm::normalize(dir);
+	}
+	else
+	{
+		const float pitch = transform.localRotation.x;
+		const float yaw = transform.localRotation.y;
+		const glm::vec3 dir{
+			std::cos(yaw) * std::cos(pitch),
+			std::sin(pitch),
+			std::sin(yaw) * std::cos(pitch)};
+		const float len = glm::length(dir);
+		if (len > 1e-6f)
+			camera.direction = glm::normalize(dir);
+	}
 
 	if (m_dimension == EditorSceneDimension::Scene2D)
 	{
@@ -579,18 +608,47 @@ void Scene::SyncTransformFromCamera(Entity cameraEntity)
 
 	Transform &transform = m_registry.Get<Transform>(cameraEntity);
 	const Camera &camera = m_registry.Get<Camera>(cameraEntity);
-	transform.position = camera.position;
+
+	Entity parentEntity = kInvalidEntity;
+	if (m_registry.Has<Parent>(cameraEntity))
+	{
+		parentEntity = m_registry.Get<Parent>(cameraEntity).parent;
+		if (parentEntity != kInvalidEntity && (!m_registry.IsAlive(parentEntity) || !m_registry.Has<Transform>(parentEntity)))
+			parentEntity = kInvalidEntity;
+	}
+
+	glm::mat4 parentWorld(1.f);
+	if (parentEntity != kInvalidEntity)
+		parentWorld = m_registry.Get<Transform>(parentEntity).worldMatrix;
+
+	const float parentDet = glm::determinant(parentWorld);
+	if (std::abs(parentDet) > 1e-6f)
+	{
+		const glm::vec4 localPos = glm::inverse(parentWorld) * glm::vec4(camera.position, 1.f);
+		transform.localPosition = glm::vec3(localPos);
+	}
+	else
+	{
+		transform.localPosition = camera.position;
+	}
 
 	if (m_dimension == EditorSceneDimension::Scene2D)
 	{
-		transform.rotationEuler = glm::vec3(0.f, 0.f, 0.f);
+		transform.localRotation = glm::vec3(0.f, 0.f, 0.f);
 		return;
 	}
 
-	const glm::vec3 dir = glm::normalize(camera.direction);
+	glm::vec3 dir = glm::normalize(camera.direction);
+	if (std::abs(parentDet) > 1e-6f)
+	{
+		const glm::vec3 localDir = glm::vec3(glm::inverse(parentWorld) * glm::vec4(dir, 0.f));
+		if (glm::length(localDir) > 1e-6f)
+			dir = glm::normalize(localDir);
+	}
+
 	const float yClamped = glm::clamp(dir.y, -1.0f, 1.0f);
-	transform.rotationEuler.x = std::asin(yClamped);             // pitch
-	transform.rotationEuler.y = std::atan2(dir.z, dir.x);        // yaw
+	transform.localRotation.x = std::asin(yClamped);             // pitch
+	transform.localRotation.y = std::atan2(dir.z, dir.x);        // yaw
 }
 
 void Scene::ApplySceneDimensionRules()

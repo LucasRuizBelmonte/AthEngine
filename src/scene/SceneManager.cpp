@@ -4,8 +4,7 @@
 
 #include "scenes/CoreScene.h"
 #include "scenes/LoadingScene.h"
-#include "scenes/Test3DScene.h"
-#include "scenes/Test2DScene.h"
+#include "Scene.h"
 
 #include "../rendering/Renderer.h"
 #include "IEditorScene.h"
@@ -25,13 +24,8 @@ SceneManager::SceneManager(ShaderManager &shaders, TextureManager &textures, GLF
 
 std::shared_ptr<IScene> SceneManager::CreateScene(SceneRequest req)
 {
-	if (req == SceneRequest::Basic3D || req == SceneRequest::Push3D)
-		return std::make_shared<Test3DScene>(m_shaders, m_textures);
-
-	if (req == SceneRequest::Basic2D || req == SceneRequest::Push2D)
-		return std::make_shared<Test2DScene>(m_shaders, m_textures);
-
-	return std::make_shared<Test2DScene>(m_shaders, m_textures);
+	(void)req;
+	return std::make_shared<Scene>(m_shaders, m_textures);
 }
 
 void SceneManager::Request(SceneRequest req)
@@ -39,7 +33,7 @@ void SceneManager::Request(SceneRequest req)
 	if (m_isTransitioning)
 		return;
 
-	bool push = (req == SceneRequest::Push3D || req == SceneRequest::Push2D);
+	bool push = (req == SceneRequest::PushScene);
 
 	m_pending = CreateScene(req);
 	m_pending->RequestLoad(m_loader);
@@ -53,10 +47,8 @@ void SceneManager::Request(SceneRequest req)
 
 void SceneManager::AddScene(SceneRequest req)
 {
-	if (req == SceneRequest::Basic3D)
-		req = SceneRequest::Push3D;
-	else if (req == SceneRequest::Basic2D)
-		req = SceneRequest::Push2D;
+	if (req == SceneRequest::BasicScene)
+		req = SceneRequest::PushScene;
 
 	Request(req);
 }
@@ -276,12 +268,7 @@ bool SceneManager::QueueOpenSceneFromFile(const std::string &path, std::string &
 	if (!EditorSceneIO::PeekHeader(path, header, outError))
 		return false;
 
-	SceneRequest req = SceneRequest::Push3D;
-	if (header.sceneType == "Test2D")
-		req = SceneRequest::Push2D;
-	else if (header.sceneType == "Test3D")
-		req = SceneRequest::Push3D;
-	else
+	if (header.sceneType != "Scene" && header.sceneType != "Test2D" && header.sceneType != "Test3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;
@@ -290,7 +277,7 @@ bool SceneManager::QueueOpenSceneFromFile(const std::string &path, std::string &
 	m_pendingLoadFromFile = true;
 	m_pendingLoadPath = path;
 	m_pendingLoadSceneName = header.sceneName;
-	Request(req);
+	Request(SceneRequest::PushScene);
 	return true;
 }
 #pragma endregion

@@ -27,9 +27,9 @@ Application::Application()
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
 	m_Scenes = std::make_unique<SceneManager>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
-	m_Scenes->Request(SceneRequest::Basic2D);
+	m_Scenes->Request(SceneRequest::BasicScene);
 
-	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
 	Input::AttachWindow(m_Window->GetNative());
 
@@ -107,25 +107,26 @@ static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
 
 void Application::HandleSceneInput()
 {
-	// if (Input::GetKeyDown(GLFW_KEY_1))
-	// 	m_Scenes->Request(SceneRequest::Basic3D);
-
-	// if (Input::GetKeyDown(GLFW_KEY_2))
-	// 	m_Scenes->Request(SceneRequest::Basic2D);
-
-	// if (Input::GetKeyDown(GLFW_KEY_3))
-	// 	m_Scenes->Request(SceneRequest::Basic2D);
-
-	// if (Input::GetKeyDown(GLFW_KEY_4))
-	// 	m_Scenes->Request(SceneRequest::Push3D);
-
-	// if (Input::GetKeyDown(GLFW_KEY_5))
-	// 	m_Scenes->Request(SceneRequest::Push3D);
-
 #ifdef ENGINE_DEBUG
 	if (Input::GetKeyDown(GLFW_KEY_ESCAPE))
 		m_Window->Close();
 #endif
+
+	if (Input::GetMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT))
+	{
+		if (EditorUI::IsRenderWindowHovered() && !m_MouseCaptured)
+		{
+			ToggleMouseCapture();
+			m_RightMouseCaptureOwned = true;
+		}
+	}
+
+	if (Input::GetMouseButtonUp(GLFW_MOUSE_BUTTON_RIGHT))
+	{
+		if (m_RightMouseCaptureOwned && m_MouseCaptured)
+			ToggleMouseCapture();
+		m_RightMouseCaptureOwned = false;
+	}
 
 	if (Input::GetKeyDown(GLFW_KEY_LEFT_ALT))
 		ToggleMouseCapture();

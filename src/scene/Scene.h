@@ -6,7 +6,9 @@
 #pragma once
 
 #pragma region Includes
-#include "../platform/GL.h"
+#include "IScene.h"
+#include "AsyncLoader.h"
+#include "IEditorScene.h"
 
 #include "../ecs/Registry.h"
 #include "../systems/ClearColorSystem.h"
@@ -22,63 +24,136 @@
 #include "../components/Material.h"
 #include "../components/Spin.h"
 #include "../components/Sprite.h"
+#include "../components/LightEmitter.h"
 
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
-
-#include "../input/WindowContext.h"
 #pragma endregion
 
 #pragma region Declarations
 class Renderer;
 
-class Scene
+class Scene final : public IScene, public IEditorScene
 {
 public:
 	#pragma region Public Interface
 	/**
 	 * @brief Constructs a new Scene instance.
 	 */
-	Scene(ShaderManager &shaderManager, TextureManager &textureManager, GLFWwindow &window);
+	Scene(ShaderManager &shaderManager, TextureManager &textureManager);
+	~Scene() override = default;
+
 	/**
-	 * @brief Destroys this Scene instance.
+	 * @brief Executes Get Name.
 	 */
-	~Scene();
+	const char *GetName() const override;
+
+	/**
+	 * @brief Executes Request Load.
+	 */
+	void RequestLoad(AsyncLoader &loader) override;
+	/**
+	 * @brief Executes Is Loaded.
+	 */
+	bool IsLoaded() const override;
+
+	/**
+	 * @brief Executes On Attach.
+	 */
+	void OnAttach(GLFWwindow &window) override;
+	/**
+	 * @brief Executes On Detach.
+	 */
+	void OnDetach(GLFWwindow &window) override;
 
 	/**
 	 * @brief Executes Update.
 	 */
-	void Update(float dt, float now);
+	void Update(float dt, float now) override;
 	/**
 	 * @brief Executes Render3 D.
 	 */
-	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 	/**
 	 * @brief Executes Render2 D.
 	 */
-	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
+	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
+
+	/**
+	 * @brief Executes Get Editor Registry.
+	 */
+	Registry &GetEditorRegistry() override;
+	/**
+	 * @brief Executes Get Editor Systems.
+	 */
+	void GetEditorSystems(std::vector<EditorSystemToggle> &out) override;
+	/**
+	 * @brief Gets the serialization scene type.
+	 */
+	const char *GetEditorSceneType() const override;
+	/**
+	 * @brief Saves the scene to disk.
+	 */
+	bool SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError) override;
+	/**
+	 * @brief Loads the scene from disk.
+	 */
+	bool LoadFromFile(const std::string &path, std::string &inOutSceneName, std::string &outError) override;
+	/**
+	 * @brief Applies sprite texture path for editor changes.
+	 */
+	bool EditorSetSpriteTexture(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies sprite material path for editor changes.
+	 */
+	bool EditorSetSpriteMaterial(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies mesh path for editor changes.
+	 */
+	bool EditorSetMeshPath(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies mesh material path for editor changes.
+	 */
+	bool EditorSetMeshMaterial(Entity e, const std::string &path, std::string &outError) override;
+	/**
+	 * @brief Applies material texture slots for editor changes.
+	 */
+	bool EditorApplyMaterial(Entity e, std::string &outError) override;
 
 	#pragma endregion
 private:
 	#pragma region Private Implementation
-	Registry m_Registry;
+	void BuildBaseTemplate();
+	void RefreshRuntimeReferences();
+	Entity ResolvePrimaryCamera();
+	void SyncCameraFromTransform(Entity cameraEntity);
+	void SyncTransformFromCamera(Entity cameraEntity);
 
-	ClearColorSystem m_ClearColorSystem;
-	SpinSystem m_SpinSystem;
-	RenderSystem m_RenderSystem;
-	Render2DSystem m_Render2DSystem;
-	CameraControllerSystem m_CameraControllerSystem;
+	Registry m_registry;
 
-	Entity m_Camera3D = kInvalidEntity;
-	Entity m_Camera2D = kInvalidEntity;
+	ClearColorSystem m_clearColorSystem;
+	SpinSystem m_spinSystem;
+	RenderSystem m_renderSystem;
+	Render2DSystem m_render2DSystem;
+	CameraControllerSystem m_cameraControllerSystem;
 
-	Entity m_Triangle = kInvalidEntity;
-	Entity m_Sprite = kInvalidEntity;
+	ShaderManager &m_shaderManager;
+	TextureManager &m_textureManager;
 
-	Mesh m_QuadMesh;
+	bool m_sysClearColor = true;
+	bool m_sysCameraController = true;
+	bool m_sysSpin = false;
+	bool m_sysRender = true;
+	bool m_sysRender2D = true;
 
-	GLFWwindow *m_Window = nullptr;
-	WindowContext m_WindowCtx;
+	Entity m_camera = kInvalidEntity;
+	Mesh m_quadMesh;
+
+	GLFWwindow *m_window = nullptr;
+	bool m_loaded = false;
+
+	std::string m_litVsPath;
+	std::string m_spriteVsPath;
 	#pragma endregion
 };
 #pragma endregion

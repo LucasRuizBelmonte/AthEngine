@@ -21,10 +21,8 @@
 #pragma region Declarations
 enum class SceneRequest
 {
-    Basic3D,
-    Basic2D,
-    Push3D,
-    Push2D
+    BasicScene,
+    PushScene
 };
 
 class SceneManager

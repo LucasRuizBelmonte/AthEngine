@@ -43,8 +43,6 @@ static glm::vec3 PivotToLocalOffset(SpritePivot pivot)
 
 static glm::mat4 BuildSpriteModel(const Transform &t, const Sprite &s, float halfViewportWidth, float halfViewportHeight)
 {
-	// Pivot is interpreted as a normalized viewport anchor in 2D:
-	// x=-1,y=1 is top-left, x=1,y=-1 is bottom-right.
 	glm::vec3 anchorOffset{
 		t.pivot.x * halfViewportWidth,
 		t.pivot.y * halfViewportHeight,

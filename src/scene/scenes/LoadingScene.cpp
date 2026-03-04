@@ -24,7 +24,6 @@ void LoadingScene::OnDetach(GLFWwindow &)
 
 void LoadingScene::Update(float, float now)
 {
-	// Simple animation to show that the scene is active while loading.
 	float t = 0.5f + 0.5f * std::sin(now * 2.0f);
 	glClearColor(0.05f, 0.05f + 0.15f * t, 0.08f, 1.0f);
 }

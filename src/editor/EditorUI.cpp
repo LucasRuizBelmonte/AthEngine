@@ -31,6 +31,7 @@
 #pragma region File Scope
 static ImTextureID g_renderTexture = nullptr;
 static ImVec2 g_renderTargetSize = ImVec2(1.0f, 1.0f);
+static bool g_renderWindowHovered = false;
 static std::unordered_map<IEditorScene *, std::unordered_set<std::string>> g_removedSystemsByScene;
 
 struct TransformEditCommand
@@ -82,6 +83,11 @@ void EditorUI::SetRenderTexture(ImTextureID textureId)
 ImVec2 EditorUI::GetRenderTargetSize()
 {
 	return g_renderTargetSize;
+}
+
+bool EditorUI::IsRenderWindowHovered()
+{
+	return g_renderWindowHovered;
 }
 
 #ifdef IMGUI_HAS_DOCK
@@ -167,7 +173,7 @@ enum class BasicShapeKind
 
 static bool IsEditable3DScene(IEditorScene *editorScene)
 {
-	return editorScene && std::string(editorScene->GetEditorSceneType()) == "Test3D";
+	return editorScene && std::string(editorScene->GetEditorSceneType()) == "Scene";
 }
 
 static Entity GetAliveParent(Registry &r, Entity e)
@@ -799,16 +805,10 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 
 		ImGui::Separator();
 
-		if (ImGui::MenuItem("3D Scene"))
+		if (ImGui::MenuItem("Add Scene"))
 		{
 			ui.selectedScene = scenes.GetLoadedSceneCount();
-			scenes.AddScene(SceneRequest::Basic3D);
-		}
-
-		if (ImGui::MenuItem("2D Scene"))
-		{
-			ui.selectedScene = scenes.GetLoadedSceneCount();
-			scenes.AddScene(SceneRequest::Basic2D);
+			scenes.AddScene(SceneRequest::BasicScene);
 		}
 
 		ImGui::EndMenu();
@@ -836,6 +836,7 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 {
 	ImGuizmo::BeginFrame();
 	DrawDockSpace(state);
+	g_renderWindowHovered = false;
 
 	const size_t count = scenes.GetLoadedSceneCount();
 	if (state.selectedScene >= count)
@@ -1052,6 +1053,7 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		ImGui::Begin("Render", &state.showRender, renderFlags);
+		g_renderWindowHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
 
 		const bool viewportFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 

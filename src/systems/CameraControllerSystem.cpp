@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <cmath>
+#include <unordered_map>
 #pragma endregion
 
 #pragma region Function Definitions
@@ -18,18 +19,29 @@ static float Clamp(float v, float lo, float hi)
 
 void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Entity cameraEntity, float dt) const
 {
-	(void)window;
-	if (glfwGetInputMode(&window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED)
-        return;
-
 	if (cameraEntity == kInvalidEntity)
 		return;
 
-	if (!registry.Has<Camera>(cameraEntity) || !registry.Has<CameraController>(cameraEntity))
+	if (!registry.Has<Camera>(cameraEntity))
+		return;
+
+	// Camera control is only active while the app has captured the cursor.
+	// RMB in the Render tab is what triggers this capture in Application.
+	if (glfwGetInputMode(&window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED)
+		return;
+
+	const bool rightMouseDown =
+		(glfwGetMouseButton(&window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) ||
+		Input::GetMouseButton(GLFW_MOUSE_BUTTON_RIGHT);
+	if (!rightMouseDown)
 		return;
 
 	auto &cam = registry.Get<Camera>(cameraEntity);
-	auto &ctrl = registry.Get<CameraController>(cameraEntity);
+	static std::unordered_map<Entity, CameraController> s_fallbackControllers;
+	CameraController &ctrl =
+		registry.Has<CameraController>(cameraEntity)
+			? registry.Get<CameraController>(cameraEntity)
+			: s_fallbackControllers[cameraEntity];
 
 	glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
 

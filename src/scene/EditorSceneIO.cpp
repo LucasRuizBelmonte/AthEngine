@@ -523,9 +523,7 @@ bool EditorSceneIO::LoadRegistry(Registry &registry,
 				{
 					std::istringstream ls(rest);
 
-					// Backward compatible:
-					// Old layout: tint4
-					// New layout: spec/normal/emission handles + tint4 + scalar params + paths.
+					// Backward compatible
 					if (!(ls >> ent.material.specularTexture.id >> ent.material.normalTexture.id >> ent.material.emissionTexture.id >>
 					      ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
 					{

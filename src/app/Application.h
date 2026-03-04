@@ -134,7 +134,8 @@ private:
 
 	double m_LastMouseX = 0.0;
 	double m_LastMouseY = 0.0;
-	bool m_MouseCaptured = true;
+	bool m_MouseCaptured = false;
+	bool m_RightMouseCaptureOwned = false;
 
 	#pragma endregion
 };

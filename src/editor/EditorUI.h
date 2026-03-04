@@ -49,6 +49,10 @@ public:
 	 * @brief Executes Get Render Target Size.
 	 */
 	static ImVec2 GetRenderTargetSize();
+	/**
+	 * @brief Returns whether the mouse is currently over the Render window.
+	 */
+	static bool IsRenderWindowHovered();
 
 	/**
 	 * @brief Executes Draw.

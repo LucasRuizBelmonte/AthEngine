@@ -5,9 +5,12 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <cstring>
 #include <cstdio>
 #include <cmath>
+#include <cctype>
+#include <filesystem>
 
 #include "../scene/IEditorScene.h"
 #include "../components/Tag.h"
@@ -24,6 +27,284 @@
 #pragma endregion
 
 #pragma region Function Definitions
+static constexpr const char *kAssetPickerPopupId = "Asset Browser";
+
+enum class AssetPickerType : int
+{
+	None = 0,
+	Texture,
+	Material,
+	Mesh
+};
+
+struct AssetPickerRuntime
+{
+	bool openRequested = false;
+	AssetPickerType type = AssetPickerType::None;
+	Entity entity = kInvalidEntity;
+	std::string fieldKey;
+	std::vector<std::string> entries;
+	char filter[128] = {};
+	int selection = -1;
+
+	bool commitPending = false;
+	Entity commitEntity = kInvalidEntity;
+	std::string commitFieldKey;
+	std::string commitPath;
+};
+
+static const char *AssetPickerTypeLabel(AssetPickerType type)
+{
+	switch (type)
+	{
+	case AssetPickerType::Texture:
+		return "Texture";
+	case AssetPickerType::Material:
+		return "Material";
+	case AssetPickerType::Mesh:
+		return "Mesh";
+	case AssetPickerType::None:
+	default:
+		return "Unknown";
+	}
+}
+
+static std::string ToLowerCopy(std::string text)
+{
+	std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c)
+	               { return static_cast<char>(std::tolower(c)); });
+	return text;
+}
+
+static std::string NormalizePathSeparators(std::string path)
+{
+	std::replace(path.begin(), path.end(), '\\', '/');
+	return path;
+}
+
+static bool PathMatchesAssetType(const std::filesystem::path &path, AssetPickerType type)
+{
+	const std::string ext = ToLowerCopy(path.extension().string());
+
+	switch (type)
+	{
+	case AssetPickerType::Texture:
+		return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" ||
+		       ext == ".gif" || ext == ".hdr" || ext == ".psd";
+	case AssetPickerType::Material:
+		return ext == ".fs" || ext == ".frag" || ext == ".glsl";
+	case AssetPickerType::Mesh:
+		return ext == ".fbx" || ext == ".obj" || ext == ".dae" || ext == ".gltf" || ext == ".glb" ||
+		       ext == ".3ds" || ext == ".blend";
+	case AssetPickerType::None:
+	default:
+		return false;
+	}
+}
+
+static std::vector<std::string> CollectAssetPickerEntries(AssetPickerType type)
+{
+	std::vector<std::string> paths;
+	if (type == AssetPickerType::None)
+		return paths;
+
+	std::error_code ec;
+	const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
+	const std::filesystem::path projectRoot = assetRoot.parent_path();
+
+	if (!std::filesystem::exists(assetRoot, ec))
+		return paths;
+
+	std::filesystem::recursive_directory_iterator it(assetRoot, std::filesystem::directory_options::skip_permission_denied, ec);
+	const std::filesystem::recursive_directory_iterator end;
+	for (; it != end; it.increment(ec))
+	{
+		if (ec)
+		{
+			ec.clear();
+			continue;
+		}
+
+		if (!it->is_regular_file(ec))
+		{
+			if (ec)
+				ec.clear();
+			continue;
+		}
+
+		const std::filesystem::path candidate = it->path();
+		if (!PathMatchesAssetType(candidate, type))
+			continue;
+
+		std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+		if (ec)
+		{
+			ec.clear();
+			rel = candidate.lexically_normal();
+		}
+
+		paths.push_back(rel.generic_string());
+	}
+
+	std::sort(paths.begin(), paths.end());
+	return paths;
+}
+
+static void RequestAssetPicker(AssetPickerRuntime &picker,
+	                               Entity entity,
+	                               const char *fieldKey,
+	                               AssetPickerType type,
+	                               const std::string &currentValue)
+{
+	picker.openRequested = true;
+	picker.entity = entity;
+	picker.fieldKey = fieldKey ? fieldKey : "";
+	picker.type = type;
+	picker.entries = CollectAssetPickerEntries(type);
+	picker.filter[0] = '\0';
+	picker.selection = -1;
+
+	const std::string normalizedCurrent = NormalizePathSeparators(currentValue);
+	for (size_t i = 0; i < picker.entries.size(); ++i)
+	{
+		if (NormalizePathSeparators(picker.entries[i]) == normalizedCurrent)
+		{
+			picker.selection = static_cast<int>(i);
+			break;
+		}
+	}
+}
+
+static bool ConsumeAssetPickerCommit(AssetPickerRuntime &picker,
+	                                     Entity entity,
+	                                     const char *fieldKey,
+	                                     std::string &inOutValue)
+{
+	if (!picker.commitPending)
+		return false;
+	if (picker.commitEntity != entity)
+		return false;
+	if (picker.commitFieldKey != (fieldKey ? fieldKey : ""))
+		return false;
+
+	inOutValue = picker.commitPath;
+
+	picker.commitPending = false;
+	picker.commitEntity = kInvalidEntity;
+	picker.commitFieldKey.clear();
+	picker.commitPath.clear();
+	return true;
+}
+
+static bool DrawPathFieldWithAssetPicker(AssetPickerRuntime &picker,
+	                                     Entity entity,
+	                                     const char *label,
+	                                     const char *fieldKey,
+	                                     AssetPickerType type,
+	                                     std::string &inOutValue)
+{
+	bool changed = ConsumeAssetPickerCommit(picker, entity, fieldKey, inOutValue);
+
+	char pathBuf[512];
+	std::snprintf(pathBuf, sizeof(pathBuf), "%s", inOutValue.c_str());
+
+	ImGui::PushID(fieldKey);
+	ImGui::AlignTextToFramePadding();
+	ImGui::TextUnformatted(label);
+	ImGui::SameLine();
+
+	const float buttonWidth = ImGui::CalcTextSize("...").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+	const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
+	const float avail = ImGui::GetContentRegionAvail().x;
+	const float inputWidth = std::max(80.0f, avail - buttonWidth - spacing);
+	ImGui::SetNextItemWidth(inputWidth);
+
+	if (ImGui::InputText("##Path", pathBuf, sizeof(pathBuf)))
+	{
+		inOutValue = pathBuf;
+		changed = true;
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("..."))
+		RequestAssetPicker(picker, entity, fieldKey, type, inOutValue);
+
+	ImGui::PopID();
+	return changed;
+}
+
+static void DrawAssetPickerPopup(AssetPickerRuntime &picker)
+{
+	if (picker.openRequested)
+	{
+		ImGui::OpenPopup(kAssetPickerPopupId);
+		picker.openRequested = false;
+	}
+
+	if (!ImGui::BeginPopupModal(kAssetPickerPopupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		return;
+
+	ImGui::Text("Type: %s", AssetPickerTypeLabel(picker.type));
+	ImGui::InputTextWithHint("Filter", "Type to filter...", picker.filter, sizeof(picker.filter));
+
+	const std::string filter = ToLowerCopy(picker.filter);
+	int shownCount = 0;
+
+	ImGui::BeginChild("AssetList", ImVec2(740.f, 320.f), true);
+	for (int i = 0; i < static_cast<int>(picker.entries.size()); ++i)
+	{
+		const std::string &path = picker.entries[(size_t)i];
+		if (!filter.empty())
+		{
+			const std::string lowerPath = ToLowerCopy(path);
+			if (lowerPath.find(filter) == std::string::npos)
+				continue;
+		}
+
+		++shownCount;
+		const bool isSelected = (picker.selection == i);
+		if (ImGui::Selectable(path.c_str(), isSelected))
+			picker.selection = i;
+		if (isSelected)
+			ImGui::SetItemDefaultFocus();
+	}
+	ImGui::EndChild();
+
+	if (shownCount == 0)
+		ImGui::TextUnformatted("No matching assets.");
+
+	const bool canSelect = picker.selection >= 0 &&
+	                       picker.selection < static_cast<int>(picker.entries.size());
+	if (!canSelect)
+		ImGui::BeginDisabled();
+	if (ImGui::Button("Select"))
+	{
+		picker.commitPending = true;
+		picker.commitEntity = picker.entity;
+		picker.commitFieldKey = picker.fieldKey;
+		picker.commitPath = picker.entries[(size_t)picker.selection];
+		ImGui::CloseCurrentPopup();
+	}
+	if (!canSelect)
+		ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	if (ImGui::Button("Clear"))
+	{
+		picker.commitPending = true;
+		picker.commitEntity = picker.entity;
+		picker.commitFieldKey = picker.fieldKey;
+		picker.commitPath.clear();
+		ImGui::CloseCurrentPopup();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Cancel"))
+		ImGui::CloseCurrentPopup();
+
+	ImGui::EndPopup();
+}
+
 static const char *EntityLabel(Registry &r, Entity e, char *tmp, int tmpSize)
 {
 	if (r.Has<Tag>(e))
@@ -560,10 +841,12 @@ static void RemoveComponentMenu(Registry &r, Entity e, const char *popupId)
 
 void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene *editorScene)
 {
+	static AssetPickerRuntime s_assetPicker;
 	Entity e = st.selectedEntity;
 
 	if (e == kInvalidEntity || !r.IsAlive(e))
 	{
+		DrawAssetPickerPopup(s_assetPicker);
 		ImGui::TextUnformatted("No entity selected.");
 		return;
 	}
@@ -687,15 +970,9 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		RemoveComponentMenu<Sprite>(r, e, "SpriteCtx");
 
 		auto &s = r.Get<Sprite>(e);
-		char texturePathBuf[512];
-		char materialPathBuf[512];
-		std::snprintf(texturePathBuf, sizeof(texturePathBuf), "%s", s.texturePath.c_str());
-		std::snprintf(materialPathBuf, sizeof(materialPathBuf), "%s", s.materialPath.c_str());
-
-		if (ImGui::InputText("Texture Path", texturePathBuf, sizeof(texturePathBuf)))
+		if (DrawPathFieldWithAssetPicker(s_assetPicker, e, "Texture Path", "Sprite.TexturePath", AssetPickerType::Texture, s.texturePath))
 		{
 			std::string err;
-			s.texturePath = texturePathBuf;
 			if (editorScene)
 			{
 				if (!editorScene->EditorSetSpriteTexture(e, s.texturePath, err))
@@ -705,10 +982,9 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 			}
 		}
 
-		if (ImGui::InputText("Material Path", materialPathBuf, sizeof(materialPathBuf)))
+		if (DrawPathFieldWithAssetPicker(s_assetPicker, e, "Material Path", "Sprite.MaterialPath", AssetPickerType::Material, s.materialPath))
 		{
 			std::string err;
-			s.materialPath = materialPathBuf;
 			if (editorScene)
 			{
 				if (!editorScene->EditorSetSpriteMaterial(e, s.materialPath, err))
@@ -736,37 +1012,11 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		RemoveComponentMenu<Material>(r, e, "MaterialCtx");
 
 		auto &m = r.Get<Material>(e);
-		char basePathBuf[512];
-		char specPathBuf[512];
-		char normalPathBuf[512];
-		char emissionPathBuf[512];
-
-		std::snprintf(basePathBuf, sizeof(basePathBuf), "%s", m.texturePath.c_str());
-		std::snprintf(specPathBuf, sizeof(specPathBuf), "%s", m.specularTexturePath.c_str());
-		std::snprintf(normalPathBuf, sizeof(normalPathBuf), "%s", m.normalTexturePath.c_str());
-		std::snprintf(emissionPathBuf, sizeof(emissionPathBuf), "%s", m.emissionTexturePath.c_str());
-
 		bool materialPathChanged = false;
-		if (ImGui::InputText("Base Color Path", basePathBuf, sizeof(basePathBuf)))
-		{
-			m.texturePath = basePathBuf;
-			materialPathChanged = true;
-		}
-		if (ImGui::InputText("Specular Path", specPathBuf, sizeof(specPathBuf)))
-		{
-			m.specularTexturePath = specPathBuf;
-			materialPathChanged = true;
-		}
-		if (ImGui::InputText("Normal Path", normalPathBuf, sizeof(normalPathBuf)))
-		{
-			m.normalTexturePath = normalPathBuf;
-			materialPathChanged = true;
-		}
-		if (ImGui::InputText("Emission Path", emissionPathBuf, sizeof(emissionPathBuf)))
-		{
-			m.emissionTexturePath = emissionPathBuf;
-			materialPathChanged = true;
-		}
+		materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Base Color Path", "Material.TexturePath", AssetPickerType::Texture, m.texturePath);
+		materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Specular Path", "Material.SpecularTexturePath", AssetPickerType::Texture, m.specularTexturePath);
+		materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Normal Path", "Material.NormalTexturePath", AssetPickerType::Texture, m.normalTexturePath);
+		materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Emission Path", "Material.EmissionTexturePath", AssetPickerType::Texture, m.emissionTexturePath);
 
 		DrawColor4("Tint", &m.tint.x);
 		ImGui::DragFloat("Specular Strength", &m.specularStrength, 0.01f, 0.0f, 8.0f);
@@ -789,15 +1039,9 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		RemoveComponentMenu<Mesh>(r, e, "MeshCtx");
 
 		auto &m = r.Get<Mesh>(e);
-		char meshPathBuf[512];
-		char materialPathBuf[512];
-		std::snprintf(meshPathBuf, sizeof(meshPathBuf), "%s", m.meshPath.c_str());
-		std::snprintf(materialPathBuf, sizeof(materialPathBuf), "%s", m.materialPath.c_str());
-
-		if (ImGui::InputText("Mesh Path", meshPathBuf, sizeof(meshPathBuf)))
+		if (DrawPathFieldWithAssetPicker(s_assetPicker, e, "Mesh Path", "Mesh.MeshPath", AssetPickerType::Mesh, m.meshPath))
 		{
 			std::string err;
-			m.meshPath = meshPathBuf;
 			if (editorScene)
 			{
 				if (!editorScene->EditorSetMeshPath(e, m.meshPath, err))
@@ -807,10 +1051,9 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 			}
 		}
 
-		if (ImGui::InputText("Material Path", materialPathBuf, sizeof(materialPathBuf)))
+		if (DrawPathFieldWithAssetPicker(s_assetPicker, e, "Material Path", "Mesh.MaterialPath", AssetPickerType::Material, m.materialPath))
 		{
 			std::string err;
-			m.materialPath = materialPathBuf;
 			if (editorScene)
 			{
 				if (!editorScene->EditorSetMeshMaterial(e, m.materialPath, err))
@@ -825,5 +1068,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 
 	if (!st.inspectorStatus.empty())
 		ImGui::TextWrapped("%s", st.inspectorStatus.c_str());
+
+	DrawAssetPickerPopup(s_assetPicker);
 }
 #pragma endregion

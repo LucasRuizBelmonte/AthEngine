@@ -30,6 +30,10 @@ target_link_libraries(${PROJECT_NAME}
     fmod::fmod
 )
 
+if (WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
+endif()
+
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/res/shaders

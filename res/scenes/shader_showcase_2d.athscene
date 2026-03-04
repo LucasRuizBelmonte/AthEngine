@@ -1,5 +1,5 @@
 ATHSCENE 1
-TYPE Scene
+TYPE Scene2D
 NAME "Shader Showcase 2D"
 ENTITY_COUNT 5
 ENTITY 1

@@ -17,7 +17,7 @@ static float Clamp(float v, float lo, float hi)
 									: v;
 }
 
-void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Entity cameraEntity, float dt) const
+void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Entity cameraEntity, float dt, bool is2DMode) const
 {
 	if (cameraEntity == kInvalidEntity)
 		return;
@@ -55,6 +55,30 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 
 	float step = speed * dt;
 
+	glm::vec2 md = Input::GetMouseDelta();
+	if (is2DMode)
+	{
+		// 2D camera mode:
+		// - Fixed look direction (no rotation)
+		// - Right mouse drag pans in XY
+		// - WASD moves in XY
+		cam.direction = glm::vec3(0.0f, 0.0f, -1.0f);
+
+		if (Input::GetKey(GLFW_KEY_W))
+			cam.position.y += step;
+		if (Input::GetKey(GLFW_KEY_S))
+			cam.position.y -= step;
+		if (Input::GetKey(GLFW_KEY_D))
+			cam.position.x += step;
+		if (Input::GetKey(GLFW_KEY_A))
+			cam.position.x -= step;
+
+		const float panScale = step * ctrl.mouseSensitivity;
+		cam.position.x -= md.x * panScale;
+		cam.position.y += md.y * panScale;
+		return;
+	}
+
 	if (Input::GetKey(GLFW_KEY_W))
 		cam.position += forward * step;
 	if (Input::GetKey(GLFW_KEY_S))
@@ -69,7 +93,6 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 	if (Input::GetKey(GLFW_KEY_Q))
 		cam.position -= up * step;
 
-	glm::vec2 md = Input::GetMouseDelta();
 	md.x *= ctrl.mouseSensitivity;
 	md.y *= ctrl.mouseSensitivity;
 

@@ -84,6 +84,11 @@ bool SceneManager::IsTransitioning() const
 	return m_isTransitioning;
 }
 
+void SceneManager::SetEditorSelectedSceneIndex(size_t index)
+{
+	m_editorSelectedSceneIndex = index;
+}
+
 void SceneManager::RequestRemoveLoadedScene(size_t index)
 {
 	if (index == 0)
@@ -186,6 +191,21 @@ void SceneManager::Update(float dt, float now)
 
 	ApplyPendingRemovals();
 
+	size_t inputSceneIndex = static_cast<size_t>(-1);
+	if (m_editorSelectedSceneIndex < m_stack.size())
+	{
+		auto selectedEditor = std::dynamic_pointer_cast<IEditorScene>(m_stack[m_editorSelectedSceneIndex]);
+		if (selectedEditor)
+			inputSceneIndex = m_editorSelectedSceneIndex;
+	}
+
+	for (size_t i = 0; i < m_stack.size(); ++i)
+	{
+		auto editorScene = std::dynamic_pointer_cast<IEditorScene>(m_stack[i]);
+		if (editorScene)
+			editorScene->SetEditorInputEnabled(i == inputSceneIndex);
+	}
+
 	for (auto &s : m_stack)
 		s->Update(dt, now);
 
@@ -268,7 +288,11 @@ bool SceneManager::QueueOpenSceneFromFile(const std::string &path, std::string &
 	if (!EditorSceneIO::PeekHeader(path, header, outError))
 		return false;
 
-	if (header.sceneType != "Scene" && header.sceneType != "Test2D" && header.sceneType != "Test3D")
+	if (header.sceneType != "Scene" &&
+	    header.sceneType != "Scene2D" &&
+	    header.sceneType != "Scene3D" &&
+	    header.sceneType != "Test2D" &&
+	    header.sceneType != "Test3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;

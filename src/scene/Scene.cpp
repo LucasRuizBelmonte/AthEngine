@@ -102,6 +102,44 @@ namespace
 		return true;
 	}
 
+	static EditorSceneDimension SceneDimensionFromSerializedType(const std::string &sceneType)
+	{
+		if (sceneType == "Scene2D" || sceneType == "Test2D")
+			return EditorSceneDimension::Scene2D;
+		return EditorSceneDimension::Scene3D;
+	}
+
+	static EditorSceneDimension InferLegacySceneDimension(const Registry &registry)
+	{
+		bool hasSprites = false;
+		bool hasMeshes = false;
+
+		for (Entity e : registry.Alive())
+		{
+			hasSprites = hasSprites || registry.Has<Sprite>(e);
+			hasMeshes = hasMeshes || registry.Has<Mesh>(e);
+			if (hasSprites && hasMeshes)
+				break;
+		}
+
+		if (hasSprites && !hasMeshes)
+			return EditorSceneDimension::Scene2D;
+		if (hasMeshes && !hasSprites)
+			return EditorSceneDimension::Scene3D;
+
+		for (Entity e : registry.Alive())
+		{
+			if (!registry.Has<Camera>(e))
+				continue;
+			const Camera &cam = registry.Get<Camera>(e);
+			return (cam.projection == ProjectionType::Orthographic)
+			           ? EditorSceneDimension::Scene2D
+			           : EditorSceneDimension::Scene3D;
+		}
+
+		return EditorSceneDimension::Scene3D;
+	}
+
 	static void ClearRegistry(Registry &registry)
 	{
 		std::vector<Entity> alive = registry.Alive();
@@ -167,9 +205,9 @@ void Scene::Update(float dt, float now)
 	if (camera != kInvalidEntity)
 	{
 		SyncCameraFromTransform(camera);
-		if (m_sysCameraController && m_window)
+		if (m_sysCameraController && m_window && m_editorInputEnabled)
 		{
-			m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt);
+			m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, m_dimension == EditorSceneDimension::Scene2D);
 			SyncTransformFromCamera(camera);
 		}
 	}
@@ -180,7 +218,7 @@ void Scene::Update(float dt, float now)
 
 void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	if (!m_loaded || !m_sysRender)
+	if (!m_loaded || !m_sysRender || m_dimension != EditorSceneDimension::Scene3D)
 		return;
 
 	const Entity camera = ResolvePrimaryCamera();
@@ -195,7 +233,7 @@ void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHe
 
 void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	if (!m_loaded || !m_sysRender2D)
+	if (!m_loaded || !m_sysRender2D || m_dimension != EditorSceneDimension::Scene2D)
 		return;
 
 	const Entity camera = ResolvePrimaryCamera();
@@ -219,13 +257,31 @@ void Scene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 	out.push_back({"ClearColorSystem", &m_sysClearColor});
 	out.push_back({"CameraControllerSystem", &m_sysCameraController});
 	out.push_back({"SpinSystem", &m_sysSpin});
-	out.push_back({"RenderSystem", &m_sysRender});
-	out.push_back({"Render2DSystem", &m_sysRender2D});
+	if (m_dimension == EditorSceneDimension::Scene3D)
+		out.push_back({"RenderSystem", &m_sysRender});
+	else
+		out.push_back({"Render2DSystem", &m_sysRender2D});
 }
 
 const char *Scene::GetEditorSceneType() const
 {
-	return "Scene";
+	return (m_dimension == EditorSceneDimension::Scene2D) ? "Scene2D" : "Scene3D";
+}
+
+EditorSceneDimension Scene::GetEditorSceneDimension() const
+{
+	return m_dimension;
+}
+
+void Scene::SetEditorSceneDimension(EditorSceneDimension dimension)
+{
+	m_dimension = dimension;
+	ApplySceneDimensionRules();
+}
+
+void Scene::SetEditorInputEnabled(bool enabled)
+{
+	m_editorInputEnabled = enabled;
 }
 
 bool Scene::SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError)
@@ -239,7 +295,11 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	if (!EditorSceneIO::PeekHeader(path, header, outError))
 		return false;
 
-	if (header.sceneType != "Scene" && header.sceneType != "Test2D" && header.sceneType != "Test3D")
+	if (header.sceneType != "Scene" &&
+	    header.sceneType != "Scene2D" &&
+	    header.sceneType != "Scene3D" &&
+	    header.sceneType != "Test2D" &&
+	    header.sceneType != "Test3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;
@@ -248,6 +308,12 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	const bool ok = EditorSceneIO::LoadRegistry(m_registry, header.sceneType, inOutSceneName, path, outError);
 	if (!ok)
 		return false;
+
+	if (header.sceneType == "Scene")
+		m_dimension = InferLegacySceneDimension(m_registry);
+	else
+		m_dimension = SceneDimensionFromSerializedType(header.sceneType);
+	ApplySceneDimensionRules();
 
 	m_quadMesh = MeshFactory::CreateQuad();
 
@@ -456,6 +522,8 @@ void Scene::BuildBaseTemplate()
 		light.type = LightType::Directional;
 		m_registry.Emplace<LightEmitter>(lightEntity, light);
 	}
+
+	ApplySceneDimensionRules();
 }
 
 void Scene::RefreshRuntimeReferences()
@@ -496,6 +564,12 @@ void Scene::SyncCameraFromTransform(Entity cameraEntity)
 	const float len = glm::length(dir);
 	if (len > 1e-6f)
 		camera.direction = glm::normalize(dir);
+
+	if (m_dimension == EditorSceneDimension::Scene2D)
+	{
+		camera.projection = ProjectionType::Orthographic;
+		camera.direction = glm::vec3(0.f, 0.f, -1.f);
+	}
 }
 
 void Scene::SyncTransformFromCamera(Entity cameraEntity)
@@ -509,9 +583,68 @@ void Scene::SyncTransformFromCamera(Entity cameraEntity)
 	const Camera &camera = m_registry.Get<Camera>(cameraEntity);
 	transform.position = camera.position;
 
+	if (m_dimension == EditorSceneDimension::Scene2D)
+	{
+		transform.rotationEuler = glm::vec3(0.f, 0.f, 0.f);
+		return;
+	}
+
 	const glm::vec3 dir = glm::normalize(camera.direction);
 	const float yClamped = glm::clamp(dir.y, -1.0f, 1.0f);
 	transform.rotationEuler.x = std::asin(yClamped);             // pitch
 	transform.rotationEuler.y = std::atan2(dir.z, dir.x);        // yaw
+}
+
+void Scene::ApplySceneDimensionRules()
+{
+	if (m_dimension == EditorSceneDimension::Scene2D)
+	{
+		m_sysRender = false;
+		m_sysRender2D = true;
+		Remove3DContent();
+	}
+	else
+	{
+		m_sysRender = true;
+		m_sysRender2D = false;
+		Remove2DContent();
+	}
+
+	for (Entity e : m_registry.Alive())
+	{
+		if (!m_registry.Has<Camera>(e))
+			continue;
+
+		auto &cam = m_registry.Get<Camera>(e);
+		if (m_dimension == EditorSceneDimension::Scene2D)
+		{
+			cam.projection = ProjectionType::Orthographic;
+			cam.direction = glm::vec3(0.f, 0.f, -1.f);
+		}
+		else if (cam.projection == ProjectionType::Orthographic)
+		{
+			cam.projection = ProjectionType::Perspective;
+		}
+	}
+}
+
+void Scene::Remove3DContent()
+{
+	for (Entity e : m_registry.Alive())
+	{
+		if (m_registry.Has<Mesh>(e))
+			m_registry.Remove<Mesh>(e);
+		if (m_registry.Has<Material>(e))
+			m_registry.Remove<Material>(e);
+	}
+}
+
+void Scene::Remove2DContent()
+{
+	for (Entity e : m_registry.Alive())
+	{
+		if (m_registry.Has<Sprite>(e))
+			m_registry.Remove<Sprite>(e);
+	}
 }
 #pragma endregion

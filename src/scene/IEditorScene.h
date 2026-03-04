@@ -6,6 +6,7 @@
 #pragma once
 
 #pragma region Includes
+#include <cstdint>
 #include <vector>
 #include <string>
 #include "../ecs/Registry.h"
@@ -17,6 +18,12 @@ struct EditorSystemToggle
 {
     const char *name = "";
     bool *enabled = nullptr;
+};
+
+enum class EditorSceneDimension : uint8_t
+{
+    Scene3D = 0,
+    Scene2D = 1
 };
 
 class IEditorScene
@@ -39,6 +46,18 @@ public:
      * @brief Gets a stable type id used for scene serialization.
      */
     virtual const char *GetEditorSceneType() const = 0;
+    /**
+     * @brief Returns whether scene editing/runtime is 2D or 3D constrained.
+     */
+    virtual EditorSceneDimension GetEditorSceneDimension() const = 0;
+    /**
+     * @brief Sets the scene dimension and applies compatibility rules.
+     */
+    virtual void SetEditorSceneDimension(EditorSceneDimension dimension) = 0;
+    /**
+     * @brief Enables/disables editor camera input for this scene.
+     */
+    virtual void SetEditorInputEnabled(bool enabled) = 0;
     /**
      * @brief Saves the editor scene data to disk.
      */

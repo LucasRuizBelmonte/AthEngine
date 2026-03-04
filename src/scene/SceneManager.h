@@ -84,6 +84,10 @@ public:
      * @brief Executes Is Transitioning.
      */
     bool IsTransitioning() const;
+    /**
+     * @brief Sets which loaded scene index receives editor camera input.
+     */
+    void SetEditorSelectedSceneIndex(size_t index);
 
     /**
      * @brief Executes Request Remove Loaded Scene.
@@ -139,6 +143,7 @@ private:
     bool m_pendingLoadFromFile = false;
     std::string m_pendingLoadPath;
     std::string m_pendingLoadSceneName;
+    size_t m_editorSelectedSceneIndex = static_cast<size_t>(-1);
 
     std::vector<size_t> m_removeQueue;
     bool m_clearNonCoreRequested = false;

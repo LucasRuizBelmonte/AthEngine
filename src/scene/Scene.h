@@ -92,6 +92,18 @@ public:
 	 */
 	const char *GetEditorSceneType() const override;
 	/**
+	 * @brief Returns whether this scene is edited as 2D or 3D.
+	 */
+	EditorSceneDimension GetEditorSceneDimension() const override;
+	/**
+	 * @brief Sets scene dimension and applies compatibility constraints.
+	 */
+	void SetEditorSceneDimension(EditorSceneDimension dimension) override;
+	/**
+	 * @brief Enables/disables editor camera input for this scene.
+	 */
+	void SetEditorInputEnabled(bool enabled) override;
+	/**
 	 * @brief Saves the scene to disk.
 	 */
 	bool SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError) override;
@@ -128,6 +140,9 @@ private:
 	Entity ResolvePrimaryCamera();
 	void SyncCameraFromTransform(Entity cameraEntity);
 	void SyncTransformFromCamera(Entity cameraEntity);
+	void ApplySceneDimensionRules();
+	void Remove3DContent();
+	void Remove2DContent();
 
 	Registry m_registry;
 
@@ -151,6 +166,8 @@ private:
 
 	GLFWwindow *m_window = nullptr;
 	bool m_loaded = false;
+	EditorSceneDimension m_dimension = EditorSceneDimension::Scene3D;
+	bool m_editorInputEnabled = false;
 
 	std::string m_litVsPath;
 	std::string m_spriteVsPath;

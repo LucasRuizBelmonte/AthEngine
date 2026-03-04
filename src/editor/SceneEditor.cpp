@@ -505,7 +505,7 @@ static bool AddComponentItem(Registry &r, Entity e, const char *name)
 	return false;
 }
 
-static void AddComponentPopup(Registry &r, Entity e)
+static void AddComponentPopup(Registry &r, Entity e, IEditorScene *editorScene)
 {
 	if (!ImGui::BeginPopup("AddComponentPopup"))
 		return;
@@ -520,6 +520,10 @@ static void AddComponentPopup(Registry &r, Entity e)
 		return std::string(n).find(filter) != std::string::npos;
 	};
 
+	const bool is2DScene = editorScene && editorScene->GetEditorSceneDimension() == EditorSceneDimension::Scene2D;
+	const bool allowSprite = is2DScene;
+	const bool allowMeshAndMaterial = !is2DScene;
+
 	if (pass("Transform"))
 		(void)AddComponentItem<Transform>(r, e, "Transform");
 	if (pass("Camera"))
@@ -528,11 +532,11 @@ static void AddComponentPopup(Registry &r, Entity e)
 		(void)AddComponentItem<CameraController>(r, e, "CameraController");
 	if (pass("Spin"))
 		(void)AddComponentItem<Spin>(r, e, "Spin");
-	if (pass("Sprite"))
+	if (allowSprite && pass("Sprite"))
 		(void)AddComponentItem<Sprite>(r, e, "Sprite");
-	if (pass("Material"))
+	if (allowMeshAndMaterial && pass("Material"))
 		(void)AddComponentItem<Material>(r, e, "Material");
-	if (pass("Mesh"))
+	if (allowMeshAndMaterial && pass("Mesh"))
 		(void)AddComponentItem<Mesh>(r, e, "Mesh");
 	if (pass("LightEmitter"))
 		(void)AddComponentItem<LightEmitter>(r, e, "LightEmitter");
@@ -573,7 +577,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 	if (ImGui::Button("Add Component"))
 		ImGui::OpenPopup("AddComponentPopup");
 
-	AddComponentPopup(r, e);
+	AddComponentPopup(r, e, editorScene);
 
 	ImGui::Separator();
 

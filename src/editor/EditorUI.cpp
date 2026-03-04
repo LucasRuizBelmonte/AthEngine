@@ -173,7 +173,7 @@ enum class BasicShapeKind
 
 static bool IsEditable3DScene(IEditorScene *editorScene)
 {
-	return editorScene && std::string(editorScene->GetEditorSceneType()) == "Scene";
+	return editorScene && editorScene->GetEditorSceneDimension() == EditorSceneDimension::Scene3D;
 }
 
 static Entity GetAliveParent(Registry &r, Entity e)
@@ -859,6 +859,7 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 
 	auto scene = scenes.GetLoadedScene(state.selectedScene);
 	IEditorScene *editorScene = scene ? dynamic_cast<IEditorScene *>(scene.get()) : nullptr;
+	scenes.SetEditorSelectedSceneIndex(editorScene ? state.selectedScene : static_cast<size_t>(-1));
 
 	static SceneEditorState se;
 
@@ -898,6 +899,26 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 		}
 
 		ImGui::Separator();
+
+		if (editorScene)
+		{
+			int sceneDimIndex = (editorScene->GetEditorSceneDimension() == EditorSceneDimension::Scene3D) ? 0 : 1;
+			if (ImGui::Combo("Scene Type", &sceneDimIndex, "3D\0"
+			                                              "2D\0"))
+			{
+				const EditorSceneDimension newDim = (sceneDimIndex == 0) ? EditorSceneDimension::Scene3D : EditorSceneDimension::Scene2D;
+				editorScene->SetEditorSceneDimension(newDim);
+				se.selectedEntity = kInvalidEntity;
+				g_removedSystemsByScene[editorScene].clear();
+			}
+
+			if (sceneDimIndex == 0)
+				ImGui::TextUnformatted("Camera 3D: RMB rota, WASD mueve, Q/E sube-baja.");
+			else
+				ImGui::TextUnformatted("Camera 2D: RMB arrastra para pan XY, WASD mueve XY.");
+
+			ImGui::Separator();
+		}
 
 		for (size_t i = 0; i < count; ++i)
 		{

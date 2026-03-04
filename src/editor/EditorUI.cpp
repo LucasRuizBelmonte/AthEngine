@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -103,9 +104,10 @@ static void BuildDefaultDock(ImGuiID dockspaceId)
 	ImGuiID dockLeft = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Left, 0.25f, nullptr, &dockMain);
 	ImGuiID dockRight = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.30f, nullptr, &dockMain);
 	ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.25f, nullptr, &dockMain);
+	ImGuiID dockLeftBottom = ImGui::DockBuilderSplitNode(dockLeft, ImGuiDir_Down, 0.40f, nullptr, &dockLeft);
 
 	ImGui::DockBuilderDockWindow("SceneList", dockLeft);
-	ImGui::DockBuilderDockWindow("Entity Hierarchy", dockBottom);
+	ImGui::DockBuilderDockWindow("Entity Hierarchy", dockLeftBottom);
 	ImGui::DockBuilderDockWindow("Systems", dockBottom);
 	ImGui::DockBuilderDockWindow("Inspector", dockRight);
 	ImGui::DockBuilderDockWindow("Render", dockMain);
@@ -163,6 +165,59 @@ static std::string TrimCopy(std::string text)
 	if (begin >= end)
 		return {};
 	return std::string(begin, end);
+}
+
+static std::string ToLowerCopy(std::string text)
+{
+	std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c)
+	               { return static_cast<char>(std::tolower(c)); });
+	return text;
+}
+
+static std::vector<std::string> CollectSceneAssetEntries()
+{
+	std::vector<std::string> entries;
+	std::error_code ec;
+
+	const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
+	const std::filesystem::path projectRoot = assetRoot.parent_path();
+	if (!std::filesystem::exists(assetRoot, ec))
+		return entries;
+
+	std::filesystem::recursive_directory_iterator it(assetRoot, std::filesystem::directory_options::skip_permission_denied, ec);
+	const std::filesystem::recursive_directory_iterator end;
+	for (; it != end; it.increment(ec))
+	{
+		if (ec)
+		{
+			ec.clear();
+			continue;
+		}
+
+		if (!it->is_regular_file(ec))
+		{
+			if (ec)
+				ec.clear();
+			continue;
+		}
+
+		const std::filesystem::path candidate = it->path();
+		std::string ext = ToLowerCopy(candidate.extension().string());
+		if (ext != ".athscene")
+			continue;
+
+		std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+		if (ec)
+		{
+			ec.clear();
+			rel = candidate.lexically_normal();
+		}
+
+		entries.push_back(rel.generic_string());
+	}
+
+	std::sort(entries.begin(), entries.end());
+	return entries;
 }
 
 enum class BasicShapeKind
@@ -658,6 +713,11 @@ static void AddSystemPopup(IEditorScene *editorScene)
 
 static void DrawSceneFilePopups(SceneManager &scenes, EditorUIState &ui)
 {
+	static std::vector<std::string> openSceneEntries;
+	static char openSceneFilter[128] = {};
+	static int openSceneSelection = -1;
+	static bool refreshOpenSceneList = false;
+
 	if (ui.saveScenePopupOpen)
 	{
 		ImGui::OpenPopup("Save Scene");
@@ -667,6 +727,7 @@ static void DrawSceneFilePopups(SceneManager &scenes, EditorUIState &ui)
 	{
 		ImGui::OpenPopup("Open Scene");
 		ui.openScenePopupOpen = false;
+		refreshOpenSceneList = true;
 	}
 
 	if (ImGui::BeginPopupModal("Save Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -689,7 +750,65 @@ static void DrawSceneFilePopups(SceneManager &scenes, EditorUIState &ui)
 
 	if (ImGui::BeginPopupModal("Open Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
 	{
+		if (refreshOpenSceneList)
+		{
+			openSceneEntries = CollectSceneAssetEntries();
+			openSceneFilter[0] = '\0';
+			openSceneSelection = -1;
+			const std::string current = ui.openPathBuf;
+			for (size_t i = 0; i < openSceneEntries.size(); ++i)
+			{
+				if (openSceneEntries[i] == current)
+				{
+					openSceneSelection = static_cast<int>(i);
+					break;
+				}
+			}
+			refreshOpenSceneList = false;
+		}
+
 		ImGui::InputText("Path", ui.openPathBuf, sizeof(ui.openPathBuf));
+		ImGui::SameLine();
+		if (ImGui::Button("Refresh"))
+			refreshOpenSceneList = true;
+
+		ImGui::InputTextWithHint("Search", "Filter .athscene files...", openSceneFilter, sizeof(openSceneFilter));
+
+		const std::string filter = ToLowerCopy(openSceneFilter);
+		ImGui::BeginChild("OpenSceneList", ImVec2(680.0f, 260.0f), true);
+		for (int i = 0; i < static_cast<int>(openSceneEntries.size()); ++i)
+		{
+			const std::string &path = openSceneEntries[static_cast<size_t>(i)];
+			if (!filter.empty())
+			{
+				const std::string lower = ToLowerCopy(path);
+				if (lower.find(filter) == std::string::npos)
+					continue;
+			}
+
+			const bool selected = (openSceneSelection == i);
+			if (ImGui::Selectable(path.c_str(), selected))
+			{
+				openSceneSelection = i;
+				std::snprintf(ui.openPathBuf, sizeof(ui.openPathBuf), "%s", path.c_str());
+			}
+			if (selected && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+			{
+				std::string err;
+				if (scenes.QueueOpenSceneFromFile(ui.openPathBuf, err))
+				{
+					ui.selectedScene = scenes.GetLoadedSceneCount();
+					ui.sceneFileStatus = "Loading scene...";
+				}
+				else
+				{
+					ui.sceneFileStatus = "Open failed: " + err;
+				}
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		ImGui::EndChild();
+
 		if (ImGui::Button("Open"))
 		{
 			std::string err;
@@ -713,6 +832,9 @@ static void DrawSceneFilePopups(SceneManager &scenes, EditorUIState &ui)
 
 static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState &se, IEditorScene *es)
 {
+	if (!std::isfinite(ui.dragSnapStep) || ui.dragSnapStep <= 0.0f)
+		ui.dragSnapStep = 0.5f;
+
 	if (!ImGui::BeginMainMenuBar())
 		return;
 
@@ -787,10 +909,14 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 		ImGui::EndMenu();
 	}
 
-	if (ImGui::BeginMenu("Tools"))
+	if (ImGui::BeginMenu("Config"))
 	{
 		ImGui::MenuItem("Debug Clicks", nullptr, &g_showGizmoDebug);
 		ImGui::MenuItem("Forward Arrow", nullptr, &g_showForwardArrow);
+		ImGui::Separator();
+		ImGui::SetNextItemWidth(150.0f);
+		if (ImGui::DragFloat("Ctrl Drag Snap", &ui.dragSnapStep, 0.001f, 0.0001f, 1000.0f, "%.4f"))
+			ui.dragSnapStep = std::max(0.0001f, ui.dragSnapStep);
 		ImGui::EndMenu();
 	}
 
@@ -864,6 +990,7 @@ void EditorUI::Draw(SceneManager &scenes, EditorUIState &state)
 	static SceneEditorState se;
 
 	DrawTopBar(scenes, state, se, editorScene);
+	SceneEditor::SetDragSnapStep(state.dragSnapStep);
 
 	if (editorScene)
 	{

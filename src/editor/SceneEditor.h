@@ -36,6 +36,10 @@ public:
 	 * @brief Executes Draw Inspector.
 	 */
 	static void DrawInspector(Registry &registry, SceneEditorState &state, IEditorScene *editorScene);
+	/**
+	 * @brief Sets Ctrl+drag snapping step for numeric drag widgets.
+	 */
+	static void SetDragSnapStep(float snapStep);
 
 	/**
 	 * @brief Executes Create Entity.

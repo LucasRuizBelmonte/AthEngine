@@ -53,6 +53,211 @@ struct AssetPickerRuntime
 	std::string commitPath;
 };
 
+struct BufferedStringEditState
+{
+	bool editing = false;
+	std::string originalValue;
+	std::string buffer;
+};
+
+static std::unordered_map<std::string, BufferedStringEditState> s_bufferedStringEdits;
+static float s_dragSnapStep = 0.5f;
+
+static std::string BuildBufferedStringEditKey(Entity entity, const char *fieldKey)
+{
+	return std::to_string(static_cast<unsigned>(entity)) + ":" + (fieldKey ? fieldKey : "");
+}
+
+static void ResetBufferedStringEdit(Entity entity, const char *fieldKey, const std::string &value)
+{
+	BufferedStringEditState &state = s_bufferedStringEdits[BuildBufferedStringEditKey(entity, fieldKey)];
+	state.editing = false;
+	state.originalValue = value;
+	state.buffer = value;
+}
+
+static bool DrawBufferedStringInput(Entity entity,
+                                    const char *fieldKey,
+                                    const char *inputLabel,
+                                    std::string &inOutValue,
+                                    size_t minCapacity)
+{
+	BufferedStringEditState &state = s_bufferedStringEdits[BuildBufferedStringEditKey(entity, fieldKey)];
+	if (!state.editing)
+	{
+		state.originalValue = inOutValue;
+		state.buffer = inOutValue;
+	}
+
+	const size_t capacity = std::max(minCapacity, state.buffer.size() + 1u);
+	std::vector<char> inputBuffer(capacity, '\0');
+	std::snprintf(inputBuffer.data(), inputBuffer.size(), "%s", state.buffer.c_str());
+
+	const bool enterPressed = ImGui::InputText(inputLabel,
+	                                           inputBuffer.data(),
+	                                           inputBuffer.size(),
+	                                           ImGuiInputTextFlags_EnterReturnsTrue);
+
+	if (ImGui::IsItemActivated())
+	{
+		state.editing = true;
+		state.originalValue = inOutValue;
+		state.buffer = inOutValue;
+	}
+
+	if (ImGui::IsItemActive())
+	{
+		if (!state.editing)
+		{
+			state.editing = true;
+			state.originalValue = inOutValue;
+		}
+		state.buffer = inputBuffer.data();
+	}
+
+	if (state.editing && ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape))
+	{
+		state.buffer = state.originalValue;
+		state.editing = false;
+		return false;
+	}
+
+	if (enterPressed)
+	{
+		state.editing = false;
+		const bool changed = (inOutValue != state.buffer);
+		inOutValue = state.buffer;
+		state.originalValue = inOutValue;
+		state.buffer = inOutValue;
+		return changed;
+	}
+
+	if (state.editing && ImGui::IsItemDeactivated())
+	{
+		state.buffer = state.originalValue;
+		state.editing = false;
+	}
+
+	return false;
+}
+
+static bool ShouldSnapDraggedValues()
+{
+	return s_dragSnapStep > 0.0f && ImGui::GetIO().KeyCtrl && ImGui::IsItemActive();
+}
+
+static float SnapToStep(float value, float step)
+{
+	if (step <= 0.0f)
+		return value;
+	return std::round(value / step) * step;
+}
+
+static float SnapToStepDirectional(float value, float step, float mouseDeltaX)
+{
+	if (step <= 0.0f)
+		return value;
+
+	const float thresholdFraction = 1.0f;
+
+	const float scaled = value / step;
+	const float floored = std::floor(scaled);
+	const float lowerStep = floored * step;
+	const float upperStep = lowerStep + step;
+	const float fraction = scaled - floored;
+
+	if (mouseDeltaX > 0.0f)
+		return (fraction >= thresholdFraction) ? upperStep : lowerStep;
+	if (mouseDeltaX < 0.0f)
+		return (fraction <= (1.0f - thresholdFraction)) ? lowerStep : upperStep;
+
+	return SnapToStep(value, step);
+}
+
+static void ApplySnapToFloat(float &value, float minValue = 0.0f, float maxValue = 0.0f)
+{
+	if (!ShouldSnapDraggedValues())
+		return;
+
+	const float mouseDeltaX = ImGui::GetIO().MouseDelta.x;
+	value = SnapToStepDirectional(value, s_dragSnapStep, mouseDeltaX);
+	if (maxValue > minValue)
+		value = std::clamp(value, minValue, maxValue);
+}
+
+static bool DragFloatWithSnap(const char *label,
+                              float *v,
+                              float speed,
+                              float minValue = 0.0f,
+                              float maxValue = 0.0f,
+                              const char *format = "%.3f",
+                              ImGuiSliderFlags flags = 0)
+{
+	const bool changed = ImGui::DragFloat(label, v, speed, minValue, maxValue, format, flags);
+	if (changed)
+		ApplySnapToFloat(*v, minValue, maxValue);
+	return changed;
+}
+
+static bool DragFloat2WithSnap(const char *label,
+                               float *v,
+                               float speed,
+                               const char *format = "%.3f",
+                               ImGuiSliderFlags flags = 0)
+{
+	const bool changed = ImGui::DragFloat2(label, v, speed, 0.0f, 0.0f, format, flags);
+	if (changed && ShouldSnapDraggedValues())
+	{
+		const float mouseDeltaX = ImGui::GetIO().MouseDelta.x;
+		v[0] = SnapToStepDirectional(v[0], s_dragSnapStep, mouseDeltaX);
+		v[1] = SnapToStepDirectional(v[1], s_dragSnapStep, mouseDeltaX);
+	}
+	return changed;
+}
+
+static bool DragFloat3WithSnap(const char *label,
+                               float *v,
+                               float speed,
+                               float minValue = 0.0f,
+                               float maxValue = 0.0f,
+                               const char *format = "%.3f",
+                               ImGuiSliderFlags flags = 0)
+{
+	const bool changed = ImGui::DragFloat3(label, v, speed, minValue, maxValue, format, flags);
+	if (changed && ShouldSnapDraggedValues())
+	{
+		const float mouseDeltaX = ImGui::GetIO().MouseDelta.x;
+		v[0] = SnapToStepDirectional(v[0], s_dragSnapStep, mouseDeltaX);
+		v[1] = SnapToStepDirectional(v[1], s_dragSnapStep, mouseDeltaX);
+		v[2] = SnapToStepDirectional(v[2], s_dragSnapStep, mouseDeltaX);
+		if (maxValue > minValue)
+		{
+			v[0] = std::clamp(v[0], minValue, maxValue);
+			v[1] = std::clamp(v[1], minValue, maxValue);
+			v[2] = std::clamp(v[2], minValue, maxValue);
+		}
+	}
+	return changed;
+}
+
+static bool DragFloat4WithSnap(const char *label,
+                               float *v,
+                               float speed,
+                               const char *format = "%.3f",
+                               ImGuiSliderFlags flags = 0)
+{
+	const bool changed = ImGui::DragFloat4(label, v, speed, 0.0f, 0.0f, format, flags);
+	if (changed && ShouldSnapDraggedValues())
+	{
+		const float mouseDeltaX = ImGui::GetIO().MouseDelta.x;
+		v[0] = SnapToStepDirectional(v[0], s_dragSnapStep, mouseDeltaX);
+		v[1] = SnapToStepDirectional(v[1], s_dragSnapStep, mouseDeltaX);
+		v[2] = SnapToStepDirectional(v[2], s_dragSnapStep, mouseDeltaX);
+		v[3] = SnapToStepDirectional(v[3], s_dragSnapStep, mouseDeltaX);
+	}
+	return changed;
+}
+
 static const char *AssetPickerTypeLabel(AssetPickerType type)
 {
 	switch (type)
@@ -188,6 +393,7 @@ static bool ConsumeAssetPickerCommit(AssetPickerRuntime &picker,
 		return false;
 
 	inOutValue = picker.commitPath;
+	ResetBufferedStringEdit(entity, fieldKey, inOutValue);
 
 	picker.commitPending = false;
 	picker.commitEntity = kInvalidEntity;
@@ -205,9 +411,6 @@ static bool DrawPathFieldWithAssetPicker(AssetPickerRuntime &picker,
 {
 	bool changed = ConsumeAssetPickerCommit(picker, entity, fieldKey, inOutValue);
 
-	char pathBuf[512];
-	std::snprintf(pathBuf, sizeof(pathBuf), "%s", inOutValue.c_str());
-
 	ImGui::PushID(fieldKey);
 	ImGui::AlignTextToFramePadding();
 	ImGui::TextUnformatted(label);
@@ -219,9 +422,8 @@ static bool DrawPathFieldWithAssetPicker(AssetPickerRuntime &picker,
 	const float inputWidth = std::max(80.0f, avail - buttonWidth - spacing);
 	ImGui::SetNextItemWidth(inputWidth);
 
-	if (ImGui::InputText("##Path", pathBuf, sizeof(pathBuf)))
+	if (DrawBufferedStringInput(entity, fieldKey, "##Path", inOutValue, 512))
 	{
-		inOutValue = pathBuf;
 		changed = true;
 	}
 
@@ -678,7 +880,7 @@ void SceneEditor::DrawHierarchy(Registry &r, SceneEditorState &st)
 
 static void DrawVec3(const char *label, float *v, float speed)
 {
-	ImGui::DragFloat3(label, v, speed);
+	(void)DragFloat3WithSnap(label, v, speed);
 }
 
 static float WrapDegrees360(float degrees)
@@ -696,13 +898,13 @@ static void DrawRotationEulerDegrees(const char *label, glm::vec3 &rotationEuler
 		WrapDegrees360(glm::degrees(rotationEulerRadians.y)),
 		WrapDegrees360(glm::degrees(rotationEulerRadians.z))};
 
-	if (ImGui::DragFloat3(label,
-	                      &deg.x,
-	                      speedDeg,
-	                      0.0f,
-	                      360.0f,
-	                      "%.3f",
-	                      ImGuiSliderFlags_AlwaysClamp))
+	if (DragFloat3WithSnap(label,
+	                       &deg.x,
+	                       speedDeg,
+	                       0.0f,
+	                       360.0f,
+	                       "%.3f",
+	                       ImGuiSliderFlags_AlwaysClamp))
 	{
 		deg.x = WrapDegrees360(deg.x);
 		deg.y = WrapDegrees360(deg.y);
@@ -713,7 +915,7 @@ static void DrawRotationEulerDegrees(const char *label, glm::vec3 &rotationEuler
 
 static void DrawVec2(const char *label, float *v, float speed)
 {
-	ImGui::DragFloat2(label, v, speed);
+	(void)DragFloat2WithSnap(label, v, speed);
 }
 
 static void DrawColor4(const char *label, float *v)
@@ -839,6 +1041,11 @@ static void RemoveComponentMenu(Registry &r, Entity e, const char *popupId)
 	}
 }
 
+void SceneEditor::SetDragSnapStep(float snapStep)
+{
+	s_dragSnapStep = std::max(0.0001f, snapStep);
+}
+
 void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene *editorScene)
 {
 	static AssetPickerRuntime s_assetPicker;
@@ -866,10 +1073,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 
 	{
 		auto &tag = r.Get<Tag>(e);
-		char buf[256];
-		std::snprintf(buf, sizeof(buf), "%s", tag.name.c_str());
-		if (ImGui::InputText("Name", buf, sizeof(buf)))
-			tag.name = buf;
+		(void)DrawBufferedStringInput(e, "Tag.Name", "Name", tag.name, 256);
 	}
 
 	{
@@ -904,10 +1108,10 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		DrawVec3("Position", &c.position.x, 0.05f);
 		DrawVec3("Direction", &c.direction.x, 0.05f);
 
-		ImGui::DragFloat("FOV (deg)", &c.fovDeg, 0.1f, 1.f, 179.f);
-		ImGui::DragFloat("Near", &c.nearPlane, 0.001f, 0.0001f, 1000.f);
-		ImGui::DragFloat("Far", &c.farPlane, 0.1f, 0.1f, 100000.f);
-		ImGui::DragFloat("Ortho Height", &c.orthoHeight, 0.05f, 0.01f, 10000.f);
+		(void)DragFloatWithSnap("FOV (deg)", &c.fovDeg, 0.1f, 1.f, 179.f);
+		(void)DragFloatWithSnap("Near", &c.nearPlane, 0.001f, 0.0001f, 1000.f);
+		(void)DragFloatWithSnap("Far", &c.farPlane, 0.1f, 0.1f, 100000.f);
+		(void)DragFloatWithSnap("Ortho Height", &c.orthoHeight, 0.05f, 0.01f, 10000.f);
 	}
 
 	if (r.Has<CameraController>(e) && ImGui::CollapsingHeader("CameraController", ImGuiTreeNodeFlags_DefaultOpen))
@@ -915,11 +1119,11 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		RemoveComponentMenu<CameraController>(r, e, "CameraControllerCtx");
 
 		auto &cc = r.Get<CameraController>(e);
-		ImGui::DragFloat("Yaw (deg)", &cc.yawDeg, 0.1f);
-		ImGui::DragFloat("Pitch (deg)", &cc.pitchDeg, 0.1f);
-		ImGui::DragFloat("Move Speed", &cc.moveSpeed, 0.01f, 0.f, 1000.f);
-		ImGui::DragFloat("Fast Multiplier", &cc.fastMultiplier, 0.01f, 0.f, 1000.f);
-		ImGui::DragFloat("Mouse Sensitivity", &cc.mouseSensitivity, 0.001f, 0.f, 10.f);
+		(void)DragFloatWithSnap("Yaw (deg)", &cc.yawDeg, 0.1f);
+		(void)DragFloatWithSnap("Pitch (deg)", &cc.pitchDeg, 0.1f);
+		(void)DragFloatWithSnap("Move Speed", &cc.moveSpeed, 0.01f, 0.f, 1000.f);
+		(void)DragFloatWithSnap("Fast Multiplier", &cc.fastMultiplier, 0.01f, 0.f, 1000.f);
+		(void)DragFloatWithSnap("Mouse Sensitivity", &cc.mouseSensitivity, 0.001f, 0.f, 10.f);
 		DrawVec2("Last Mouse Pos", &cc.lastMousePos.x, 0.05f);
 		ImGui::Checkbox("Has Last Mouse Pos", &cc.hasLastMousePos);
 	}
@@ -930,8 +1134,8 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 
 		auto &s = r.Get<Spin>(e);
 		DrawVec3("Axis", &s.axis.x, 0.05f);
-		ImGui::DragFloat("Freq", &s.freq, 0.01f, 0.f, 1000.f);
-		ImGui::DragFloat("Amplitude", &s.amplitude, 0.01f, 0.f, 1000.f);
+		(void)DragFloatWithSnap("Freq", &s.freq, 0.01f, 0.f, 1000.f);
+		(void)DragFloatWithSnap("Amplitude", &s.amplitude, 0.01f, 0.f, 1000.f);
 	}
 
 	if (r.Has<LightEmitter>(e) && ImGui::CollapsingHeader("LightEmitter", ImGuiTreeNodeFlags_DefaultOpen))
@@ -958,10 +1162,10 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		}
 
 		ImGui::ColorEdit3("Color", &l.color.x);
-		ImGui::DragFloat("Intensity", &l.intensity, 0.01f, 0.0f, 1000.0f);
-		ImGui::DragFloat("Range", &l.range, 0.05f, 0.0f, 10000.0f);
-		ImGui::DragFloat("Inner Cone", &l.innerCone, 0.005f, 0.0f, 1.0f);
-		ImGui::DragFloat("Outer Cone", &l.outerCone, 0.005f, 0.0f, 1.0f);
+		(void)DragFloatWithSnap("Intensity", &l.intensity, 0.01f, 0.0f, 1000.0f);
+		(void)DragFloatWithSnap("Range", &l.range, 0.05f, 0.0f, 10000.0f);
+		(void)DragFloatWithSnap("Inner Cone", &l.innerCone, 0.005f, 0.0f, 1.0f);
+		(void)DragFloatWithSnap("Outer Cone", &l.outerCone, 0.005f, 0.0f, 1.0f);
 		ImGui::Checkbox("Cast Shadows", &l.castShadows);
 	}
 
@@ -1001,7 +1205,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		{
 			s.pivot = SpritePivotFromIndex(spritePivot);
 		}
-		ImGui::DragFloat4("UV", &s.uv.x, 0.01f);
+		(void)DragFloat4WithSnap("UV", &s.uv.x, 0.01f);
 		DrawColor4("Tint", &s.tint.x);
 		ImGui::InputInt("Layer", &s.layer);
 		ImGui::InputInt("Order In Layer", &s.orderInLayer);
@@ -1019,10 +1223,10 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Emission Path", "Material.EmissionTexturePath", AssetPickerType::Texture, m.emissionTexturePath);
 
 		DrawColor4("Tint", &m.tint.x);
-		ImGui::DragFloat("Specular Strength", &m.specularStrength, 0.01f, 0.0f, 8.0f);
-		ImGui::DragFloat("Shininess", &m.shininess, 0.1f, 1.0f, 512.0f);
-		ImGui::DragFloat("Normal Strength", &m.normalStrength, 0.01f, 0.0f, 4.0f);
-		ImGui::DragFloat("Emission Strength", &m.emissionStrength, 0.01f, 0.0f, 16.0f);
+		(void)DragFloatWithSnap("Specular Strength", &m.specularStrength, 0.01f, 0.0f, 8.0f);
+		(void)DragFloatWithSnap("Shininess", &m.shininess, 0.1f, 1.0f, 512.0f);
+		(void)DragFloatWithSnap("Normal Strength", &m.normalStrength, 0.01f, 0.0f, 4.0f);
+		(void)DragFloatWithSnap("Emission Strength", &m.emissionStrength, 0.01f, 0.0f, 16.0f);
 
 		if ((materialPathChanged || ImGui::Button("Apply Material Textures")) && editorScene)
 		{

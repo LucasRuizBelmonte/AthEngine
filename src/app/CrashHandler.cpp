@@ -189,7 +189,7 @@ namespace
 		}
 		ExitAfterCrash();
 	}
-} // namespace
+}
 
 void CrashHandler::Install()
 {

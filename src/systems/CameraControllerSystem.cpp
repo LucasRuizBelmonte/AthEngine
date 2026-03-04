@@ -25,8 +25,6 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 	if (!registry.Has<Camera>(cameraEntity))
 		return;
 
-	// Camera control is only active while the app has captured the cursor.
-	// RMB in the Render tab is what triggers this capture in Application.
 	if (glfwGetInputMode(&window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED)
 		return;
 
@@ -58,10 +56,6 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 	glm::vec2 md = Input::GetMouseDelta();
 	if (is2DMode)
 	{
-		// 2D camera mode:
-		// - Fixed look direction (no rotation)
-		// - Right mouse drag pans in XY
-		// - WASD moves in XY
 		cam.direction = glm::vec3(0.0f, 0.0f, -1.0f);
 
 		if (Input::GetKey(GLFW_KEY_W))

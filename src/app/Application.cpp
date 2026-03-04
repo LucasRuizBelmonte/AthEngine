@@ -71,6 +71,13 @@ void Application::Run()
 			EnsureSceneRenderTarget(width, height);
 
 		BeginImGuiFrame();
+		if (m_MouseCaptured && m_RightMouseCaptureOwned)
+		{
+			ImGuiIO &io = ImGui::GetIO();
+			io.MousePos = ImVec2(static_cast<float>(m_LastMouseX), static_cast<float>(m_LastMouseY));
+			io.MousePosPrev = io.MousePos;
+			io.MouseDelta = ImVec2(0.0f, 0.0f);
+		}
 
 		EditorUI::SetRenderTexture(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(m_SceneColorTexture)));
 		m_Scenes->RenderEditorUI(*m_Renderer, width, height);
@@ -151,6 +158,8 @@ void Application::ToggleMouseCapture()
 	else
 	{
 		glfwSetInputMode(w, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		if (m_RightMouseCaptureOwned)
+			glfwSetCursorPos(w, m_LastMouseX, m_LastMouseY);
 	}
 }
 

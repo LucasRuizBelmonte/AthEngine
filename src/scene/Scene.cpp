@@ -416,8 +416,6 @@ bool Scene::EditorSetMeshPath(Entity e, const std::string &path, std::string &ou
 		return false;
 	}
 
-	// Copy the input path because callers often pass mesh.meshPath directly.
-	// This function move-assigns the Mesh, which would invalidate/overwrite a referenced source string.
 	const std::string requestedPath = path;
 	const std::string resolvedPath = ResolveRuntimeAssetPath(requestedPath);
 

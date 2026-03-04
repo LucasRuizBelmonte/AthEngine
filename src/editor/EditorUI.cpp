@@ -54,6 +54,8 @@ struct GizmoState
 	IEditorScene *activeScene = nullptr;
 	Entity activeEntity = kInvalidEntity;
 	Transform beginTransform{};
+	glm::mat4 activeWorldMatrix{1.f};
+	bool hasActiveWorldMatrix = false;
 };
 
 struct GizmoRuntimeDebug
@@ -68,6 +70,7 @@ static std::unordered_map<IEditorScene *, TransformHistory> g_transformHistoryBy
 static GizmoState g_gizmoState;
 static GizmoRuntimeDebug g_gizmoRuntimeDebug;
 static bool g_showGizmoDebug = false;
+static bool g_showForwardArrow = true;
 #pragma endregion
 
 #pragma region Function Definitions
@@ -207,6 +210,75 @@ static glm::mat4 ComputeWorldTransformMatrix(Registry &r, Entity e)
 	}
 
 	return world;
+}
+
+static bool ProjectWorldToViewport(
+	const glm::vec3 &worldPos,
+	const glm::mat4 &view,
+	const glm::mat4 &projection,
+	const ImVec2 &rectMin,
+	const ImVec2 &rectSize,
+	ImVec2 &outScreenPos)
+{
+	const glm::vec4 clip = projection * view * glm::vec4(worldPos, 1.0f);
+	if (clip.w <= 1e-6f)
+		return false;
+
+	const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+	if (!std::isfinite(ndc.x) || !std::isfinite(ndc.y) || !std::isfinite(ndc.z))
+		return false;
+
+	const float u = ndc.x * 0.5f + 0.5f;
+	const float v = ndc.y * 0.5f + 0.5f;
+
+	outScreenPos.x = rectMin.x + u * rectSize.x;
+	outScreenPos.y = rectMin.y + (1.0f - v) * rectSize.y;
+	return true;
+}
+
+static void DrawSelectedForwardArrow(
+	const glm::mat4 &world,
+	const glm::mat4 &view,
+	const glm::mat4 &projection,
+	const ImVec2 &rectMin,
+	const ImVec2 &rectSize)
+{
+	const glm::vec3 origin = glm::vec3(world[3]);
+	glm::vec3 forward = glm::vec3(world * glm::vec4(0.f, 0.f, -1.f, 0.f));
+	const float forwardLen = glm::length(forward);
+	if (forwardLen <= 1e-6f)
+		return;
+	forward /= forwardLen;
+
+	ImVec2 p0, pDirSample;
+	if (!ProjectWorldToViewport(origin, view, projection, rectMin, rectSize, p0) ||
+	    !ProjectWorldToViewport(origin + forward, view, projection, rectMin, rectSize, pDirSample))
+	{
+		return;
+	}
+
+	const ImVec2 d{pDirSample.x - p0.x, pDirSample.y - p0.y};
+	const float dLen = std::sqrt(d.x * d.x + d.y * d.y);
+	if (dLen <= 1e-4f)
+		return;
+
+	const ImVec2 dir{d.x / dLen, d.y / dLen};
+	const ImVec2 perp{-dir.y, dir.x};
+
+	const float arrowPxLength = 56.0f;
+	const ImVec2 p1{p0.x + dir.x * arrowPxLength, p0.y + dir.y * arrowPxLength};
+
+	const float headLen = 12.0f;
+	const float headWidth = 5.5f;
+	const ImVec2 headBase{p1.x - dir.x * headLen, p1.y - dir.y * headLen};
+	const ImVec2 left{headBase.x + perp.x * headWidth, headBase.y + perp.y * headWidth};
+	const ImVec2 right{headBase.x - perp.x * headWidth, headBase.y - perp.y * headWidth};
+
+	ImDrawList *dl = ImGui::GetWindowDrawList();
+	const ImU32 color = IM_COL32(255, 210, 0, 255);
+	dl->AddLine(p0, p1, color, 2.2f);
+	dl->AddTriangleFilled(p1, left, right, color);
+	dl->AddCircleFilled(p0, 2.5f, color);
 }
 
 static Transform DecomposeTransform(const glm::mat4 &matrix, const Transform &keepPivot)
@@ -354,6 +426,7 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 
 		g_gizmoState.activeScene = nullptr;
 		g_gizmoState.activeEntity = kInvalidEntity;
+		g_gizmoState.hasActiveWorldMatrix = false;
 	};
 
 	if (!editorScene || rectSize.x <= 0.0f || rectSize.y <= 0.0f)
@@ -361,6 +434,7 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 		g_gizmoState.isManipulating = false;
 		g_gizmoState.activeScene = nullptr;
 		g_gizmoState.activeEntity = kInvalidEntity;
+		g_gizmoState.hasActiveWorldMatrix = false;
 		return;
 	}
 
@@ -408,6 +482,13 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 	const glm::mat4 world = ComputeWorldTransformMatrix(r, e);
 
 	glm::mat4 manipulatedWorld = world;
+	const bool hasActiveManipulationMatrix =
+		g_gizmoState.isManipulating &&
+		g_gizmoState.activeScene == editorScene &&
+		g_gizmoState.activeEntity == e &&
+		g_gizmoState.hasActiveWorldMatrix;
+	if (hasActiveManipulationMatrix)
+		manipulatedWorld = g_gizmoState.activeWorldMatrix;
 
 	ImGuizmo::SetOrthographic(cam.projection == ProjectionType::Orthographic);
 	ImGuizmo::SetDrawlist();
@@ -435,18 +516,47 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 			g_gizmoState.activeScene = editorScene;
 			g_gizmoState.activeEntity = e;
 			g_gizmoState.beginTransform = transformBeforeFrame;
+			g_gizmoState.activeWorldMatrix = world;
+			g_gizmoState.hasActiveWorldMatrix = true;
 		}
+		g_gizmoState.activeWorldMatrix = manipulatedWorld;
+		g_gizmoState.hasActiveWorldMatrix = true;
 
-		glm::mat4 localMatrix = manipulatedWorld;
+		glm::mat4 localMatrix = g_gizmoState.activeWorldMatrix;
 		const float parentDet = glm::determinant(parentWorld);
 		if (std::abs(parentDet) > 1e-6f)
-			localMatrix = glm::inverse(parentWorld) * manipulatedWorld;
+			localMatrix = glm::inverse(parentWorld) * g_gizmoState.activeWorldMatrix;
 
-		localTransform = DecomposeTransform(localMatrix, localTransform);
+		Transform updatedTransform = DecomposeTransform(localMatrix, localTransform);
+		if (g_gizmoState.operation == ImGuizmo::TRANSLATE)
+		{
+			updatedTransform.rotationEuler = transformBeforeFrame.rotationEuler;
+			updatedTransform.scale = transformBeforeFrame.scale;
+		}
+		else if (g_gizmoState.operation == ImGuizmo::SCALE)
+		{
+			updatedTransform.rotationEuler = transformBeforeFrame.rotationEuler;
+		}
+		else if (g_gizmoState.operation == ImGuizmo::ROTATE)
+		{
+			updatedTransform.position = transformBeforeFrame.position;
+			updatedTransform.scale = transformBeforeFrame.scale;
+		}
+
+		localTransform = updatedTransform;
 	}
 	else if (g_gizmoState.isManipulating)
 	{
 		finalizeManipulation(r);
+	}
+
+	if (g_showForwardArrow)
+	{
+		const glm::mat4 arrowWorld =
+			(usingNow && g_gizmoState.hasActiveWorldMatrix)
+				? g_gizmoState.activeWorldMatrix
+				: ComputeWorldTransformMatrix(r, e);
+		DrawSelectedForwardArrow(arrowWorld, view, projection, rectMin, rectSize);
 	}
 }
 
@@ -659,6 +769,7 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 	if (ImGui::BeginMenu("Tools"))
 	{
 		ImGui::MenuItem("Debug Clicks", nullptr, &g_showGizmoDebug);
+		ImGui::MenuItem("Forward Arrow", nullptr, &g_showForwardArrow);
 		ImGui::EndMenu();
 	}
 

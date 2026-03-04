@@ -7,6 +7,7 @@
 #include <string>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 
 #include "../scene/IEditorScene.h"
 #include "../components/Tag.h"
@@ -399,6 +400,36 @@ static void DrawVec3(const char *label, float *v, float speed)
 	ImGui::DragFloat3(label, v, speed);
 }
 
+static float WrapDegrees360(float degrees)
+{
+	float wrapped = std::fmod(degrees, 360.0f);
+	if (wrapped < 0.0f)
+		wrapped += 360.0f;
+	return wrapped;
+}
+
+static void DrawRotationEulerDegrees(const char *label, glm::vec3 &rotationEulerRadians, float speedDeg)
+{
+	glm::vec3 deg{
+		WrapDegrees360(glm::degrees(rotationEulerRadians.x)),
+		WrapDegrees360(glm::degrees(rotationEulerRadians.y)),
+		WrapDegrees360(glm::degrees(rotationEulerRadians.z))};
+
+	if (ImGui::DragFloat3(label,
+	                      &deg.x,
+	                      speedDeg,
+	                      0.0f,
+	                      360.0f,
+	                      "%.3f",
+	                      ImGuiSliderFlags_AlwaysClamp))
+	{
+		deg.x = WrapDegrees360(deg.x);
+		deg.y = WrapDegrees360(deg.y);
+		deg.z = WrapDegrees360(deg.z);
+		rotationEulerRadians = glm::radians(deg);
+	}
+}
+
 static void DrawVec2(const char *label, float *v, float speed)
 {
 	ImGui::DragFloat2(label, v, speed);
@@ -568,7 +599,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 
 		auto &t = r.Get<Transform>(e);
 		DrawVec3("Position", &t.position.x, 0.05f);
-		DrawVec3("RotationEuler", &t.rotationEuler.x, 0.05f);
+		DrawRotationEulerDegrees("RotationEuler", t.rotationEuler, 0.5f);
 		DrawVec3("Scale", &t.scale.x, 0.05f);
 		DrawVec3("Pivot Anchor (-1..1)", &t.pivot.x, 0.05f);
 	}

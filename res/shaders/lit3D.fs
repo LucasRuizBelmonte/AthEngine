@@ -6,10 +6,15 @@ in vec2 v_uv;
 
 uniform sampler2D u_texBaseColor;
 uniform bool u_hasBaseColorTex;
+uniform sampler2D u_texSpecular;
+uniform bool u_hasSpecularTex;
+uniform sampler2D u_texEmission;
+uniform bool u_hasEmissionTex;
+
 uniform vec4 u_tint;
 uniform float u_specularStrength;
 uniform float u_shininess;
-uniform vec3 cameraPosition;
+uniform float u_emissionStrength;
 uniform vec3 u_viewPos;
 
 #define MAX_LIGHTS 10
@@ -54,26 +59,28 @@ float ComputeSpotFactor(in Light l, vec3 fragmentDirFromLight)
 
 void main()
 {
-    vec3 albedo = u_tint.rgb;
-    if (u_hasBaseColorTex)
-    {
-        albedo *= texture(u_texBaseColor, v_uv).rgb;
-    }
+    vec4 baseSample = u_hasBaseColorTex ? texture(u_texBaseColor, v_uv) : vec4(1.0);
+    vec3 albedo = baseSample.rgb * u_tint.rgb;
+    float alpha = baseSample.a * u_tint.a;
+
+    float specularMask = u_hasSpecularTex ? texture(u_texSpecular, v_uv).r : 1.0;
+    vec3 emission = vec3(0.0);
+    if (u_hasEmissionTex)
+        emission = texture(u_texEmission, v_uv).rgb * u_emissionStrength;
 
     vec3 n = normalize(v_worldNormal);
-    vec3 resolvedCameraPos = (length(cameraPosition) > 0.0001) ? cameraPosition : u_viewPos;
-    vec3 viewDir = normalize(resolvedCameraPos - v_worldPos);
+    vec3 viewDir = normalize(u_viewPos - v_worldPos);
 
     vec3 ambient = 0.05 * albedo;
     vec3 diffuse = vec3(0.0);
     vec3 specular = vec3(0.0);
 
-    int count = min(max(lightCount, 0), MAX_LIGHTS);
+    int count = clamp(lightCount, 0, MAX_LIGHTS);
     for (int i = 0; i < count; ++i)
     {
         Light l = lights[i];
 
-        vec3 L = vec3(0.0); // Fragment -> light direction.
+        vec3 L = vec3(0.0);
         float attenuation = 1.0;
 
         if (l.type == 0)
@@ -102,13 +109,13 @@ void main()
 
         vec3 halfDir = normalize(L + viewDir);
         float specExp = max(u_shininess, 1.0);
-        float specTerm = pow(max(dot(n, halfDir), 0.0), specExp) * u_specularStrength;
+        float specTerm = pow(max(dot(n, halfDir), 0.0), specExp) * u_specularStrength * specularMask;
 
         vec3 lightColor = l.color * l.intensity * attenuation;
         diffuse += NdotL * albedo * lightColor;
         specular += specTerm * lightColor;
     }
 
-    vec3 color = ambient + diffuse + specular;
-    FragColor = vec4(color, u_tint.a);
+    vec3 color = ambient + diffuse + specular + emission;
+    FragColor = vec4(color, alpha);
 }

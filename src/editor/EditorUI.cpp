@@ -574,21 +574,36 @@ static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, con
 	Registry &r = editorScene->GetEditorRegistry();
 	Entity e = SceneEditor::CreateEntity(r, name, kInvalidEntity, true);
 
-	if (kind == BasicShapeKind::Box)
-		r.Emplace<Mesh>(e, MeshFactory::CreateLitBox());
-	else
-		r.Emplace<Mesh>(e, MeshFactory::CreateLitPlane());
+	if (!r.Has<Mesh>(e))
+		r.Emplace<Mesh>(e);
 
 	auto &mesh = r.Get<Mesh>(e);
-	mesh.materialPath = std::string(ASSET_PATH) + "/shaders/lit3d.fs";
+	const std::string meshPath = (kind == BasicShapeKind::Box)
+	                                 ? "res/models/basicShapes/cube.fbx"
+	                                 : "res/models/basicShapes/plane.fbx";
+	mesh.meshPath = meshPath;
+	mesh.materialPath = "res/shaders/lit3D.fs";
 
 	if (!r.Has<Material>(e))
 		r.Emplace<Material>(e);
 
 	std::string err;
+	if (!editorScene->EditorSetMeshPath(e, mesh.meshPath, err))
+	{
+		// Fallback for cases where asset files are missing.
+		mesh.Destroy();
+		if (kind == BasicShapeKind::Box)
+			mesh = MeshFactory::CreateLitBox();
+		else
+			mesh = MeshFactory::CreateLitPlane();
+
+		mesh.meshPath = meshPath;
+		se.inspectorStatus = "Basic shape mesh error: " + err;
+	}
+
 	if (!editorScene->EditorSetMeshMaterial(e, mesh.materialPath, err))
 		se.inspectorStatus = "Basic shape material error: " + err;
-	else
+	else if (se.inspectorStatus.rfind("Basic shape mesh error:", 0) != 0)
 		se.inspectorStatus.clear();
 
 	return e;

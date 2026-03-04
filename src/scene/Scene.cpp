@@ -13,6 +13,8 @@
 #include <exception>
 #include <functional>
 #include <cmath>
+#include <filesystem>
+#include <initializer_list>
 #include <glm/gtc/matrix_transform.hpp>
 #pragma endregion
 
@@ -22,6 +24,58 @@ namespace
 	static std::string EditorAssetName(const char *prefix, const std::string &path)
 	{
 		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
+	}
+
+	static std::string FirstExistingPath(const std::initializer_list<std::string> &paths)
+	{
+		for (const std::string &path : paths)
+		{
+			std::error_code ec;
+			if (std::filesystem::exists(path, ec))
+				return path;
+		}
+
+		if (paths.size() > 0)
+			return *paths.begin();
+		return {};
+	}
+
+	static std::string ResolveVertexShaderPathForFragment(const std::string &fragmentPath,
+	                                                      const std::string &fallbackVertexPath)
+	{
+		if (fragmentPath.empty())
+			return fallbackVertexPath;
+
+		std::filesystem::path candidate(fragmentPath);
+		if (!candidate.has_extension())
+			return fallbackVertexPath;
+
+		candidate.replace_extension(".vs");
+		std::error_code ec;
+		if (std::filesystem::exists(candidate, ec))
+			return candidate.string();
+
+		return fallbackVertexPath;
+	}
+
+	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
+	{
+		if (rawPath.empty())
+			return {};
+
+		std::filesystem::path path(rawPath);
+		path = path.lexically_normal();
+		if (path.is_absolute())
+			return path.string();
+
+		const std::string generic = path.generic_string();
+		const std::filesystem::path assetRoot(ASSET_PATH);
+		const std::filesystem::path projectRoot = assetRoot.parent_path();
+
+		if (generic == "res" || generic.rfind("res/", 0) == 0)
+			return (projectRoot / path).lexically_normal().string();
+
+		return (assetRoot / path).lexically_normal().string();
 	}
 
 	static bool ApplyMaterialTextureSlot(TextureManager &textureManager,
@@ -36,7 +90,8 @@ namespace
 			return true;
 		}
 
-		auto handle = textureManager.Load(EditorAssetName(namePrefix, path), path, true);
+		const std::string resolvedPath = ResolveRuntimeAssetPath(path);
+		auto handle = textureManager.Load(EditorAssetName(namePrefix, path), resolvedPath, true);
 		if (!handle.IsValid())
 		{
 			outError = std::string("Could not load texture: ") + path;
@@ -58,8 +113,14 @@ namespace
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
-	m_litVsPath = std::string(ASSET_PATH) + "/shaders/lit3d.vs";
-	m_spriteVsPath = std::string(ASSET_PATH) + "/shaders/sprite.vs";
+	m_litVsPath = FirstExistingPath({
+		std::string(ASSET_PATH) + "/shaders/lit3D.vs",
+		std::string(ASSET_PATH) + "/shaders/lit3d.vs",
+	});
+	m_spriteVsPath = FirstExistingPath({
+		std::string(ASSET_PATH) + "/shaders/unlit2D.vs",
+		std::string(ASSET_PATH) + "/shaders/sprite.vs",
+	});
 }
 
 const char *Scene::GetName() const
@@ -240,7 +301,8 @@ bool Scene::EditorSetSpriteTexture(Entity e, const std::string &path, std::strin
 		return true;
 	}
 
-	auto handle = m_textureManager.Load(EditorAssetName("editor_tex_", path), path, true);
+	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
+	auto handle = m_textureManager.Load(EditorAssetName("editor_tex_", path), resolvedPath, true);
 	if (!handle.IsValid())
 	{
 		outError = "Could not load texture: " + path;
@@ -267,7 +329,9 @@ bool Scene::EditorSetSpriteMaterial(Entity e, const std::string &path, std::stri
 		return true;
 	}
 
-	auto handle = m_shaderManager.Load(EditorAssetName("editor_spr_mat_", path), m_spriteVsPath, path);
+	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
+	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath, m_spriteVsPath);
+	auto handle = m_shaderManager.Load(EditorAssetName("editor_spr_mat_", path), vsPath, resolvedPath);
 	if (!handle.IsValid())
 	{
 		outError = "Could not load sprite material shader: " + path;
@@ -286,9 +350,14 @@ bool Scene::EditorSetMeshPath(Entity e, const std::string &path, std::string &ou
 		return false;
 	}
 
+	// Copy the input path because callers often pass mesh.meshPath directly.
+	// This function move-assigns the Mesh, which would invalidate/overwrite a referenced source string.
+	const std::string requestedPath = path;
+	const std::string resolvedPath = ResolveRuntimeAssetPath(requestedPath);
+
 	auto &mesh = m_registry.Get<Mesh>(e);
-	mesh.meshPath = path;
-	if (path.empty())
+	mesh.meshPath = requestedPath;
+	if (requestedPath.empty())
 	{
 		mesh.Destroy();
 		return true;
@@ -296,10 +365,10 @@ bool Scene::EditorSetMeshPath(Entity e, const std::string &path, std::string &ou
 
 	try
 	{
-		Mesh loaded = ModelLoader::LoadFirstMesh(path);
+		Mesh loaded = ModelLoader::LoadFirstMesh(resolvedPath);
 		const std::string materialPath = mesh.materialPath;
 		mesh = std::move(loaded);
-		mesh.meshPath = path;
+		mesh.meshPath = requestedPath;
 		mesh.materialPath = materialPath;
 		return true;
 	}
@@ -331,7 +400,9 @@ bool Scene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string
 		return true;
 	}
 
-	auto shader = m_shaderManager.Load(EditorAssetName("editor_mesh_mat_", path), m_litVsPath, path);
+	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
+	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath, m_litVsPath);
+	auto shader = m_shaderManager.Load(EditorAssetName("editor_mesh_mat_", path), vsPath, resolvedPath);
 	if (!shader.IsValid())
 	{
 		outError = "Could not load mesh material shader: " + path;

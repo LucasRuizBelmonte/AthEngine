@@ -102,6 +102,37 @@ namespace
 		return true;
 	}
 
+	static std::string ToRelativePathForSave(const std::string &rawPath)
+	{
+		if (rawPath.empty())
+			return {};
+
+		std::filesystem::path path(rawPath);
+		path = path.lexically_normal();
+
+		if (path.is_absolute())
+		{
+			const std::filesystem::path projectRoot = std::filesystem::path(ASSET_PATH).lexically_normal().parent_path();
+			std::error_code ec;
+			std::filesystem::path rel = std::filesystem::relative(path, projectRoot, ec);
+			if (!ec && !rel.empty())
+				path = rel.lexically_normal();
+			else
+			{
+				ec.clear();
+				const std::filesystem::path cwd = std::filesystem::current_path(ec);
+				if (!ec)
+				{
+					rel = std::filesystem::relative(path, cwd, ec);
+					if (!ec && !rel.empty())
+						path = rel.lexically_normal();
+				}
+			}
+		}
+
+		return path.generic_string();
+	}
+
 	static void ClearRegistry(Registry &registry)
 	{
 		std::vector<Entity> alive = registry.Alive();
@@ -247,7 +278,8 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 			    << c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
 			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
 			    << c.layer << " " << c.orderInLayer << " "
-			    << std::quoted(c.texturePath) << " " << std::quoted(c.materialPath) << " "
+			    << std::quoted(ToRelativePathForSave(c.texturePath)) << " "
+			    << std::quoted(ToRelativePathForSave(c.materialPath)) << " "
 			    << static_cast<int>(c.pivot) << "\n";
 		}
 
@@ -260,16 +292,18 @@ bool EditorSceneIO::SaveRegistry(const Registry &registry,
 			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
 			    << c.specularStrength << " " << c.shininess << " "
 			    << c.normalStrength << " " << c.emissionStrength << " "
-			    << std::quoted(c.texturePath) << " "
-			    << std::quoted(c.specularTexturePath) << " "
-			    << std::quoted(c.normalTexturePath) << " "
-			    << std::quoted(c.emissionTexturePath) << "\n";
+			    << std::quoted(ToRelativePathForSave(c.texturePath)) << " "
+			    << std::quoted(ToRelativePathForSave(c.specularTexturePath)) << " "
+			    << std::quoted(ToRelativePathForSave(c.normalTexturePath)) << " "
+			    << std::quoted(ToRelativePathForSave(c.emissionTexturePath)) << "\n";
 		}
 
 		if (registry.Has<Mesh>(e))
 		{
 			const Mesh &c = registry.Get<Mesh>(e);
-			out << "MESH " << std::quoted(c.meshPath) << " " << std::quoted(c.materialPath) << "\n";
+			out << "MESH "
+			    << std::quoted(ToRelativePathForSave(c.meshPath)) << " "
+			    << std::quoted(ToRelativePathForSave(c.materialPath)) << "\n";
 		}
 
 		out << "END_ENTITY\n";

@@ -18,7 +18,8 @@ void main()
     mat3 normalMatrix = transpose(inverse(mat3(u_model)));
 
     vec3 worldNormal = normalMatrix * a_normal;
-    if (length(worldNormal) < 0.0001) worldNormal = vec3(0.0, 0.0, 1.0);
+    if (length(worldNormal) < 0.0001)
+        worldNormal = vec3(0.0, 0.0, 1.0);
 
     v_worldPos = worldPos.xyz;
     v_worldNormal = normalize(worldNormal);

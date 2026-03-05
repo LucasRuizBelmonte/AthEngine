@@ -6,6 +6,7 @@ in vec2 v_worldPosXY;
 uniform sampler2D u_texBaseColor;
 uniform bool u_hasBaseColorTex;
 uniform vec4 u_tint;
+uniform vec4 u_uvRect;
 
 #define MAX_LIGHTS 10
 
@@ -35,7 +36,8 @@ float ComputeRangeAttenuation(float distanceToLight, float range)
 
 void main()
 {
-    vec4 baseSample = u_hasBaseColorTex ? texture(u_texBaseColor, v_uv) : vec4(1.0);
+    vec2 uv = mix(u_uvRect.xy, u_uvRect.zw, v_uv);
+    vec4 baseSample = u_hasBaseColorTex ? texture(u_texBaseColor, uv) : vec4(1.0);
     vec3 albedo = baseSample.rgb * u_tint.rgb;
     float alpha = baseSample.a * u_tint.a;
 

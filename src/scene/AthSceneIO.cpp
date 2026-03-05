@@ -11,6 +11,7 @@
 #include "../components/Spin.h"
 #include "../components/Tag.h"
 #include "../components/Transform.h"
+#include "../animation2d/SpriteAnimator.h"
 #include "../physics2d/Collider2D.h"
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
@@ -59,6 +60,8 @@ namespace AthSceneIO
 
 			bool hasSprite = false;
 			Sprite sprite;
+			bool hasSpriteAnimator = false;
+			SpriteAnimator spriteAnimator;
 
 			bool hasCollider2D = false;
 			Collider2D collider2D;
@@ -576,6 +579,116 @@ namespace AthSceneIO
 		}
 	};
 
+	struct ComponentCodecs::SpriteAnimatorCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<SpriteAnimator>(e))
+				return;
+			const SpriteAnimator &c = registry.Get<SpriteAnimator>(e);
+			out << "SPRITE_ANIMATOR "
+				<< std::quoted(c.clipId) << " "
+				<< c.time << " "
+				<< c.fps << " "
+				<< c.speed << " "
+				<< (c.loop ? 1 : 0) << " "
+				<< (c.playing ? 1 : 0) << " "
+				<< c.currentFrame << " "
+				<< c.columns << " "
+				<< c.rows << " "
+				<< c.gapX << " "
+				<< c.gapY << " "
+				<< c.startIndexX << " "
+				<< c.startIndexY << " "
+				<< c.frameCount << " "
+				<< c.marginX << " "
+				<< c.marginY << " "
+				<< c.cellWidth << " "
+				<< c.cellHeight << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasSpriteAnimator = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int loop = 0;
+			int playing = 0;
+			if (!(ls >> std::quoted(ent.spriteAnimator.clipId) >>
+			      ent.spriteAnimator.time))
+			{
+				outError = BuildSchemaError(
+					"SpriteAnimator",
+					"SPRITE_ANIMATOR \"<clipId>\" <time> ...",
+					payload);
+				return false;
+			}
+
+			// Current parse:
+			// <fps> <speed> <loop> <playing> <currentFrame> [grid params...]
+			std::vector<float> numericTail;
+			float token = 0.f;
+			while (ls >> token)
+				numericTail.push_back(token);
+			if (!ls.eof() && ls.fail())
+			{
+				outError = BuildSchemaError("SpriteAnimator", "numeric tail after <time>", payload);
+				return false;
+			}
+
+			if (numericTail.size() < 5u)
+			{
+				outError = BuildSchemaError(
+					"SpriteAnimator",
+					"at least 5 numeric values after <time>: <fps> <speed> <loop> <playing> <currentFrame>",
+					payload);
+				return false;
+			}
+
+			ent.spriteAnimator.fps = numericTail[0];
+			ent.spriteAnimator.speed = numericTail[1];
+			loop = static_cast<int>(numericTail[2]);
+			playing = static_cast<int>(numericTail[3]);
+			ent.spriteAnimator.currentFrame = static_cast<int>(numericTail[4]);
+
+			if (numericTail.size() > 5u)
+				ent.spriteAnimator.columns = static_cast<int>(numericTail[5]);
+			if (numericTail.size() > 6u)
+				ent.spriteAnimator.rows = static_cast<int>(numericTail[6]);
+			if (numericTail.size() > 7u)
+				ent.spriteAnimator.gapX = static_cast<int>(numericTail[7]);
+			if (numericTail.size() > 8u)
+				ent.spriteAnimator.gapY = static_cast<int>(numericTail[8]);
+			if (numericTail.size() > 9u)
+				ent.spriteAnimator.startIndexX = static_cast<int>(numericTail[9]);
+			if (numericTail.size() > 10u)
+				ent.spriteAnimator.startIndexY = static_cast<int>(numericTail[10]);
+			if (numericTail.size() > 11u)
+				ent.spriteAnimator.frameCount = static_cast<int>(numericTail[11]);
+			if (numericTail.size() > 12u)
+				ent.spriteAnimator.marginX = static_cast<int>(numericTail[12]);
+			if (numericTail.size() > 13u)
+				ent.spriteAnimator.marginY = static_cast<int>(numericTail[13]);
+			if (numericTail.size() > 14u)
+				ent.spriteAnimator.cellWidth = static_cast<int>(numericTail[14]);
+			if (numericTail.size() > 15u)
+				ent.spriteAnimator.cellHeight = static_cast<int>(numericTail[15]);
+
+			ent.spriteAnimator.loop = (loop != 0);
+			ent.spriteAnimator.playing = (playing != 0);
+			ent.spriteAnimator.fps = std::max(0.0f, ent.spriteAnimator.fps);
+			ent.spriteAnimator.columns = std::max(1, ent.spriteAnimator.columns);
+			ent.spriteAnimator.rows = std::max(1, ent.spriteAnimator.rows);
+			ent.spriteAnimator.gapX = std::max(0, ent.spriteAnimator.gapX);
+			ent.spriteAnimator.gapY = std::max(0, ent.spriteAnimator.gapY);
+			ent.spriteAnimator.marginX = std::max(0, ent.spriteAnimator.marginX);
+			ent.spriteAnimator.marginY = std::max(0, ent.spriteAnimator.marginY);
+			ent.spriteAnimator.cellWidth = std::max(0, ent.spriteAnimator.cellWidth);
+			ent.spriteAnimator.cellHeight = std::max(0, ent.spriteAnimator.cellHeight);
+			return true;
+		}
+	};
+
 	struct ComponentCodecs::Collider2DCodec
 	{
 		static void Write(const Registry &registry, Entity e, std::ostream &out)
@@ -1012,6 +1125,7 @@ namespace AthSceneIO
 			ComponentCodecs::SpinCodec::Write(registry, e, out);
 			ComponentCodecs::LightEmitterCodec::Write(registry, e, out);
 			ComponentCodecs::SpriteCodec::Write(registry, e, out);
+			ComponentCodecs::SpriteAnimatorCodec::Write(registry, e, out);
 			ComponentCodecs::Collider2DCodec::Write(registry, e, out);
 			ComponentCodecs::RigidBody2DCodec::Write(registry, e, out);
 			ComponentCodecs::PhysicsBody2DCodec::Write(registry, e, out);
@@ -1264,6 +1378,13 @@ namespace AthSceneIO
 					continue;
 				}
 
+				if (key == "SPRITE_ANIMATOR")
+				{
+					if (!ComponentCodecs::SpriteAnimatorCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
 				if (key == "COLLIDER2D")
 				{
 					if (!ComponentCodecs::Collider2DCodec::Read(in, ent, outError))
@@ -1300,7 +1421,7 @@ namespace AthSceneIO
 				}
 
 				outError = "Unknown component token '" + key +
-				           "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
+				           "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,SPRITE_ANIMATOR,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
 				return false;
 			}
 
@@ -1359,6 +1480,8 @@ namespace AthSceneIO
 				registry.Emplace<LightEmitter>(e, ent.light);
 			if (ent.hasSprite)
 				registry.Emplace<Sprite>(e, ent.sprite);
+			if (ent.hasSpriteAnimator)
+				registry.Emplace<SpriteAnimator>(e, ent.spriteAnimator);
 			if (ent.hasCollider2D)
 				registry.Emplace<Collider2D>(e, ent.collider2D);
 			if (ent.hasRigidBody2D)

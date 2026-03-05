@@ -9,10 +9,12 @@
 #include "EditorSceneIO.h"
 
 #include "../components/Tag.h"
+#include "../animation2d/SpriteAnimator.h"
 
 #include <exception>
 #include <functional>
 #include <filesystem>
+#include <utility>
 #include <glm/gtc/matrix_transform.hpp>
 #pragma endregion
 
@@ -103,6 +105,7 @@ namespace
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
+	RegisterBuiltin2DAnimationClips();
 }
 
 const char *Scene::GetName() const
@@ -157,6 +160,8 @@ void Scene::Update(float dt, float now, const InputState &input)
 
 	m_transformSystem.Update(m_registry);
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
+	if (m_sysSpriteAnimation)
+		m_spriteAnimationSystem.Update(m_registry, m_animation2DLibrary, m_textureManager, dt);
 }
 
 void Scene::FixedUpdate(float fixedDt)
@@ -219,7 +224,10 @@ void Scene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 	if (m_dimension == EditorSceneDimension::Scene3D)
 		out.push_back({"RenderSystem", &m_sysRender});
 	else
+	{
+		out.push_back({"SpriteAnimationSystem", &m_sysSpriteAnimation});
 		out.push_back({"Render2DSystem", &m_sysRender2D});
+	}
 }
 
 const char *Scene::GetEditorSceneType() const
@@ -638,6 +646,22 @@ void Scene::Remove2DContent()
 	{
 		if (m_registry.Has<Sprite>(e))
 			m_registry.Remove<Sprite>(e);
+		if (m_registry.Has<SpriteAnimator>(e))
+			m_registry.Remove<SpriteAnimator>(e);
 	}
+}
+
+void Scene::RegisterBuiltin2DAnimationClips()
+{
+	SpriteAnimationClip sampleClip;
+	sampleClip.fps = 8.f;
+	sampleClip.loop = true;
+	sampleClip.framesUV = {
+		glm::vec4{0.0f, 0.0f, 0.5f, 0.5f},
+		glm::vec4{0.5f, 0.0f, 1.0f, 0.5f},
+		glm::vec4{0.0f, 0.5f, 0.5f, 1.0f},
+		glm::vec4{0.5f, 0.5f, 1.0f, 1.0f}};
+
+	m_animation2DLibrary.RegisterClip("sample.sprite_sheet.2x2", std::move(sampleClip));
 }
 #pragma endregion

@@ -25,6 +25,7 @@
 #include "../components/Sprite.h"
 #include "../components/Spin.h"
 #include "../components/LightEmitter.h"
+#include "../animation2d/SpriteAnimator.h"
 #include "../physics2d/Collider2D.h"
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
@@ -788,6 +789,7 @@ namespace sceneeditor
 		CopyIfPresent<CameraController>(r, src, dst);
 		CopyIfPresent<Material>(r, src, dst);
 		CopyIfPresent<Sprite>(r, src, dst);
+		CopyIfPresent<SpriteAnimator>(r, src, dst);
 		CopyIfPresent<Spin>(r, src, dst);
 		CopyIfPresent<LightEmitter>(r, src, dst);
 		CopyIfPresent<Collider2D>(r, src, dst);
@@ -1161,6 +1163,8 @@ namespace sceneeditor
 			(void)AddComponentItem<Spin>(r, e, "Spin");
 		if (allowSprite && pass("Sprite"))
 			(void)AddComponentItem<Sprite>(r, e, "Sprite");
+		if (allowSprite && pass("SpriteAnimator"))
+			(void)AddComponentItem<SpriteAnimator>(r, e, "SpriteAnimator");
 		if (pass("Collider2D"))
 			(void)AddComponentItem<Collider2D>(r, e, "Collider2D");
 		if (pass("RigidBody2D"))
@@ -1389,6 +1393,46 @@ namespace sceneeditor
 			DrawColor4("Tint", &s.tint.x);
 			ImGui::InputInt("Layer", &s.layer);
 			ImGui::InputInt("Order In Layer", &s.orderInLayer);
+		}
+
+		if (r.Has<SpriteAnimator>(e) && ImGui::CollapsingHeader("SpriteAnimator", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<SpriteAnimator>(r, e, "SpriteAnimatorCtx");
+
+			auto &a = r.Get<SpriteAnimator>(e);
+			(void)DrawBufferedStringInput(e, "SpriteAnimator.ClipId", "Clip Id", a.clipId, 256);
+			(void)DragFloatWithSnap("Time", &a.time, 0.01f);
+			(void)DragFloatWithSnap("FPS", &a.fps, 0.05f, 0.0f, 1000.0f);
+			(void)DragFloatWithSnap("Speed", &a.speed, 0.01f);
+			ImGui::Checkbox("Loop", &a.loop);
+			ImGui::Checkbox("Playing", &a.playing);
+			ImGui::InputInt("Current Frame", &a.currentFrame);
+			a.currentFrame = std::max(0, a.currentFrame);
+			ImGui::Separator();
+			ImGui::TextUnformatted("Grid Fallback");
+			ImGui::InputInt("Columns", &a.columns);
+			ImGui::InputInt("Rows", &a.rows);
+			ImGui::InputInt("Gap X (px)", &a.gapX);
+			ImGui::InputInt("Gap Y (px)", &a.gapY);
+			ImGui::InputInt("Margin X (px)", &a.marginX);
+			ImGui::InputInt("Margin Y (px)", &a.marginY);
+			ImGui::InputInt("Start Index X", &a.startIndexX);
+			ImGui::InputInt("Start Index Y", &a.startIndexY);
+			ImGui::InputInt("Frame Count (0=auto)", &a.frameCount);
+			ImGui::InputInt("Cell Width (0=auto)", &a.cellWidth);
+			ImGui::InputInt("Cell Height (0=auto)", &a.cellHeight);
+			a.columns = std::max(1, a.columns);
+			a.rows = std::max(1, a.rows);
+			a.fps = std::max(0.0f, a.fps);
+			a.gapX = std::max(0, a.gapX);
+			a.gapY = std::max(0, a.gapY);
+			a.marginX = std::max(0, a.marginX);
+			a.marginY = std::max(0, a.marginY);
+			a.startIndexX = std::max(0, a.startIndexX);
+			a.startIndexY = std::max(0, a.startIndexY);
+			a.frameCount = std::max(0, a.frameCount);
+			a.cellWidth = std::max(0, a.cellWidth);
+			a.cellHeight = std::max(0, a.cellHeight);
 		}
 
 		if (r.Has<Collider2D>(e) && ImGui::CollapsingHeader("Collider2D", ImGuiTreeNodeFlags_DefaultOpen))

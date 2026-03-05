@@ -9,6 +9,8 @@
 #include "../platform/GL.h"
 #include "InputActions.h"
 #include <glm/vec2.hpp>
+#include <string>
+#include <vector>
 #pragma endregion
 
 #pragma region Declarations
@@ -86,6 +88,15 @@ public:
 	 */
 	static void SetCursorMode(int mode);
 
+	/**
+	 * @brief Returns true when there are pending files dropped on the window.
+	 */
+	static bool HasDroppedFiles();
+	/**
+	 * @brief Returns and clears pending files dropped on the window.
+	 */
+	static std::vector<std::string> ConsumeDroppedFiles();
+
 	#pragma endregion
 private:
 	#pragma region Private Implementation
@@ -93,8 +104,10 @@ private:
 	static bool BindingDown(const InputBinding &binding);
 	static float BindingAxis(const InputBinding &binding);
 	static void RebuildActionState();
+	static void GlfwDropCallback(GLFWwindow *window, int pathCount, const char **paths);
 
 	static GLFWwindow *s_Window;
+	static GLFWdropfun s_PrevDropCallback;
 
 	static bool s_KeyCurr[GLFW_KEY_LAST + 1];
 	static bool s_KeyPrev[GLFW_KEY_LAST + 1];
@@ -112,6 +125,7 @@ private:
 
 	static InputState s_State;
 	static InputActionMap s_ActionMap;
+	static std::vector<std::string> s_DroppedFiles;
 	#pragma endregion
 };
 #pragma endregion

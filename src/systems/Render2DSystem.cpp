@@ -132,6 +132,10 @@ void Render2DSystem::Render(Registry &registry,
 			texIt->second.texture = s.texture;
 		}
 
+		auto uvIt = m.parameters.find("u_uvRect");
+		if (uvIt != m.parameters.end() && uvIt->second.type == MaterialParameterType::Vec4)
+			uvIt->second.numericValue = s.uv;
+
 		const glm::mat4 model = BuildSpriteModel(t, s, halfW, halfH);
 		renderer.SubmitMesh(quadMeshId, m, model);
 	}

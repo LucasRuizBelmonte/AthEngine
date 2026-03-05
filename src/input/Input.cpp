@@ -9,6 +9,7 @@
 
 #pragma region File Scope
 GLFWwindow *Input::s_Window = nullptr;
+GLFWdropfun Input::s_PrevDropCallback = nullptr;
 
 bool Input::s_KeyCurr[GLFW_KEY_LAST + 1] = {};
 bool Input::s_KeyPrev[GLFW_KEY_LAST + 1] = {};
@@ -26,6 +27,7 @@ int Input::s_ActiveGamepad = -1;
 
 InputState Input::s_State = {};
 InputActionMap Input::s_ActionMap = Input::CreateDefaultActionMap();
+std::vector<std::string> Input::s_DroppedFiles = {};
 #pragma endregion
 
 #pragma region Function Definitions
@@ -104,6 +106,12 @@ void Input::AttachWindow(GLFWwindow *window)
 	s_State = {};
 	s_ActionMap = CreateDefaultActionMap();
 	RebuildActionState();
+	s_DroppedFiles.clear();
+
+	if (s_Window)
+		s_PrevDropCallback = glfwSetDropCallback(s_Window, &Input::GlfwDropCallback);
+	else
+		s_PrevDropCallback = nullptr;
 }
 
 void Input::BeginFrame()
@@ -221,6 +229,18 @@ void Input::SetCursorMode(int mode)
 	if (!s_Window)
 		return;
 	glfwSetInputMode(s_Window, GLFW_CURSOR, mode);
+}
+
+bool Input::HasDroppedFiles()
+{
+	return !s_DroppedFiles.empty();
+}
+
+std::vector<std::string> Input::ConsumeDroppedFiles()
+{
+	std::vector<std::string> out = std::move(s_DroppedFiles);
+	s_DroppedFiles.clear();
+	return out;
 }
 
 void Input::PollGamepad()
@@ -342,5 +362,20 @@ void Input::RebuildActionState()
 		if (uniqueNames.insert(actionBindings.name).second)
 			s_State.m_actionNames.push_back(actionBindings.name);
 	}
+}
+
+void Input::GlfwDropCallback(GLFWwindow *window, int pathCount, const char **paths)
+{
+	if (pathCount > 0 && paths)
+	{
+		for (int i = 0; i < pathCount; ++i)
+		{
+			if (paths[i] && paths[i][0] != '\0')
+				s_DroppedFiles.emplace_back(paths[i]);
+		}
+	}
+
+	if (s_PrevDropCallback)
+		s_PrevDropCallback(window, pathCount, paths);
 }
 #pragma endregion

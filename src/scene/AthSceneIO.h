@@ -48,6 +48,7 @@ namespace AthSceneIO
 		struct SpinCodec;
 		struct LightEmitterCodec;
 		struct SpriteCodec;
+		struct SpriteAnimatorCodec;
 		struct Collider2DCodec;
 		struct RigidBody2DCodec;
 		struct PhysicsBody2DCodec;

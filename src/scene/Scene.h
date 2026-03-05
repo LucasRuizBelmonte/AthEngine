@@ -20,6 +20,8 @@
 #include "../systems/CameraSyncSystem.h"
 #include "../physics2d/PhysicsEvents.h"
 #include "../physics2d/Physics2DSystem.h"
+#include "../animation2d/Animation2DLibrary.h"
+#include "../animation2d/SpriteAnimationSystem.h"
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -162,6 +164,7 @@ private:
 	void ApplySceneDimensionRules();
 	void Remove3DContent();
 	void Remove2DContent();
+	void RegisterBuiltin2DAnimationClips();
 
 	Registry m_registry;
 
@@ -173,6 +176,8 @@ private:
 	CameraControllerSystem m_cameraControllerSystem;
 	CameraSyncSystem m_cameraSyncSystem;
 	Physics2DSystem m_physics2DSystem;
+	Animation2DLibrary m_animation2DLibrary;
+	SpriteAnimationSystem m_spriteAnimationSystem;
 	PhysicsEvents m_physicsEvents;
 
 	ShaderManager &m_shaderManager;
@@ -183,6 +188,7 @@ private:
 	bool m_sysSpin = false;
 	bool m_sysRender = true;
 	bool m_sysRender2D = true;
+	bool m_sysSpriteAnimation = true;
 
 	Entity m_camera = kInvalidEntity;
 

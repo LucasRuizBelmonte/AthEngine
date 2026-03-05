@@ -6,14 +6,12 @@
 #pragma once
 
 #pragma region Includes
-#include "AsyncLoader.h"
 #include "IScene.h"
+#include "SceneRuntime.h"
 
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
 
-#include <memory>
-#include <vector>
 #include <cstddef>
 #include <string>
 #pragma endregion
@@ -115,44 +113,15 @@ public:
 #pragma endregion
 private:
 #pragma region Private Implementation
-    /**
-     * @brief Executes orderly shutdown for scene lifetime resources.
-     */
-    void Shutdown();
-
-    /**
-     * @brief Executes Create Scene.
-     */
-    std::shared_ptr<IScene> CreateScene(SceneRequest req);
-    /**
-     * @brief Executes Apply Pending Removals.
-     */
-    void ApplyPendingRemovals();
+	/**
+	 * @brief Executes orderly shutdown for scene lifetime resources.
+	 */
+	void Shutdown();
 
 #pragma endregion
 private:
 #pragma region Private Implementation
-    ShaderManager &m_shaders;
-    TextureManager &m_textures;
-    GLFWwindow &m_window;
-
-    AsyncLoader m_loader;
-
-    std::vector<std::shared_ptr<IScene>> m_stack;
-
-    std::shared_ptr<IScene> m_loading;
-    std::shared_ptr<IScene> m_pending;
-    std::vector<std::string> m_sceneNames;
-
-    bool m_isTransitioning = false;
-    bool m_isPush = false;
-    bool m_pendingLoadFromFile = false;
-    std::string m_pendingLoadPath;
-    std::string m_pendingLoadSceneName;
-    size_t m_editorSelectedSceneIndex = static_cast<size_t>(-1);
-
-    std::vector<size_t> m_removeQueue;
-    bool m_clearNonCoreRequested = false;
+	SceneRuntime m_runtime;
 #pragma endregion
 };
 #pragma endregion

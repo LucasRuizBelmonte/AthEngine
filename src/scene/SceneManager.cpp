@@ -1,337 +1,109 @@
 #pragma region Includes
-#include "../platform/GL.h"
 #include "SceneManager.h"
 
 #include "scenes/CoreScene.h"
-#include "scenes/LoadingScene.h"
-#include "Scene.h"
-
-#include "../rendering/Renderer.h"
-#include "IEditorScene.h"
-#include "EditorSceneIO.h"
-#include <algorithm>
-#include <thread>
-#include <chrono>
 #pragma endregion
 
 #pragma region Function Definitions
+SceneManager::SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window)
+	: m_runtime(shaders, textures, window)
+{
+	auto core = std::make_shared<CoreScene>(*this);
+	m_runtime.InitializeCoreScene(core);
+}
 
 void SceneManager::Shutdown()
 {
-	if (!m_stack.empty())
-	{
-		for (size_t i = 0; i < m_stack.size(); ++i)
-		{
-			if (m_stack[i])
-				m_stack[i]->OnDetach(m_window);
-		}
-	}
-
-	if (m_loading)
-		m_loading->OnDetach(m_window);
-	if (m_pending)
-		m_pending->OnDetach(m_window);
-
-	while (!m_loader.IsIdle())
-	{
-		m_loader.Update();
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	}
-
-	m_stack.clear();
-	m_sceneNames.clear();
-	m_removeQueue.clear();
-}
-
-SceneManager::SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window)
-	: m_shaders(shaders), m_textures(textures), m_window(window)
-{
-	auto core = std::make_shared<CoreScene>(*this);
-	core->OnAttach(m_window);
-	m_stack.push_back(core);
-	m_sceneNames.push_back(core->GetName());
-}
-
-std::shared_ptr<IScene> SceneManager::CreateScene(SceneRequest req)
-{
-	(void)req;
-	return std::make_shared<Scene>(m_shaders, m_textures);
+	m_runtime.Shutdown();
 }
 
 void SceneManager::Request(SceneRequest req)
 {
-	if (m_isTransitioning)
-		return;
-
-	bool push = (req == SceneRequest::PushScene);
-
-	m_pending = CreateScene(req);
-	m_pending->RequestLoad(m_loader);
-
-	m_loading = std::make_shared<LoadingScene>();
-	m_loading->OnAttach(m_window);
-
-	m_isTransitioning = true;
-	m_isPush = push;
+	m_runtime.Request(req);
 }
 
 void SceneManager::AddScene(SceneRequest req)
 {
-	if (req == SceneRequest::BasicScene)
-		req = SceneRequest::PushScene;
-
-	Request(req);
-}
-
-size_t SceneManager::GetLoadedSceneCount() const
-{
-	return m_stack.size();
-}
-
-const char *SceneManager::GetLoadedSceneName(size_t index) const
-{
-	if (index >= m_stack.size() || !m_stack[index])
-		return "<null>";
-	if (index < m_sceneNames.size() && !m_sceneNames[index].empty())
-		return m_sceneNames[index].c_str();
-	return m_stack[index]->GetName();
-}
-
-bool SceneManager::RenameLoadedScene(size_t index, const std::string &newName)
-{
-	if (index >= m_stack.size() || newName.empty())
-		return false;
-
-	if (m_sceneNames.size() < m_stack.size())
-		m_sceneNames.resize(m_stack.size());
-
-	m_sceneNames[index] = newName;
-	return true;
-}
-
-bool SceneManager::IsTransitioning() const
-{
-	return m_isTransitioning;
-}
-
-void SceneManager::SetEditorSelectedSceneIndex(size_t index)
-{
-	m_editorSelectedSceneIndex = index;
-}
-
-void SceneManager::RequestRemoveLoadedScene(size_t index)
-{
-	if (index == 0)
-		return;
-	if (index >= m_stack.size())
-		return;
-	m_removeQueue.push_back(index);
-}
-
-void SceneManager::RequestClearNonCore()
-{
-	m_clearNonCoreRequested = true;
-}
-
-void SceneManager::ApplyPendingRemovals()
-{
-	if (m_clearNonCoreRequested)
-	{
-		for (size_t i = 1; i < m_stack.size(); ++i)
-			m_stack[i]->OnDetach(m_window);
-
-		if (m_stack.size() > 1)
-		{
-			m_stack.erase(m_stack.begin() + 1, m_stack.end());
-			if (m_sceneNames.size() > 1)
-				m_sceneNames.erase(m_sceneNames.begin() + 1, m_sceneNames.end());
-		}
-
-		m_clearNonCoreRequested = false;
-		m_removeQueue.clear();
-		return;
-	}
-
-	if (m_removeQueue.empty())
-		return;
-
-	std::sort(m_removeQueue.begin(), m_removeQueue.end());
-	m_removeQueue.erase(std::unique(m_removeQueue.begin(), m_removeQueue.end()), m_removeQueue.end());
-
-	for (auto it = m_removeQueue.rbegin(); it != m_removeQueue.rend(); ++it)
-	{
-		size_t idx = *it;
-		if (idx == 0 || idx >= m_stack.size())
-			continue;
-
-		m_stack[idx]->OnDetach(m_window);
-		m_stack.erase(m_stack.begin() + (std::ptrdiff_t)idx);
-		if (idx < m_sceneNames.size())
-			m_sceneNames.erase(m_sceneNames.begin() + (std::ptrdiff_t)idx);
-	}
-
-	m_removeQueue.clear();
+	m_runtime.AddScene(req);
 }
 
 void SceneManager::Update(float dt, float now)
 {
-	m_loader.Update();
-
-	if (m_isTransitioning && m_pending && m_pending->IsLoaded())
-	{
-		if (!m_isPush)
-		{
-			for (size_t i = 1; i < m_stack.size(); ++i)
-				m_stack[i]->OnDetach(m_window);
-
-			if (m_stack.size() > 1)
-			{
-				m_stack.erase(m_stack.begin() + 1, m_stack.end());
-				if (m_sceneNames.size() > 1)
-					m_sceneNames.erase(m_sceneNames.begin() + 1, m_sceneNames.end());
-			}
-		}
-
-		m_pending->OnAttach(m_window);
-		m_stack.push_back(m_pending);
-		m_sceneNames.push_back(m_pending->GetName());
-
-		m_loading->OnDetach(m_window);
-		m_loading.reset();
-		m_pending.reset();
-
-		m_isTransitioning = false;
-
-		if (m_pendingLoadFromFile && !m_stack.empty())
-		{
-			auto opened = std::dynamic_pointer_cast<IEditorScene>(m_stack.back());
-			if (opened)
-			{
-				std::string loadedName = m_pendingLoadSceneName;
-				std::string ignoredError;
-				if (opened->LoadFromFile(m_pendingLoadPath, loadedName, ignoredError))
-					RenameLoadedScene(m_stack.size() - 1, loadedName);
-			}
-
-			m_pendingLoadFromFile = false;
-			m_pendingLoadPath.clear();
-			m_pendingLoadSceneName.clear();
-		}
-	}
-
-	ApplyPendingRemovals();
-
-	size_t inputSceneIndex = static_cast<size_t>(-1);
-	if (m_editorSelectedSceneIndex < m_stack.size())
-	{
-		auto selectedEditor = std::dynamic_pointer_cast<IEditorScene>(m_stack[m_editorSelectedSceneIndex]);
-		if (selectedEditor)
-			inputSceneIndex = m_editorSelectedSceneIndex;
-	}
-
-	for (size_t i = 0; i < m_stack.size(); ++i)
-	{
-		auto editorScene = std::dynamic_pointer_cast<IEditorScene>(m_stack[i]);
-		if (editorScene)
-			editorScene->SetEditorInputEnabled(i == inputSceneIndex);
-	}
-
-	for (auto &s : m_stack)
-		s->Update(dt, now);
-
-	if (m_isTransitioning && m_loading)
-		m_loading->Update(dt, now);
+	m_runtime.Update(dt, now);
 }
 
 void SceneManager::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	RenderGame3D(renderer, framebufferWidth, framebufferHeight);
+	m_runtime.Render3D(renderer, framebufferWidth, framebufferHeight);
 }
 
 void SceneManager::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	RenderGame2D(renderer, framebufferWidth, framebufferHeight);
-	RenderEditorUI(renderer, framebufferWidth, framebufferHeight);
+	m_runtime.Render2D(renderer, framebufferWidth, framebufferHeight);
 }
 
 void SceneManager::RenderGame3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	for (size_t i = 1; i < m_stack.size(); ++i)
-		m_stack[i]->Render3D(renderer, framebufferWidth, framebufferHeight);
-
-	if (m_isTransitioning && m_loading)
-		m_loading->Render3D(renderer, framebufferWidth, framebufferHeight);
+	m_runtime.RenderGame3D(renderer, framebufferWidth, framebufferHeight);
 }
 
 void SceneManager::RenderGame2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	for (size_t i = 1; i < m_stack.size(); ++i)
-		m_stack[i]->Render2D(renderer, framebufferWidth, framebufferHeight);
-
-	if (m_isTransitioning && m_loading)
-		m_loading->Render2D(renderer, framebufferWidth, framebufferHeight);
+	m_runtime.RenderGame2D(renderer, framebufferWidth, framebufferHeight);
 }
 
 void SceneManager::RenderEditorUI(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	if (m_stack.empty() || !m_stack[0])
-		return;
+	m_runtime.RenderEditorUI(renderer, framebufferWidth, framebufferHeight);
+}
 
-	m_stack[0]->Render2D(renderer, framebufferWidth, framebufferHeight);
+size_t SceneManager::GetLoadedSceneCount() const
+{
+	return m_runtime.GetLoadedSceneCount();
+}
+
+const char *SceneManager::GetLoadedSceneName(size_t index) const
+{
+	return m_runtime.GetLoadedSceneName(index);
+}
+
+bool SceneManager::RenameLoadedScene(size_t index, const std::string &newName)
+{
+	return m_runtime.RenameLoadedScene(index, newName);
+}
+
+bool SceneManager::IsTransitioning() const
+{
+	return m_runtime.IsTransitioning();
+}
+
+void SceneManager::SetEditorSelectedSceneIndex(size_t index)
+{
+	m_runtime.SetEditorSelectedSceneIndex(index);
+}
+
+void SceneManager::RequestRemoveLoadedScene(size_t index)
+{
+	m_runtime.RequestRemoveLoadedScene(index);
+}
+
+void SceneManager::RequestClearNonCore()
+{
+	m_runtime.RequestClearNonCore();
 }
 
 std::shared_ptr<IScene> SceneManager::GetLoadedScene(size_t index) const
 {
-	if (index >= m_stack.size())
-		return nullptr;
-	return m_stack[index];
+	return m_runtime.GetLoadedScene(index);
 }
 
 bool SceneManager::SaveLoadedSceneToFile(size_t index, const std::string &path, std::string &outError)
 {
-	if (index >= m_stack.size())
-	{
-		outError = "Invalid scene index.";
-		return false;
-	}
-
-	auto scene = std::dynamic_pointer_cast<IEditorScene>(m_stack[index]);
-	if (!scene)
-	{
-		outError = "Selected scene is not editor-serializable.";
-		return false;
-	}
-
-	const std::string sceneName = GetLoadedSceneName(index);
-	return scene->SaveToFile(path, sceneName, outError);
+	return m_runtime.SaveLoadedSceneToFile(index, path, outError);
 }
 
 bool SceneManager::QueueOpenSceneFromFile(const std::string &path, std::string &outError)
 {
-	if (m_isTransitioning)
-	{
-		outError = "Scene transition already in progress.";
-		return false;
-	}
-
-	EditorSceneIO::SceneHeader header;
-	if (!EditorSceneIO::PeekHeader(path, header, outError))
-		return false;
-
-	if (header.sceneType != "Scene" &&
-		header.sceneType != "Scene2D" &&
-		header.sceneType != "Scene3D" &&
-		header.sceneType != "Test2D" &&
-		header.sceneType != "Test3D")
-	{
-		outError = "Unsupported scene type in file: " + header.sceneType;
-		return false;
-	}
-
-	m_pendingLoadFromFile = true;
-	m_pendingLoadPath = path;
-	m_pendingLoadSceneName = header.sceneName;
-	Request(SceneRequest::PushScene);
-	return true;
+	return m_runtime.QueueOpenSceneFromFile(path, outError);
 }
 #pragma endregion

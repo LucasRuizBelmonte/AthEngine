@@ -1064,6 +1064,63 @@ namespace sceneeditor
 		(void)DragFloat2WithSnap(label, v, speed);
 	}
 
+	static bool DrawToggleButton(const char *label, bool &value)
+	{
+		const ImVec4 onColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
+		const ImVec4 onHoverColor = ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered);
+		const ImVec4 offColor = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+		const ImVec4 offHoverColor = ImGui::GetStyleColorVec4(ImGuiCol_FrameBgHovered);
+		const ImVec4 offActiveColor = ImGui::GetStyleColorVec4(ImGuiCol_FrameBgActive);
+
+		if (value)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, onColor);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, onHoverColor);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, onColor);
+		}
+		else
+		{
+			ImGui::PushStyleColor(ImGuiCol_Button, offColor);
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, offHoverColor);
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, offActiveColor);
+		}
+
+		const bool pressed = ImGui::Button(label);
+		ImGui::PopStyleColor(3);
+
+		if (pressed)
+			value = !value;
+
+		return pressed;
+	}
+
+	static bool DrawInputIntPairHorizontal(const char *leftLabel,
+										   int *leftValue,
+										   const char *rightLabel,
+										   int *rightValue)
+	{
+		bool changed = false;
+		ImGui::PushID(leftLabel);
+		if (ImGui::BeginTable("##IntPair", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
+		{
+			ImGui::TableNextRow();
+
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextWrapped("%s", leftLabel);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			changed |= ImGui::InputInt("##LeftValue", leftValue);
+
+			ImGui::TableSetColumnIndex(1);
+			ImGui::TextWrapped("%s", rightLabel);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+			changed |= ImGui::InputInt("##RightValue", rightValue);
+
+			ImGui::EndTable();
+		}
+		ImGui::PopID();
+		return changed;
+	}
+
 	static void DrawColor4(const char *label, float *v)
 	{
 		ImGui::ColorEdit4(label, v);
@@ -1259,9 +1316,15 @@ namespace sceneeditor
 			bool absoluteScale = t.absoluteScale;
 			bool absoluteFlagsChanged = false;
 
-			absoluteFlagsChanged |= ImGui::Checkbox("Absolute Position", &absolutePosition);
-			absoluteFlagsChanged |= ImGui::Checkbox("Absolute Rotation", &absoluteRotation);
-			absoluteFlagsChanged |= ImGui::Checkbox("Absolute Scale", &absoluteScale);
+			ImGui::TextUnformatted("Absolute");
+			ImGui::SameLine();
+			ImGui::PushID("TransformAbsoluteFlags");
+			absoluteFlagsChanged |= DrawToggleButton("Position", absolutePosition);
+			ImGui::SameLine();
+			absoluteFlagsChanged |= DrawToggleButton("Rotation", absoluteRotation);
+			ImGui::SameLine();
+			absoluteFlagsChanged |= DrawToggleButton("Scale", absoluteScale);
+			ImGui::PopID();
 
 			if (absoluteFlagsChanged)
 				ApplyAbsoluteFlagsPreservingWorld(r, e, absolutePosition, absoluteRotation, absoluteScale);
@@ -1302,7 +1365,7 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Fast Multiplier", &cc.fastMultiplier, 0.01f, 0.f, 1000.f);
 			(void)DragFloatWithSnap("Mouse Sensitivity", &cc.mouseSensitivity, 0.001f, 0.f, 10.f);
 			DrawVec2("Last Mouse Pos", &cc.lastMousePos.x, 0.05f);
-			ImGui::Checkbox("Has Last Mouse Pos", &cc.hasLastMousePos);
+			(void)DrawToggleButton("Has Last Mouse Pos", cc.hasLastMousePos);
 		}
 
 		if (r.Has<Spin>(e) && ImGui::CollapsingHeader("Spin", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1350,7 +1413,7 @@ namespace sceneeditor
 				(void)DragFloatWithSnap("Outer Cone", &l.outerCone, 0.005f, 0.0f, 1.0f);
 			}
 
-			ImGui::Checkbox("Cast Shadows", &l.castShadows);
+			(void)DrawToggleButton("Cast Shadows", l.castShadows);
 		}
 
 		if (r.Has<Sprite>(e) && ImGui::CollapsingHeader("Sprite", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1404,23 +1467,25 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Time", &a.time, 0.01f);
 			(void)DragFloatWithSnap("FPS", &a.fps, 0.05f, 0.0f, 1000.0f);
 			(void)DragFloatWithSnap("Speed", &a.speed, 0.01f);
-			ImGui::Checkbox("Loop", &a.loop);
-			ImGui::Checkbox("Playing", &a.playing);
+			ImGui::TextUnformatted("Playback");
+			ImGui::SameLine();
+			ImGui::PushID("SpriteAnimatorPlayback");
+			(void)DrawToggleButton("Loop", a.loop);
+			ImGui::SameLine();
+			(void)DrawToggleButton("Playing", a.playing);
+			ImGui::PopID();
 			ImGui::InputInt("Current Frame", &a.currentFrame);
 			a.currentFrame = std::max(0, a.currentFrame);
 			ImGui::Separator();
 			ImGui::TextUnformatted("Grid Fallback");
-			ImGui::InputInt("Columns", &a.columns);
-			ImGui::InputInt("Rows", &a.rows);
-			ImGui::InputInt("Gap X (px)", &a.gapX);
-			ImGui::InputInt("Gap Y (px)", &a.gapY);
-			ImGui::InputInt("Margin X (px)", &a.marginX);
-			ImGui::InputInt("Margin Y (px)", &a.marginY);
-			ImGui::InputInt("Start Index X", &a.startIndexX);
-			ImGui::InputInt("Start Index Y", &a.startIndexY);
+			ImGui::PushID("SpriteAnimatorGridFallback");
+			(void)DrawInputIntPairHorizontal("Columns", &a.columns, "Rows", &a.rows);
+			(void)DrawInputIntPairHorizontal("Gap X (px)", &a.gapX, "Gap Y (px)", &a.gapY);
+			(void)DrawInputIntPairHorizontal("Margin X (px)", &a.marginX, "Margin Y (px)", &a.marginY);
+			(void)DrawInputIntPairHorizontal("Start Index X", &a.startIndexX, "Start Index Y", &a.startIndexY);
 			ImGui::InputInt("Frame Count (0=auto)", &a.frameCount);
-			ImGui::InputInt("Cell Width (0=auto)", &a.cellWidth);
-			ImGui::InputInt("Cell Height (0=auto)", &a.cellHeight);
+			(void)DrawInputIntPairHorizontal("Cell Width (0=auto)", &a.cellWidth, "Cell Height (0=auto)", &a.cellHeight);
+			ImGui::PopID();
 			a.columns = std::max(1, a.columns);
 			a.rows = std::max(1, a.rows);
 			a.fps = std::max(0.0f, a.fps);
@@ -1444,7 +1509,7 @@ namespace sceneeditor
 			if (ImGui::Combo("Shape", &shapeIndex, "AABB\0Circle\0"))
 				c.shape = (shapeIndex == 1) ? Collider2D::Shape::Circle : Collider2D::Shape::AABB;
 
-			ImGui::Checkbox("Is Trigger", &c.isTrigger);
+			(void)DrawToggleButton("Is Trigger", c.isTrigger);
 			ImGui::InputScalar("Layer", ImGuiDataType_U32, &c.layer);
 			ImGui::InputScalar("Mask", ImGuiDataType_U32, &c.mask);
 			DrawVec2("Offset", &c.offset.x, 0.05f);
@@ -1469,13 +1534,28 @@ namespace sceneeditor
 			DrawVec3("Velocity", &rb.velocity.x, 0.05f);
 			DrawVec3("Accumulated Forces", &rb.accumulatedForces.x, 0.05f);
 			DrawVec3("Angular Velocity", &rb.angularVelocity.x, 0.05f);
-			ImGui::Checkbox("Is Kinematic", &rb.isKinematic);
-			ImGui::Checkbox("Freeze Velocity X", &rb.freezeVelocityX);
-			ImGui::Checkbox("Freeze Velocity Y", &rb.freezeVelocityY);
-			ImGui::Checkbox("Freeze Velocity Z", &rb.freezeVelocityZ);
-			ImGui::Checkbox("Freeze Angular Velocity X", &rb.freezeAngularVelocityX);
-			ImGui::Checkbox("Freeze Angular Velocity Y", &rb.freezeAngularVelocityY);
-			ImGui::Checkbox("Freeze Angular Velocity Z", &rb.freezeAngularVelocityZ);
+			(void)DrawToggleButton("Is Kinematic", rb.isKinematic);
+
+			ImGui::TextUnformatted("Freeze Velocity");
+			ImGui::SameLine();
+			ImGui::PushID("FreezeVelocity");
+			(void)DrawToggleButton("X", rb.freezeVelocityX);
+			ImGui::SameLine();
+			(void)DrawToggleButton("Y", rb.freezeVelocityY);
+			ImGui::SameLine();
+			(void)DrawToggleButton("Z", rb.freezeVelocityZ);
+			ImGui::PopID();
+
+			ImGui::TextUnformatted("Freeze Angular");
+			ImGui::SameLine();
+			ImGui::PushID("FreezeAngularVelocity");
+			(void)DrawToggleButton("X", rb.freezeAngularVelocityX);
+			ImGui::SameLine();
+			(void)DrawToggleButton("Y", rb.freezeAngularVelocityY);
+			ImGui::SameLine();
+			(void)DrawToggleButton("Z", rb.freezeAngularVelocityZ);
+			ImGui::PopID();
+
 			(void)DragFloatWithSnap("Mass", &rb.mass, 0.01f, 0.0f, 100000.0f);
 			(void)DragFloatWithSnap("Linear Damping", &rb.linearDamping, 0.001f, 0.0f, 1000.0f);
 			(void)DragFloatWithSnap("Angular Damping", &rb.angularDamping, 0.001f, 0.0f, 1000.0f);
@@ -1485,7 +1565,7 @@ namespace sceneeditor
 		{
 			RemoveComponentMenu<PhysicsBody2D>(r, e, "PhysicsBody2DCtx");
 			auto &pb = r.Get<PhysicsBody2D>(e);
-			ImGui::Checkbox("Enabled", &pb.enabled);
+			(void)DrawToggleButton("Enabled", pb.enabled);
 		}
 
 		if (r.Has<Material>(e) && ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1554,11 +1634,11 @@ namespace sceneeditor
 				{
 					const std::string key = "Material.ParamPath." + desc.name;
 					materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker,
-					                                                    e,
-					                                                    desc.name.c_str(),
-					                                                    key.c_str(),
-					                                                    AssetPickerType::Texture,
-					                                                    param.texturePath);
+																		e,
+																		desc.name.c_str(),
+																		key.c_str(),
+																		AssetPickerType::Texture,
+																		param.texturePath);
 					break;
 				}
 				default:

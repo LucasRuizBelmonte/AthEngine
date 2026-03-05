@@ -507,13 +507,15 @@ namespace AthSceneIO
 			const int type = static_cast<int>(values[0]);
 			switch (type)
 			{
+			case 0:
+				ent.light.type = LightType::Directional;
+				break;
 			case 1:
 				ent.light.type = LightType::Point;
 				break;
 			case 2:
 				ent.light.type = LightType::Spot;
 				break;
-			case 0:
 			default:
 				outError = BuildSchemaError("LightEmitter", "type in {0,1,2}", payload);
 				return false;

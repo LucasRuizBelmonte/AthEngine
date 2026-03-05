@@ -26,6 +26,11 @@ void CoreScene::Update(float dt, float now)
 	(void)now;
 }
 
+void CoreScene::FixedUpdate(float fixedDt)
+{
+	(void)fixedDt;
+}
+
 void CoreScene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
 	(void)renderer;

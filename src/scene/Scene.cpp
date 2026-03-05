@@ -168,6 +168,7 @@ const char *Scene::GetName() const
 void Scene::RequestLoad(AsyncLoader &)
 {
 	m_loaded = false;
+	m_fixedSimulationNow = 0.0f;
 	BuildBaseTemplate();
 	RefreshRuntimeReferences();
 	m_loaded = true;
@@ -209,8 +210,18 @@ void Scene::Update(float dt, float now)
 		}
 	}
 
+	m_transformSystem.Update(m_registry);
+	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
+}
+
+void Scene::FixedUpdate(float fixedDt)
+{
+	if (!m_loaded)
+		return;
+
+	m_fixedSimulationNow += fixedDt;
 	if (m_sysSpin)
-		m_spinSystem.Update(m_registry, now);
+		m_spinSystem.Update(m_registry, m_fixedSimulationNow);
 
 	m_transformSystem.Update(m_registry);
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
@@ -341,6 +352,7 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	}
 
 	RefreshRuntimeReferences();
+	m_fixedSimulationNow = 0.0f;
 	m_loaded = true;
 	return true;
 }

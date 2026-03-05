@@ -32,6 +32,11 @@ void SceneManager::Update(float dt, float now)
 	m_runtime.Update(dt, now);
 }
 
+void SceneManager::FixedUpdate(float fixedDt)
+{
+	m_runtime.FixedUpdate(fixedDt);
+}
+
 void SceneManager::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
 	m_runtime.Render3D(renderer, framebufferWidth, framebufferHeight);

@@ -50,6 +50,10 @@ public:
      */
     virtual void Update(float dt, float now) = 0;
     /**
+     * @brief Executes Fixed Update.
+     */
+    virtual void FixedUpdate(float fixedDt) = 0;
+    /**
      * @brief Executes Render3 D.
      */
     virtual void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) = 0;

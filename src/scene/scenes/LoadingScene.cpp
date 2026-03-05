@@ -28,6 +28,10 @@ void LoadingScene::Update(float, float now)
 	glClearColor(0.05f, 0.05f + 0.15f * t, 0.08f, 1.0f);
 }
 
+void LoadingScene::FixedUpdate(float)
+{
+}
+
 void LoadingScene::Render3D(Renderer &, int, int)
 {
 }

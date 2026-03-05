@@ -13,6 +13,13 @@
 #include "../input/Input.h"
 #include "../editor/EditorUI.h"
 
+namespace
+{
+	constexpr bool kUseFixedTimestep = true;
+	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
+	constexpr float kMaxFrameTimeSeconds = 0.10f;
+}
+
 Application::Application()
 {
 	m_Window = std::make_unique<Window>(1280, 720, "AthEngine");
@@ -99,6 +106,8 @@ Application::~Application() noexcept
 
 void Application::Run()
 {
+	float fixedAccumulator = 0.0f;
+
 	while (!m_Window->ShouldClose())
 	{
 		m_Window->PollEvents();
@@ -113,8 +122,10 @@ void Application::Run()
 
 		if (dt < 0.0f)
 			dt = 0.0f;
-		if (dt > 0.1f)
-			dt = 0.1f;
+		if (dt > kMaxFrameTimeSeconds)
+			dt = kMaxFrameTimeSeconds;
+
+		fixedAccumulator += dt;
 
 		int width, height;
 		glfwGetFramebufferSize(m_Window->GetNative(), &width, &height);
@@ -122,6 +133,20 @@ void Application::Run()
 		HandleSceneInput();
 		if (m_Window->ShouldClose())
 			break;
+
+		if (kUseFixedTimestep)
+		{
+			while (fixedAccumulator >= kFixedDeltaSeconds)
+			{
+				m_Scenes->FixedUpdate(kFixedDeltaSeconds);
+				fixedAccumulator -= kFixedDeltaSeconds;
+			}
+		}
+		else
+		{
+			m_Scenes->FixedUpdate(dt);
+			fixedAccumulator = 0.0f;
+		}
 
 		m_Scenes->Update(dt, now);
 		if (m_Window->ShouldClose())

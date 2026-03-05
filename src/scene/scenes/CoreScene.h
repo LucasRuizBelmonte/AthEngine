@@ -51,6 +51,10 @@ public:
 	 */
 	void Update(float dt, float now) override;
 	/**
+	 * @brief Executes Fixed Update.
+	 */
+	void FixedUpdate(float fixedDt) override;
+	/**
 	 * @brief Executes Render3 D.
 	 */
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;

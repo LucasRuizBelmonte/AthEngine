@@ -73,6 +73,10 @@ public:
 	 */
 	void Update(float dt, float now) override;
 	/**
+	 * @brief Executes Fixed Update.
+	 */
+	void FixedUpdate(float fixedDt) override;
+	/**
 	 * @brief Executes Render3 D.
 	 */
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
@@ -169,6 +173,7 @@ private:
 	bool m_loaded = false;
 	EditorSceneDimension m_dimension = EditorSceneDimension::Scene3D;
 	bool m_editorInputEnabled = false;
+	float m_fixedSimulationNow = 0.0f;
 
 	std::string m_litVsPath;
 	std::string m_spriteVsPath;

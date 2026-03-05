@@ -179,6 +179,12 @@ void SceneTransitionController::UpdateLoading(float dt, float now) const
 		m_loading->Update(dt, now);
 }
 
+void SceneTransitionController::UpdateLoadingFixed(float fixedDt) const
+{
+	if (m_isTransitioning && m_loading)
+		m_loading->FixedUpdate(fixedDt);
+}
+
 void SceneTransitionController::RenderLoading3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) const
 {
 	if (m_isTransitioning && m_loading)
@@ -400,6 +406,15 @@ void SceneRuntime::Update(float dt, float now)
 		scene->Update(dt, now);
 
 	m_transitionController.UpdateLoading(dt, now);
+}
+
+void SceneRuntime::FixedUpdate(float fixedDt)
+{
+	auto &scenes = m_sceneStack.MutableScenes();
+	for (auto &scene : scenes)
+		scene->FixedUpdate(fixedDt);
+
+	m_transitionController.UpdateLoadingFixed(fixedDt);
 }
 
 void SceneRuntime::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)

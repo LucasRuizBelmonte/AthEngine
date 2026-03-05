@@ -218,7 +218,10 @@ namespace AthSceneIO
 			    << c.localPosition.x << " " << c.localPosition.y << " " << c.localPosition.z << " "
 			    << c.localRotation.x << " " << c.localRotation.y << " " << c.localRotation.z << " "
 			    << c.localScale.x << " " << c.localScale.y << " " << c.localScale.z << " "
-			    << c.pivot.x << " " << c.pivot.y << " " << c.pivot.z << "\n";
+			    << c.pivot.x << " " << c.pivot.y << " " << c.pivot.z << " "
+			    << (c.absolutePosition ? 1 : 0) << " "
+			    << (c.absoluteRotation ? 1 : 0) << " "
+			    << (c.absoluteScale ? 1 : 0) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -237,7 +240,24 @@ namespace AthSceneIO
 			if (!rest.empty())
 			{
 				std::istringstream ls(rest);
-				(void)(ls >> ent.transform.pivot.x >> ent.transform.pivot.y >> ent.transform.pivot.z);
+				std::vector<float> tailValues;
+				float value = 0.f;
+				while (ls >> value)
+					tailValues.push_back(value);
+
+				if (tailValues.size() >= 3u)
+				{
+					ent.transform.pivot.x = tailValues[0];
+					ent.transform.pivot.y = tailValues[1];
+					ent.transform.pivot.z = tailValues[2];
+				}
+
+				if (tailValues.size() >= 6u)
+				{
+					ent.transform.absolutePosition = (tailValues[3] != 0.f);
+					ent.transform.absoluteRotation = (tailValues[4] != 0.f);
+					ent.transform.absoluteScale = (tailValues[5] != 0.f);
+				}
 			}
 			return true;
 		}

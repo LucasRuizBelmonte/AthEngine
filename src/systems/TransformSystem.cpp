@@ -14,22 +14,22 @@
 #pragma region File Scope
 namespace
 {
-	static glm::mat4 BuildLocalMatrix(const Transform &transform)
+	static glm::mat4 BuildMatrixFromTRS(const glm::vec3 &position, const glm::vec3 &rotation, const glm::vec3 &scale)
 	{
-		const glm::mat4 t = glm::translate(glm::mat4(1.f), transform.localPosition);
+		const glm::mat4 t = glm::translate(glm::mat4(1.f), position);
 		const glm::mat4 r =
-			glm::rotate(glm::mat4(1.f), transform.localRotation.x, glm::vec3(1.f, 0.f, 0.f)) *
-			glm::rotate(glm::mat4(1.f), transform.localRotation.y, glm::vec3(0.f, 1.f, 0.f)) *
-			glm::rotate(glm::mat4(1.f), transform.localRotation.z, glm::vec3(0.f, 0.f, 1.f));
-		const glm::mat4 s = glm::scale(glm::mat4(1.f), transform.localScale);
+			glm::rotate(glm::mat4(1.f), rotation.x, glm::vec3(1.f, 0.f, 0.f)) *
+			glm::rotate(glm::mat4(1.f), rotation.y, glm::vec3(0.f, 1.f, 0.f)) *
+			glm::rotate(glm::mat4(1.f), rotation.z, glm::vec3(0.f, 0.f, 1.f));
+		const glm::mat4 s = glm::scale(glm::mat4(1.f), scale);
 		return t * r * s;
 	}
 
 	static void ResolveWorldRecursive(Registry &registry,
-	                                  uint32_t stamp,
-	                                  Entity entity,
-	                                  std::vector<uint32_t> &visitStamp,
-	                                  std::vector<uint32_t> &doneStamp)
+									  uint32_t stamp,
+									  Entity entity,
+									  std::vector<uint32_t> &visitStamp,
+									  std::vector<uint32_t> &doneStamp)
 	{
 		const uint32_t entityId = EntityIdOf(entity);
 		if (entityId >= visitStamp.size())
@@ -41,7 +41,9 @@ namespace
 
 		visitStamp[entityId] = stamp;
 
-		glm::mat4 parentWorld(1.f);
+		glm::vec3 parentWorldPosition(0.f, 0.f, 0.f);
+		glm::vec3 parentWorldRotation(0.f, 0.f, 0.f);
+		glm::vec3 parentWorldScale(1.f, 1.f, 1.f);
 		if (registry.Has<Parent>(entity))
 		{
 			const Entity parent = registry.Get<Parent>(entity).parent;
@@ -51,12 +53,23 @@ namespace
 				if (parentId < visitStamp.size() && doneStamp[parentId] != stamp)
 					ResolveWorldRecursive(registry, stamp, parent, visitStamp, doneStamp);
 				if (parentId < doneStamp.size() && doneStamp[parentId] == stamp)
-					parentWorld = registry.Get<Transform>(parent).worldMatrix;
+				{
+					const Transform &parentTransform = registry.Get<Transform>(parent);
+					parentWorldPosition = parentTransform.worldPosition;
+					parentWorldRotation = parentTransform.worldRotation;
+					parentWorldScale = parentTransform.worldScale;
+				}
 			}
 		}
 
 		auto &transform = registry.Get<Transform>(entity);
-		transform.worldMatrix = parentWorld * BuildLocalMatrix(transform);
+		transform.worldPosition =
+			transform.absolutePosition ? transform.localPosition : (parentWorldPosition + transform.localPosition);
+		transform.worldRotation =
+			transform.absoluteRotation ? transform.localRotation : (parentWorldRotation + transform.localRotation);
+		transform.worldScale =
+			transform.absoluteScale ? transform.localScale : (parentWorldScale * transform.localScale);
+		transform.worldMatrix = BuildMatrixFromTRS(transform.worldPosition, transform.worldRotation, transform.worldScale);
 		doneStamp[entityId] = stamp;
 	}
 }

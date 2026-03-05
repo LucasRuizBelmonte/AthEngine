@@ -240,27 +240,38 @@ static Entity GetAliveParent(Registry &r, Entity e)
 	return (p != kInvalidEntity && r.IsAlive(p)) ? p : kInvalidEntity;
 }
 
-static glm::mat4 BuildLocalTransformMatrix(const Transform &t)
+struct ResolvedTransform
 {
-	const glm::mat4 T = glm::translate(glm::mat4(1.f), t.localPosition);
+	glm::vec3 position{0.f, 0.f, 0.f};
+	glm::vec3 rotation{0.f, 0.f, 0.f};
+	glm::vec3 scale{1.f, 1.f, 1.f};
+	glm::mat4 matrix{1.f};
+};
+
+static glm::mat4 BuildMatrixFromTRS(const glm::vec3 &position, const glm::vec3 &rotation, const glm::vec3 &scale)
+{
+	const glm::mat4 T = glm::translate(glm::mat4(1.f), position);
 	const glm::mat4 R =
-		glm::rotate(glm::mat4(1.f), t.localRotation.x, glm::vec3(1.f, 0.f, 0.f)) *
-		glm::rotate(glm::mat4(1.f), t.localRotation.y, glm::vec3(0.f, 1.f, 0.f)) *
-		glm::rotate(glm::mat4(1.f), t.localRotation.z, glm::vec3(0.f, 0.f, 1.f));
-	const glm::mat4 S = glm::scale(glm::mat4(1.f), t.localScale);
+		glm::rotate(glm::mat4(1.f), rotation.x, glm::vec3(1.f, 0.f, 0.f)) *
+		glm::rotate(glm::mat4(1.f), rotation.y, glm::vec3(0.f, 1.f, 0.f)) *
+		glm::rotate(glm::mat4(1.f), rotation.z, glm::vec3(0.f, 0.f, 1.f));
+	const glm::mat4 S = glm::scale(glm::mat4(1.f), scale);
 	return T * R * S;
 }
 
-static glm::mat4 ComputeWorldTransformMatrix(Registry &r, Entity e)
+static ResolvedTransform ComputeWorldTransform(Registry &r, Entity e)
 {
-	glm::mat4 world(1.f);
+	ResolvedTransform resolved;
 	std::vector<Entity> chain;
 
 	Entity cur = e;
 	for (int i = 0; i < 256 && cur != kInvalidEntity && r.IsAlive(cur); ++i)
 	{
 		chain.push_back(cur);
-		cur = GetAliveParent(r, cur);
+		const Entity parent = GetAliveParent(r, cur);
+		if (parent == kInvalidEntity || !r.Has<Transform>(parent))
+			break;
+		cur = parent;
 	}
 
 	for (auto it = chain.rbegin(); it != chain.rend(); ++it)
@@ -268,10 +279,20 @@ static glm::mat4 ComputeWorldTransformMatrix(Registry &r, Entity e)
 		const Entity node = *it;
 		if (!r.Has<Transform>(node))
 			continue;
-		world *= BuildLocalTransformMatrix(r.Get<Transform>(node));
+
+		const Transform &local = r.Get<Transform>(node);
+		resolved.position = local.absolutePosition ? local.localPosition : (resolved.position + local.localPosition);
+		resolved.rotation = local.absoluteRotation ? local.localRotation : (resolved.rotation + local.localRotation);
+		resolved.scale = local.absoluteScale ? local.localScale : (resolved.scale * local.localScale);
 	}
 
-	return world;
+	resolved.matrix = BuildMatrixFromTRS(resolved.position, resolved.rotation, resolved.scale);
+	return resolved;
+}
+
+static glm::mat4 ComputeWorldTransformMatrix(Registry &r, Entity e)
+{
+	return ComputeWorldTransform(r, e).matrix;
 }
 
 static bool ProjectWorldToViewport(
@@ -360,13 +381,53 @@ static Transform DecomposeTransform(const glm::mat4 &matrix, const Transform &ke
 	return out;
 }
 
+static glm::vec3 DivideScaleSafe(const glm::vec3 &lhs, const glm::vec3 &rhs)
+{
+	auto divide = [](float left, float right)
+	{
+		return (std::abs(right) > 1e-6f) ? (left / right) : left;
+	};
+	return glm::vec3{
+		divide(lhs.x, rhs.x),
+		divide(lhs.y, rhs.y),
+		divide(lhs.z, rhs.z)};
+}
+
+static Transform ConvertWorldTransformToLocal(const Transform &currentLocal,
+                                              const Transform &worldTransform,
+                                              const ResolvedTransform &parentWorld,
+                                              bool hasParent)
+{
+	Transform out = currentLocal;
+
+	out.localPosition =
+		(currentLocal.absolutePosition || !hasParent)
+			? worldTransform.localPosition
+			: (worldTransform.localPosition - parentWorld.position);
+
+	out.localRotation =
+		(currentLocal.absoluteRotation || !hasParent)
+			? worldTransform.localRotation
+			: (worldTransform.localRotation - parentWorld.rotation);
+
+	out.localScale =
+		(currentLocal.absoluteScale || !hasParent)
+			? worldTransform.localScale
+			: DivideScaleSafe(worldTransform.localScale, parentWorld.scale);
+
+	return out;
+}
+
 static bool TransformEqualEpsilon(const Transform &a, const Transform &b)
 {
 	constexpr float eps = 1e-4f;
 	return glm::all(glm::lessThanEqual(glm::abs(a.localPosition - b.localPosition), glm::vec3(eps))) &&
 		   glm::all(glm::lessThanEqual(glm::abs(a.localRotation - b.localRotation), glm::vec3(eps))) &&
 		   glm::all(glm::lessThanEqual(glm::abs(a.localScale - b.localScale), glm::vec3(eps))) &&
-		   glm::all(glm::lessThanEqual(glm::abs(a.pivot - b.pivot), glm::vec3(eps)));
+		   glm::all(glm::lessThanEqual(glm::abs(a.pivot - b.pivot), glm::vec3(eps))) &&
+		   a.absolutePosition == b.absolutePosition &&
+		   a.absoluteRotation == b.absoluteRotation &&
+		   a.absoluteScale == b.absoluteScale;
 }
 
 static Entity FindEditorCameraEntity(Registry &r)
@@ -540,7 +601,8 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 	const Transform transformBeforeFrame = localTransform;
 
 	const Entity parent = GetAliveParent(r, e);
-	const glm::mat4 parentWorld = (parent != kInvalidEntity) ? ComputeWorldTransformMatrix(r, parent) : glm::mat4(1.f);
+	const bool hasParent = (parent != kInvalidEntity && r.Has<Transform>(parent));
+	const ResolvedTransform parentWorld = hasParent ? ComputeWorldTransform(r, parent) : ResolvedTransform{};
 	const glm::mat4 world = ComputeWorldTransformMatrix(r, e);
 
 	glm::mat4 manipulatedWorld = world;
@@ -584,12 +646,8 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 		g_gizmoState.activeWorldMatrix = manipulatedWorld;
 		g_gizmoState.hasActiveWorldMatrix = true;
 
-		glm::mat4 localMatrix = g_gizmoState.activeWorldMatrix;
-		const float parentDet = glm::determinant(parentWorld);
-		if (std::abs(parentDet) > 1e-6f)
-			localMatrix = glm::inverse(parentWorld) * g_gizmoState.activeWorldMatrix;
-
-		Transform updatedTransform = DecomposeTransform(localMatrix, localTransform);
+		const Transform worldTransform = DecomposeTransform(g_gizmoState.activeWorldMatrix, localTransform);
+		Transform updatedTransform = ConvertWorldTransformToLocal(localTransform, worldTransform, parentWorld, hasParent);
 		if (g_gizmoState.operation == ImGuizmo::TRANSLATE)
 		{
 			updatedTransform.localRotation = transformBeforeFrame.localRotation;

@@ -2,7 +2,6 @@
 #include "Render2DSystem.h"
 
 #include "../components/Transform.h"
-#include "../components/Parent.h"
 #include "../components/Camera.h"
 #include "../components/Sprite.h"
 #include "../components/Material.h"
@@ -48,31 +47,19 @@ static glm::mat4 BuildSpriteModel(const Transform &t, const Sprite &s, float hal
 		t.pivot.x * halfViewportWidth,
 		t.pivot.y * halfViewportHeight,
 		t.pivot.z};
-	glm::vec3 pos = t.localPosition + anchorOffset;
+	glm::vec3 pos = t.worldPosition + anchorOffset;
 
 	glm::mat4 T = glm::translate(glm::mat4(1.f), pos);
-	glm::mat4 R = glm::rotate(glm::mat4(1.f), t.localRotation.z, glm::vec3(0.f, 0.f, 1.f));
+	glm::mat4 R = glm::rotate(glm::mat4(1.f), t.worldRotation.z, glm::vec3(0.f, 0.f, 1.f));
 	glm::mat4 P = glm::translate(glm::mat4(1.f), -PivotToLocalOffset(s.pivot));
 
-	glm::vec3 scale = t.localScale;
+	glm::vec3 scale = t.worldScale;
 	scale.x *= s.size.x;
 	scale.y *= s.size.y;
 
 	glm::mat4 S = glm::scale(glm::mat4(1.f), scale);
 
 	return T * R * S * P;
-}
-
-static Entity GetAliveParentEntity(Registry &registry, Entity entity)
-{
-	if (!registry.Has<Parent>(entity))
-		return kInvalidEntity;
-
-	const Entity parent = registry.Get<Parent>(entity).parent;
-	if (parent == kInvalidEntity || !registry.IsAlive(parent) || !registry.Has<Transform>(parent))
-		return kInvalidEntity;
-
-	return parent;
 }
 
 void Render2DSystem::Render(Registry &registry,
@@ -133,10 +120,7 @@ void Render2DSystem::Render(Registry &registry,
 		m.texture = s.texture;
 		m.tint = s.tint;
 
-		const Entity parent = GetAliveParentEntity(registry, e);
-		const glm::mat4 parentWorld = (parent != kInvalidEntity) ? registry.Get<Transform>(parent).worldMatrix : glm::mat4(1.f);
-		const glm::mat4 localSprite = BuildSpriteModel(t, s, halfW, halfH);
-		const glm::mat4 model = parentWorld * localSprite;
+		const glm::mat4 model = BuildSpriteModel(t, s, halfW, halfH);
 		renderer.SubmitMesh(quadMeshId, m, model);
 	}
 

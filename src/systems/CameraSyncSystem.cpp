@@ -6,12 +6,52 @@
 #include "../components/Transform.h"
 
 #include <cmath>
-#include <glm/gtc/matrix_inverse.hpp>
+#include <vector>
 #pragma endregion
 
 #pragma region File Scope
 namespace
 {
+	struct ResolvedWorldTRS
+	{
+		glm::vec3 position{0.f, 0.f, 0.f};
+		glm::vec3 rotation{0.f, 0.f, 0.f};
+		glm::vec3 scale{1.f, 1.f, 1.f};
+	};
+
+	static ResolvedWorldTRS ResolveWorldTRS(Registry &registry, Entity entity)
+	{
+		ResolvedWorldTRS out;
+		if (entity == kInvalidEntity || !registry.IsAlive(entity))
+			return out;
+
+		std::vector<Entity> chain;
+		Entity current = entity;
+		for (int i = 0; i < 256 && current != kInvalidEntity && registry.IsAlive(current); ++i)
+		{
+			if (!registry.Has<Transform>(current))
+				break;
+			chain.push_back(current);
+
+			if (!registry.Has<Parent>(current))
+				break;
+			const Entity parent = registry.Get<Parent>(current).parent;
+			if (parent == kInvalidEntity || !registry.IsAlive(parent))
+				break;
+			current = parent;
+		}
+
+		for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+		{
+			const Transform &local = registry.Get<Transform>(*it);
+			out.position = local.absolutePosition ? local.localPosition : (out.position + local.localPosition);
+			out.rotation = local.absoluteRotation ? local.localRotation : (out.rotation + local.localRotation);
+			out.scale = local.absoluteScale ? local.localScale : (out.scale * local.localScale);
+		}
+
+		return out;
+	}
+
 	static void SyncCameraFromTransformInternal(Registry &registry, Entity cameraEntity, bool force2DMode)
 	{
 		if (cameraEntity == kInvalidEntity || !registry.IsAlive(cameraEntity))
@@ -86,20 +126,13 @@ void CameraSyncSystem::SyncTransformFromCamera(Registry &registry, Entity camera
 			parentEntity = kInvalidEntity;
 	}
 
-	glm::mat4 parentWorld(1.f);
-	if (parentEntity != kInvalidEntity)
-		parentWorld = registry.Get<Transform>(parentEntity).worldMatrix;
+	const bool hasParent = (parentEntity != kInvalidEntity);
+	const ResolvedWorldTRS parentWorld = hasParent ? ResolveWorldTRS(registry, parentEntity) : ResolvedWorldTRS{};
 
-	const float parentDet = glm::determinant(parentWorld);
-	if (std::abs(parentDet) > 1e-6f)
-	{
-		const glm::vec4 localPos = glm::inverse(parentWorld) * glm::vec4(camera.position, 1.f);
-		transform.localPosition = glm::vec3(localPos);
-	}
-	else
-	{
+	if (transform.absolutePosition || !hasParent)
 		transform.localPosition = camera.position;
-	}
+	else
+		transform.localPosition = camera.position - parentWorld.position;
 
 	if (force2DMode)
 	{
@@ -108,15 +141,19 @@ void CameraSyncSystem::SyncTransformFromCamera(Registry &registry, Entity camera
 	}
 
 	glm::vec3 dir = glm::normalize(camera.direction);
-	if (std::abs(parentDet) > 1e-6f)
-	{
-		const glm::vec3 localDir = glm::vec3(glm::inverse(parentWorld) * glm::vec4(dir, 0.f));
-		if (glm::length(localDir) > 1e-6f)
-			dir = glm::normalize(localDir);
-	}
-
 	const float yClamped = glm::clamp(dir.y, -1.0f, 1.0f);
-	transform.localRotation.x = std::asin(yClamped);
-	transform.localRotation.y = std::atan2(dir.z, dir.x);
+	const float worldPitch = std::asin(yClamped);
+	const float worldYaw = std::atan2(dir.z, dir.x);
+
+	if (transform.absoluteRotation || !hasParent)
+	{
+		transform.localRotation.x = worldPitch;
+		transform.localRotation.y = worldYaw;
+	}
+	else
+	{
+		transform.localRotation.x = worldPitch - parentWorld.rotation.x;
+		transform.localRotation.y = worldYaw - parentWorld.rotation.y;
+	}
 }
 #pragma endregion

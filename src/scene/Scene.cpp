@@ -137,7 +137,7 @@ void Scene::OnDetach(GLFWwindow &window)
 	m_window = nullptr;
 }
 
-void Scene::Update(float dt, float now)
+void Scene::Update(float dt, float now, const InputState &input)
 {
 	if (!m_loaded)
 		return;
@@ -150,7 +150,7 @@ void Scene::Update(float dt, float now)
 	{
 		if (m_sysCameraController && m_window && m_editorInputEnabled)
 		{
-			m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, m_dimension == EditorSceneDimension::Scene2D);
+			m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, m_dimension == EditorSceneDimension::Scene2D, input);
 			m_cameraSyncSystem.SyncTransformFromCamera(m_registry, camera, m_dimension == EditorSceneDimension::Scene2D);
 		}
 	}

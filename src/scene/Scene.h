@@ -73,7 +73,7 @@ public:
 	/**
 	 * @brief Executes Update.
 	 */
-	void Update(float dt, float now) override;
+	void Update(float dt, float now, const InputState &input) override;
 	/**
 	 * @brief Executes Fixed Update.
 	 */

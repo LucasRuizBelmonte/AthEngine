@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include "../platform/GL.h"
+#include "../input/InputActions.h"
 #pragma endregion
 
 #pragma region Declarations
@@ -48,7 +49,7 @@ public:
     /**
      * @brief Executes Update.
      */
-    virtual void Update(float dt, float now) = 0;
+    virtual void Update(float dt, float now, const InputState &input) = 0;
     /**
      * @brief Executes Fixed Update.
      */

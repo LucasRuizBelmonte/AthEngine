@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include "../ecs/Registry.h"
+#include "../input/InputActions.h"
 #pragma endregion
 
 #pragma region Declarations
@@ -19,7 +20,7 @@ public:
 	/**
 	 * @brief Executes Update.
 	 */
-	void Update(Registry& registry, GLFWwindow& window, Entity cameraEntity, float dt, bool is2DMode) const;
+	void Update(Registry& registry, GLFWwindow& window, Entity cameraEntity, float dt, bool is2DMode, const InputState &input) const;
 	#pragma endregion
 };
 #pragma endregion

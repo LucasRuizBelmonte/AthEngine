@@ -11,6 +11,7 @@
 #include <imgui_impl_opengl3.h>
 
 #include "../input/Input.h"
+#include "../input/ProjectInputMap.h"
 #include "../editor/EditorUI.h"
 
 namespace
@@ -114,7 +115,7 @@ void Application::Run()
 		if (m_Window->ShouldClose())
 			break;
 
-		Input::Update();
+		Input::BeginFrame();
 
 		float now = (float)glfwGetTime();
 		float dt = now - m_LastTime;
@@ -148,7 +149,7 @@ void Application::Run()
 			fixedAccumulator = 0.0f;
 		}
 
-		m_Scenes->Update(dt, now);
+		m_Scenes->Update(dt, now, Input::GetState());
 		if (m_Window->ShouldClose())
 			break;
 
@@ -191,6 +192,7 @@ void Application::Run()
 		if (m_Window->ShouldClose())
 			break;
 
+		Input::EndFrame();
 		m_Window->SwapBuffers();
 	}
 }
@@ -202,8 +204,10 @@ static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
 
 void Application::HandleSceneInput()
 {
+	const InputState &input = Input::GetState();
+
 #ifdef ENGINE_DEBUG
-	if (Input::GetKeyDown(GLFW_KEY_ESCAPE))
+	if (input.GetPressed(ProjectInput::Actions::Pause))
 		m_Window->Close();
 #endif
 

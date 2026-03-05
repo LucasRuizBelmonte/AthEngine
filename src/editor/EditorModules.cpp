@@ -24,6 +24,8 @@
 #include "../components/Parent.h"
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
+#include "../components/Tag.h"
+#include "../input/Input.h"
 #include "../physics2d/Collider2D.h"
 #include "../physics2d/Physics2DAlgorithms.h"
 #include "../physics2d/PhysicsBody2D.h"
@@ -297,6 +299,68 @@ static std::vector<BasicShapeEntry> CollectBasicShapeEntries()
 static bool IsEditable3DScene(IEditorScene *editorScene)
 {
 	return editorScene && editorScene->GetEditorSceneDimension() == EditorSceneDimension::Scene3D;
+}
+
+static bool HasInputDebugPanelMarker(IEditorScene *editorScene)
+{
+	if (!editorScene)
+		return false;
+
+	Registry &registry = editorScene->GetEditorRegistry();
+	std::vector<Entity> taggedEntities;
+	registry.ViewEntities<Tag>(taggedEntities);
+	for (Entity e : taggedEntities)
+	{
+		const Tag &tag = registry.Get<Tag>(e);
+		if (tag.name == "InputDebugPanel")
+			return true;
+	}
+
+	return false;
+}
+
+static void DrawInputActionDebugPanel(IEditorScene *editorScene)
+{
+	if (!HasInputDebugPanelMarker(editorScene))
+		return;
+
+	const InputState &input = Input::GetState();
+	const std::vector<std::string> &actions = input.GetActionNames();
+
+	ImGui::Begin("Input Actions");
+	ImGui::TextUnformatted("Action map runtime state");
+	ImGui::Separator();
+
+	if (ImGui::BeginTable("##InputActionState", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+	{
+		ImGui::TableSetupColumn("Action");
+		ImGui::TableSetupColumn("Axis");
+		ImGui::TableSetupColumn("Down");
+		ImGui::TableSetupColumn("Pressed");
+		ImGui::TableSetupColumn("Released");
+		ImGui::TableHeadersRow();
+
+		for (const std::string &actionName : actions)
+		{
+			ImGui::TableNextRow();
+			ImGui::TableSetColumnIndex(0);
+			ImGui::TextUnformatted(actionName.c_str());
+			ImGui::TableSetColumnIndex(1);
+			ImGui::Text("%.3f", input.GetAxis(actionName));
+			ImGui::TableSetColumnIndex(2);
+			ImGui::TextUnformatted(input.GetDown(actionName) ? "true" : "false");
+			ImGui::TableSetColumnIndex(3);
+			ImGui::TextUnformatted(input.GetPressed(actionName) ? "true" : "false");
+			ImGui::TableSetColumnIndex(4);
+			ImGui::TextUnformatted(input.GetReleased(actionName) ? "true" : "false");
+		}
+
+		ImGui::EndTable();
+	}
+
+	ImGui::Separator();
+	ImGui::TextUnformatted("Preset editable in: src/input/ProjectInputMap.cpp");
+	ImGui::End();
 }
 
 static Entity GetAliveParent(Registry &r, Entity e)
@@ -1693,6 +1757,8 @@ void Editor::Draw(SceneManager &scenes, EditorUIState &state)
 		ImGui::End();
 		ImGui::PopStyleVar();
 	}
+
+	DrawInputActionDebugPanel(editorScene);
 }
 void Dockspace::Draw(EditorUIState &state)
 {

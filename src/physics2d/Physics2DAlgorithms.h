@@ -33,7 +33,7 @@ namespace Physics2DAlgorithms
 
 	struct Contact2D
 	{
-		glm::vec2 normal{0.f, 0.f}; // Points from A to B.
+		glm::vec2 normal{0.f, 0.f};
 		float penetration = 0.f;
 		glm::vec2 point{0.f, 0.f};
 	};

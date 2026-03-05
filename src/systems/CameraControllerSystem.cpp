@@ -3,6 +3,7 @@
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
 #include "../input/Input.h"
+#include "../input/ProjectInputMap.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
@@ -16,7 +17,7 @@ static float Clamp(float v, float lo, float hi)
 									: v;
 }
 
-void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Entity cameraEntity, float dt, bool is2DMode) const
+void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Entity cameraEntity, float dt, bool is2DMode, const InputState &input) const
 {
 	if (cameraEntity == kInvalidEntity)
 		return;
@@ -27,9 +28,7 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 	if (glfwGetInputMode(&window, GLFW_CURSOR) != GLFW_CURSOR_DISABLED)
 		return;
 
-	const bool rightMouseDown =
-		(glfwGetMouseButton(&window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) ||
-		Input::GetMouseButton(GLFW_MOUSE_BUTTON_RIGHT);
+	const bool rightMouseDown = Input::GetMouseButton(GLFW_MOUSE_BUTTON_RIGHT);
 	if (!rightMouseDown)
 		return;
 
@@ -49,20 +48,15 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 		speed *= ctrl.fastMultiplier;
 
 	float step = speed * dt;
+	const float moveX = input.GetAxis(ProjectInput::Actions::Horizontal);
+	const float moveY = input.GetAxis(ProjectInput::Actions::Vertical);
 
 	glm::vec2 md = Input::GetMouseDelta();
 	if (is2DMode)
 	{
 		cam.direction = glm::vec3(0.0f, 0.0f, -1.0f);
-
-		if (Input::GetKey(GLFW_KEY_W))
-			cam.position.y += step;
-		if (Input::GetKey(GLFW_KEY_S))
-			cam.position.y -= step;
-		if (Input::GetKey(GLFW_KEY_D))
-			cam.position.x += step;
-		if (Input::GetKey(GLFW_KEY_A))
-			cam.position.x -= step;
+		cam.position.y += moveY * step;
+		cam.position.x += moveX * step;
 
 		const float panScale = step * ctrl.mouseSensitivity;
 		cam.position.x -= md.x * panScale;
@@ -70,14 +64,8 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 		return;
 	}
 
-	if (Input::GetKey(GLFW_KEY_W))
-		cam.position += forward * step;
-	if (Input::GetKey(GLFW_KEY_S))
-		cam.position -= forward * step;
-	if (Input::GetKey(GLFW_KEY_D))
-		cam.position += right * step;
-	if (Input::GetKey(GLFW_KEY_A))
-		cam.position -= right * step;
+	cam.position += forward * (moveY * step);
+	cam.position += right * (moveX * step);
 
 	if (Input::GetKey(GLFW_KEY_E))
 		cam.position += up * step;

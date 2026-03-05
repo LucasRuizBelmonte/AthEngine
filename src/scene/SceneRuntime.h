@@ -58,7 +58,7 @@ public:
 	bool IsReadyToCommit() const;
 	void Commit(SceneStack &stack, GLFWwindow &window);
 
-	void UpdateLoading(float dt, float now) const;
+	void UpdateLoading(float dt, float now, const InputState &input) const;
 	void UpdateLoadingFixed(float fixedDt) const;
 	void RenderLoading3D(Renderer &renderer, int framebufferWidth, int framebufferHeight) const;
 	void RenderLoading2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) const;
@@ -135,7 +135,7 @@ public:
 	void Request(SceneRequest req);
 	void AddScene(SceneRequest req);
 
-	void Update(float dt, float now);
+	void Update(float dt, float now, const InputState &input);
 	void FixedUpdate(float fixedDt);
 	void Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight);
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight);

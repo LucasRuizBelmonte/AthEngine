@@ -45,7 +45,7 @@ public:
     /**
      * @brief Executes Update.
      */
-    void Update(float dt, float now);
+    void Update(float dt, float now, const InputState &input);
     /**
      * @brief Executes Fixed Update.
      */

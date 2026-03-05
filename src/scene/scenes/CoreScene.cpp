@@ -20,10 +20,11 @@ bool CoreScene::IsLoaded() const { return m_loaded; }
 void CoreScene::OnAttach(GLFWwindow &window) { (void)window; }
 void CoreScene::OnDetach(GLFWwindow &window) { (void)window; }
 
-void CoreScene::Update(float dt, float now)
+void CoreScene::Update(float dt, float now, const InputState &input)
 {
 	(void)dt;
 	(void)now;
+	(void)input;
 }
 
 void CoreScene::FixedUpdate(float fixedDt)

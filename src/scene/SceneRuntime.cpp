@@ -174,10 +174,10 @@ void SceneTransitionController::Commit(SceneStack &stack, GLFWwindow &window)
 	m_isTransitioning = false;
 }
 
-void SceneTransitionController::UpdateLoading(float dt, float now) const
+void SceneTransitionController::UpdateLoading(float dt, float now, const InputState &input) const
 {
 	if (m_isTransitioning && m_loading)
-		m_loading->Update(dt, now);
+		m_loading->Update(dt, now, input);
 }
 
 void SceneTransitionController::UpdateLoadingFixed(float fixedDt) const
@@ -371,7 +371,7 @@ void SceneRuntime::AddScene(SceneRequest req)
 	Request(req);
 }
 
-void SceneRuntime::Update(float dt, float now)
+void SceneRuntime::Update(float dt, float now, const InputState &input)
 {
 	m_loader.Update();
 
@@ -403,9 +403,9 @@ void SceneRuntime::Update(float dt, float now)
 	}
 
 	for (auto &scene : scenes)
-		scene->Update(dt, now);
+		scene->Update(dt, now, input);
 
-	m_transitionController.UpdateLoading(dt, now);
+	m_transitionController.UpdateLoading(dt, now, input);
 }
 
 void SceneRuntime::FixedUpdate(float fixedDt)

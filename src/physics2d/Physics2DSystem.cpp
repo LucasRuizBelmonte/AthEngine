@@ -256,7 +256,6 @@ namespace
 	static void BuildBroadphasePairs(const std::vector<BodyState> &bodies,
 	                                 std::vector<std::pair<size_t, size_t>> &outPairs)
 	{
-		// Naive broadphase, kept as extension point for a future spatial hash.
 		outPairs.clear();
 		const size_t count = bodies.size();
 		outPairs.reserve(count > 1u ? (count * (count - 1u)) / 2u : 0u);

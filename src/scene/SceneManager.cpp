@@ -27,9 +27,9 @@ void SceneManager::AddScene(SceneRequest req)
 	m_runtime.AddScene(req);
 }
 
-void SceneManager::Update(float dt, float now)
+void SceneManager::Update(float dt, float now, const InputState &input)
 {
-	m_runtime.Update(dt, now);
+	m_runtime.Update(dt, now, input);
 }
 
 void SceneManager::FixedUpdate(float fixedDt)

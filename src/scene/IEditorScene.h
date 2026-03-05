@@ -52,7 +52,7 @@ public:
      */
     virtual EditorSceneDimension GetEditorSceneDimension() const = 0;
     /**
-     * @brief Sets the scene dimension and applies compatibility rules.
+     * @brief Sets the scene dimension and applies scene rules.
      */
     virtual void SetEditorSceneDimension(EditorSceneDimension dimension) = 0;
     /**

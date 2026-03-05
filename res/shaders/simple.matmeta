@@ -1,2 +1,3 @@
 # name|type|default|min|max|group|tooltip
+ATHMATMETA 1
 u_tint|vec4|1,1,1,1|||Surface|Solid tint color.

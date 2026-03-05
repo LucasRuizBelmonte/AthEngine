@@ -15,12 +15,16 @@
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
 #include "../material/MaterialMetadata.h"
+#include "../utils/StrictParsing.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
+#include <limits>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 #pragma endregion
 
@@ -99,6 +103,25 @@ namespace AthSceneIO
 			}
 		}
 
+		static bool IsValidSpritePivotValue(int value)
+		{
+			switch (value)
+			{
+			case static_cast<int>(SpritePivot::Center):
+			case static_cast<int>(SpritePivot::TopLeft):
+			case static_cast<int>(SpritePivot::Top):
+			case static_cast<int>(SpritePivot::TopRight):
+			case static_cast<int>(SpritePivot::Left):
+			case static_cast<int>(SpritePivot::Right):
+			case static_cast<int>(SpritePivot::BottomLeft):
+			case static_cast<int>(SpritePivot::Bottom):
+			case static_cast<int>(SpritePivot::BottomRight):
+				return true;
+			default:
+				return false;
+			}
+		}
+
 		static bool ReadExpectedKeyword(std::istream &in, const char *expected, std::string &outError)
 		{
 			std::string key;
@@ -112,6 +135,39 @@ namespace AthSceneIO
 				std::ostringstream oss;
 				oss << "Invalid scene file. Expected '" << expected << "' but found '" << key << "'.";
 				outError = oss.str();
+				return false;
+			}
+			return true;
+		}
+
+		static std::string ReadLinePayload(std::istream &in)
+		{
+			std::string payload;
+			(void)std::getline(in, payload);
+			if (!payload.empty() && payload.front() == ' ')
+				payload.erase(payload.begin());
+			return payload;
+		}
+
+		static std::string BuildSchemaError(const std::string &componentName,
+		                                    const std::string &expectedSchema,
+		                                    const std::string &actualData)
+		{
+			std::ostringstream oss;
+			oss << componentName << " schema mismatch. Expected " << expectedSchema
+			    << ", actual '" << actualData << "'.";
+			return oss.str();
+		}
+
+		static bool ParseFloatPayload(const std::string &payload,
+		                              const std::string &context,
+		                              std::vector<float> &outValues,
+		                              std::string &outError)
+		{
+			std::string parseError;
+			if (!StrictParsing::ParseFloatList(payload, outValues, parseError))
+			{
+				outError = context + " invalid numeric token. " + parseError + " Actual '" + payload + "'.";
 				return false;
 			}
 			return true;
@@ -189,9 +245,12 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasTag = true;
-			if (!(in >> std::quoted(ent.tag.name)))
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			std::string extra;
+			if (!(ls >> std::quoted(ent.tag.name)) || (ls >> extra))
 			{
-				outError = "Failed reading Tag component.";
+				outError = BuildSchemaError("Tag", "TAG \"<name>\"", payload);
 				return false;
 			}
 			return true;
@@ -211,9 +270,12 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasParent = true;
-			if (!(in >> ent.parent))
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			std::string extra;
+			if (!(ls >> ent.parent) || (ls >> extra))
 			{
-				outError = "Failed reading Parent component.";
+				outError = BuildSchemaError("Parent", "PARENT <entityId>", payload);
 				return false;
 			}
 			return true;
@@ -240,38 +302,34 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasTransform = true;
-			if (!(in >> ent.transform.localPosition.x >> ent.transform.localPosition.y >> ent.transform.localPosition.z >>
-				  ent.transform.localRotation.x >> ent.transform.localRotation.y >> ent.transform.localRotation.z >>
-				  ent.transform.localScale.x >> ent.transform.localScale.y >> ent.transform.localScale.z))
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "Transform", values, outError))
 			{
-				outError = "Failed reading Transform component.";
+				return false;
+			}
+			if (!StrictParsing::RequireTokenCount(values, 15u, "Transform", outError))
+			{
+				outError = BuildSchemaError(
+					"Transform",
+					"15 numeric values: pos3 rot3 scale3 pivot3 absPos absRot absScale",
+					payload);
 				return false;
 			}
 
-			std::string rest;
-			std::getline(in, rest);
-			if (!rest.empty())
+			for (size_t i = 0; i < values.size(); ++i)
 			{
-				std::istringstream ls(rest);
-				std::vector<float> tailValues;
-				float value = 0.f;
-				while (ls >> value)
-					tailValues.push_back(value);
-
-				if (tailValues.size() >= 3u)
-				{
-					ent.transform.pivot.x = tailValues[0];
-					ent.transform.pivot.y = tailValues[1];
-					ent.transform.pivot.z = tailValues[2];
-				}
-
-				if (tailValues.size() >= 6u)
-				{
-					ent.transform.absolutePosition = (tailValues[3] != 0.f);
-					ent.transform.absoluteRotation = (tailValues[4] != 0.f);
-					ent.transform.absoluteScale = (tailValues[5] != 0.f);
-				}
+				if (!StrictParsing::ValidateFinite(values[i], "value[" + std::to_string(i) + "]", "Transform", outError))
+					return false;
 			}
+
+			ent.transform.localPosition = glm::vec3(values[0], values[1], values[2]);
+			ent.transform.localRotation = glm::vec3(values[3], values[4], values[5]);
+			ent.transform.localScale = glm::vec3(values[6], values[7], values[8]);
+			ent.transform.pivot = glm::vec3(values[9], values[10], values[11]);
+			ent.transform.absolutePosition = (values[12] != 0.f);
+			ent.transform.absoluteRotation = (values[13] != 0.f);
+			ent.transform.absoluteScale = (values[14] != 0.f);
 			return true;
 		}
 	};
@@ -293,16 +351,41 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasCamera = true;
-			int projection = 0;
-			if (!(in >> projection >>
-				  ent.camera.position.x >> ent.camera.position.y >> ent.camera.position.z >>
-				  ent.camera.direction.x >> ent.camera.direction.y >> ent.camera.direction.z >>
-				  ent.camera.fovDeg >> ent.camera.nearPlane >> ent.camera.farPlane >> ent.camera.orthoHeight))
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "Camera", values, outError))
 			{
-				outError = "Failed reading Camera component.";
 				return false;
 			}
-			ent.camera.projection = projection == 1 ? ProjectionType::Orthographic : ProjectionType::Perspective;
+			if (!StrictParsing::RequireTokenCount(values, 11u, "Camera", outError))
+			{
+				outError = BuildSchemaError(
+					"Camera",
+					"11 numeric values: projection pos3 dir3 fov near far orthoHeight",
+					payload);
+				return false;
+			}
+
+			for (size_t i = 0; i < values.size(); ++i)
+			{
+				if (!StrictParsing::ValidateFinite(values[i], "value[" + std::to_string(i) + "]", "Camera", outError))
+					return false;
+			}
+
+			const int projection = static_cast<int>(values[0]);
+			if (projection != 0 && projection != 1)
+			{
+				outError = BuildSchemaError("Camera", "projection in {0,1}", payload);
+				return false;
+			}
+
+			ent.camera.position = glm::vec3(values[1], values[2], values[3]);
+			ent.camera.direction = glm::vec3(values[4], values[5], values[6]);
+			ent.camera.fovDeg = values[7];
+			ent.camera.nearPlane = values[8];
+			ent.camera.farPlane = values[9];
+			ent.camera.orthoHeight = values[10];
+			ent.camera.projection = (projection == 1) ? ProjectionType::Orthographic : ProjectionType::Perspective;
 			return true;
 		}
 	};
@@ -324,17 +407,29 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasCameraController = true;
-			int hasLastMouse = 0;
-			if (!(in >> ent.cameraController.yawDeg >> ent.cameraController.pitchDeg >>
-				  ent.cameraController.moveSpeed >> ent.cameraController.fastMultiplier >>
-				  ent.cameraController.mouseSensitivity >>
-				  ent.cameraController.lastMousePos.x >> ent.cameraController.lastMousePos.y >>
-				  hasLastMouse))
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "CameraController", values, outError))
 			{
-				outError = "Failed reading CameraController component.";
 				return false;
 			}
-			ent.cameraController.hasLastMousePos = (hasLastMouse != 0);
+			if (!StrictParsing::RequireTokenCount(values, 8u, "CameraController", outError))
+			{
+				outError = BuildSchemaError(
+					"CameraController",
+					"8 numeric values: yaw pitch moveSpeed fastMultiplier mouseSensitivity lastMouseX lastMouseY hasLastMouse",
+					payload);
+				return false;
+			}
+
+			ent.cameraController.yawDeg = values[0];
+			ent.cameraController.pitchDeg = values[1];
+			ent.cameraController.moveSpeed = values[2];
+			ent.cameraController.fastMultiplier = values[3];
+			ent.cameraController.mouseSensitivity = values[4];
+			ent.cameraController.lastMousePos.x = values[5];
+			ent.cameraController.lastMousePos.y = values[6];
+			ent.cameraController.hasLastMousePos = (values[7] != 0.f);
 			return true;
 		}
 	};
@@ -354,11 +449,20 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasSpin = true;
-			if (!(in >> ent.spin.axis.x >> ent.spin.axis.y >> ent.spin.axis.z >> ent.spin.freq >> ent.spin.amplitude))
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "Spin", values, outError))
 			{
-				outError = "Failed reading Spin component.";
 				return false;
 			}
+			if (!StrictParsing::RequireTokenCount(values, 5u, "Spin", outError))
+			{
+				outError = BuildSchemaError("Spin", "5 numeric values: axis3 freq amplitude", payload);
+				return false;
+			}
+			ent.spin.axis = glm::vec3(values[0], values[1], values[2]);
+			ent.spin.freq = values[3];
+			ent.spin.amplitude = values[4];
 			return true;
 		}
 	};
@@ -382,14 +486,22 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasLight = true;
-			int type = static_cast<int>(LightType::Directional);
-			int castShadows = 0;
-			if (!(in >> type >> ent.light.color.x >> ent.light.color.y >> ent.light.color.z >> ent.light.intensity >> ent.light.range >> ent.light.innerCone >> ent.light.outerCone >> castShadows))
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "LightEmitter", values, outError))
 			{
-				outError = "Failed reading LightEmitter component.";
+				return false;
+			}
+			if (!StrictParsing::RequireTokenCount(values, 9u, "LightEmitter", outError))
+			{
+				outError = BuildSchemaError(
+					"LightEmitter",
+					"9 numeric values: type color3 intensity range innerCone outerCone castShadows",
+					payload);
 				return false;
 			}
 
+			const int type = static_cast<int>(values[0]);
 			switch (type)
 			{
 			case 1:
@@ -400,11 +512,16 @@ namespace AthSceneIO
 				break;
 			case 0:
 			default:
-				ent.light.type = LightType::Directional;
-				break;
+				outError = BuildSchemaError("LightEmitter", "type in {0,1,2}", payload);
+				return false;
 			}
 
-			ent.light.castShadows = (castShadows != 0);
+			ent.light.color = glm::vec3(values[1], values[2], values[3]);
+			ent.light.intensity = values[4];
+			ent.light.range = values[5];
+			ent.light.innerCone = values[6];
+			ent.light.outerCone = values[7];
+			ent.light.castShadows = (values[8] != 0.f);
 			return true;
 		}
 	};
@@ -430,26 +547,31 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasSprite = true;
-			if (!(in >> ent.sprite.texture.id >> ent.sprite.shader.id >>
-				  ent.sprite.size.x >> ent.sprite.size.y >>
-				  ent.sprite.uv.x >> ent.sprite.uv.y >> ent.sprite.uv.z >> ent.sprite.uv.w >>
-				  ent.sprite.tint.x >> ent.sprite.tint.y >> ent.sprite.tint.z >> ent.sprite.tint.w >>
-				  ent.sprite.layer >> ent.sprite.orderInLayer))
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int pivot = static_cast<int>(SpritePivot::Center);
+			std::string extra;
+			if (!(ls >> ent.sprite.texture.id >> ent.sprite.shader.id >>
+			      ent.sprite.size.x >> ent.sprite.size.y >>
+			      ent.sprite.uv.x >> ent.sprite.uv.y >> ent.sprite.uv.z >> ent.sprite.uv.w >>
+			      ent.sprite.tint.x >> ent.sprite.tint.y >> ent.sprite.tint.z >> ent.sprite.tint.w >>
+			      ent.sprite.layer >> ent.sprite.orderInLayer >>
+			      std::quoted(ent.sprite.texturePath) >> std::quoted(ent.sprite.materialPath) >> pivot) ||
+			    (ls >> extra))
 			{
-				outError = "Failed reading Sprite component.";
+				outError = BuildSchemaError(
+					"Sprite",
+					"SPRITE <texId> <shaderId> <sizeX> <sizeY> <uvX> <uvY> <uvZ> <uvW> <tintR> <tintG> <tintB> <tintA> <layer> <orderInLayer> \"<texturePath>\" \"<materialPath>\" <pivot>",
+					payload);
 				return false;
 			}
 
-			std::string rest;
-			std::getline(in, rest);
-			if (!rest.empty())
+			if (!IsValidSpritePivotValue(pivot))
 			{
-				std::istringstream ls(rest);
-				(void)(ls >> std::quoted(ent.sprite.texturePath) >> std::quoted(ent.sprite.materialPath));
-				int pivot = static_cast<int>(SpritePivot::Center);
-				if (ls >> pivot)
-					ent.sprite.pivot = SpritePivotFromStoredValue(pivot);
+				outError = BuildSchemaError("Sprite", "pivot enum value in [0..8]", payload);
+				return false;
 			}
+			ent.sprite.pivot = SpritePivotFromStoredValue(pivot);
 			return true;
 		}
 	};
@@ -474,21 +596,52 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasCollider2D = true;
-			int shape = static_cast<int>(Collider2D::Shape::AABB);
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int shape = 0;
 			int isTrigger = 0;
-			if (!(in >> shape >> isTrigger >>
-				  ent.collider2D.layer >> ent.collider2D.mask >>
-				  ent.collider2D.halfExtents.x >> ent.collider2D.halfExtents.y >>
-				  ent.collider2D.radius >>
-				  ent.collider2D.offset.x >> ent.collider2D.offset.y))
+			uint64_t layer = 0u;
+			uint64_t mask = 0u;
+			std::string extra;
+			if (!(ls >> shape >> isTrigger >> layer >> mask >>
+			      ent.collider2D.halfExtents.x >> ent.collider2D.halfExtents.y >>
+			      ent.collider2D.radius >>
+			      ent.collider2D.offset.x >> ent.collider2D.offset.y) ||
+			    (ls >> extra))
 			{
-				outError = "Failed reading Collider2D component.";
+				outError = BuildSchemaError(
+					"Collider2D",
+					"COLLIDER2D <shape> <isTrigger> <layer:uint32> <mask:uint32> <halfExtentsX> <halfExtentsY> <radius> <offsetX> <offsetY>",
+					payload);
 				return false;
 			}
 
-			ent.collider2D.shape = (shape == static_cast<int>(Collider2D::Shape::Circle))
-									   ? Collider2D::Shape::Circle
-									   : Collider2D::Shape::AABB;
+			if (!StrictParsing::ValidateFinite(ent.collider2D.halfExtents.x, "halfExtents.x", "Collider2D", outError) ||
+			    !StrictParsing::ValidateFinite(ent.collider2D.halfExtents.y, "halfExtents.y", "Collider2D", outError) ||
+			    !StrictParsing::ValidateFinite(ent.collider2D.radius, "radius", "Collider2D", outError) ||
+			    !StrictParsing::ValidateFinite(ent.collider2D.offset.x, "offset.x", "Collider2D", outError) ||
+			    !StrictParsing::ValidateFinite(ent.collider2D.offset.y, "offset.y", "Collider2D", outError))
+				return false;
+
+			if (layer > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) ||
+			    mask > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+			{
+				outError = BuildSchemaError(
+					"Collider2D",
+					"layer and mask inside uint32 range",
+					payload);
+				return false;
+			}
+
+			if (shape != 0 && shape != 1)
+			{
+				outError = BuildSchemaError("Collider2D", "shape in {0,1}", payload);
+				return false;
+			}
+
+			ent.collider2D.layer = static_cast<uint32_t>(layer);
+			ent.collider2D.mask = static_cast<uint32_t>(mask);
+			ent.collider2D.shape = (shape == static_cast<int>(Collider2D::Shape::Circle)) ? Collider2D::Shape::Circle : Collider2D::Shape::AABB;
 			ent.collider2D.isTrigger = (isTrigger != 0);
 			return true;
 		}
@@ -521,68 +674,35 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasRigidBody2D = true;
-			std::string rest;
-			std::getline(in, rest);
-			if (rest.empty())
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "RigidBody2D", values, outError))
 			{
-				outError = "Failed reading RigidBody2D component.";
+				return false;
+			}
+			if (!StrictParsing::RequireTokenCount(values, 19u, "RigidBody2D", outError))
+			{
+				outError = BuildSchemaError(
+					"RigidBody2D",
+					"19 numeric values: velocity3 forces3 angularVelocity3 mass linearDamping angularDamping isKinematic freezeVelXYZ freezeAngVelXYZ",
+					payload);
 				return false;
 			}
 
-			std::istringstream ls(rest);
-			std::vector<float> values;
-			float value = 0.f;
-			while (ls >> value)
-				values.push_back(value);
-
-			if (values.size() >= 19u)
-			{
-				ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], values[2]);
-				ent.rigidBody2D.accumulatedForces = glm::vec3(values[3], values[4], values[5]);
-				ent.rigidBody2D.angularVelocity = glm::vec3(values[6], values[7], values[8]);
-				ent.rigidBody2D.mass = values[9];
-				ent.rigidBody2D.linearDamping = values[10];
-				ent.rigidBody2D.angularDamping = values[11];
-				ent.rigidBody2D.isKinematic = (values[12] != 0.f);
-				ent.rigidBody2D.freezeVelocityX = (values[13] != 0.f);
-				ent.rigidBody2D.freezeVelocityY = (values[14] != 0.f);
-				ent.rigidBody2D.freezeVelocityZ = (values[15] != 0.f);
-				ent.rigidBody2D.freezeAngularVelocityX = (values[16] != 0.f);
-				ent.rigidBody2D.freezeAngularVelocityY = (values[17] != 0.f);
-				ent.rigidBody2D.freezeAngularVelocityZ = (values[18] != 0.f);
-				return true;
-			}
-
-			if (values.size() >= 18u)
-			{
-				ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], values[2]);
-				ent.rigidBody2D.accumulatedForces = glm::vec3(values[3], values[4], values[5]);
-				ent.rigidBody2D.angularVelocity = glm::vec3(values[6], values[7], values[8]);
-				ent.rigidBody2D.mass = values[9];
-				ent.rigidBody2D.linearDamping = values[10];
-				ent.rigidBody2D.angularDamping = 0.f;
-				ent.rigidBody2D.isKinematic = (values[11] != 0.f);
-				ent.rigidBody2D.freezeVelocityX = (values[12] != 0.f);
-				ent.rigidBody2D.freezeVelocityY = (values[13] != 0.f);
-				ent.rigidBody2D.freezeVelocityZ = (values[14] != 0.f);
-				ent.rigidBody2D.freezeAngularVelocityX = (values[15] != 0.f);
-				ent.rigidBody2D.freezeAngularVelocityY = (values[16] != 0.f);
-				ent.rigidBody2D.freezeAngularVelocityZ = (values[17] != 0.f);
-				return true;
-			}
-
-			if (values.size() >= 6u)
-			{
-				ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], 0.f);
-				ent.rigidBody2D.accumulatedForces = glm::vec3(values[2], values[3], 0.f);
-				ent.rigidBody2D.angularVelocity = glm::vec3(0.f, 0.f, 0.f);
-				ent.rigidBody2D.mass = values[4];
-				ent.rigidBody2D.linearDamping = values[5];
-				return true;
-			}
-
-			outError = "Failed reading RigidBody2D component.";
-			return false;
+			ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], values[2]);
+			ent.rigidBody2D.accumulatedForces = glm::vec3(values[3], values[4], values[5]);
+			ent.rigidBody2D.angularVelocity = glm::vec3(values[6], values[7], values[8]);
+			ent.rigidBody2D.mass = values[9];
+			ent.rigidBody2D.linearDamping = values[10];
+			ent.rigidBody2D.angularDamping = values[11];
+			ent.rigidBody2D.isKinematic = (values[12] != 0.f);
+			ent.rigidBody2D.freezeVelocityX = (values[13] != 0.f);
+			ent.rigidBody2D.freezeVelocityY = (values[14] != 0.f);
+			ent.rigidBody2D.freezeVelocityZ = (values[15] != 0.f);
+			ent.rigidBody2D.freezeAngularVelocityX = (values[16] != 0.f);
+			ent.rigidBody2D.freezeAngularVelocityY = (values[17] != 0.f);
+			ent.rigidBody2D.freezeAngularVelocityZ = (values[18] != 0.f);
+			return true;
 		}
 	};
 
@@ -600,14 +720,21 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasPhysicsBody2D = true;
-			int enabled = 1;
-			if (!(in >> enabled))
+			const std::string payload = ReadLinePayload(in);
+			std::vector<int> values;
+			std::string parseError;
+			if (!StrictParsing::ParseIntList(payload, values, parseError))
 			{
-				outError = "Failed reading PhysicsBody2D component.";
+				outError = BuildSchemaError("PhysicsBody2D", "<0|1>", payload) + " " + parseError;
+				return false;
+			}
+			if (!StrictParsing::RequireTokenCount(values, 1u, "PhysicsBody2D", outError))
+			{
+				outError = BuildSchemaError("PhysicsBody2D", "PHYSICSBODY2D <0|1>", payload);
 				return false;
 			}
 
-			ent.physicsBody2D.enabled = (enabled != 0);
+			ent.physicsBody2D.enabled = (values[0] != 0);
 			return true;
 		}
 	};
@@ -673,119 +800,145 @@ namespace AthSceneIO
 			}
 		}
 
-		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
-		{
-			ent.hasMaterial = true;
-			if (!(in >> ent.material.shader.id >> ent.material.texture.id))
-			{
-				outError = "Failed reading Material component.";
-				return false;
-			}
-
-			std::string rest;
-			std::getline(in, rest);
-			if (!rest.empty())
-			{
-				std::istringstream ls(rest);
-
-				if (!(ls >> ent.material.specularTexture.id >> ent.material.normalTexture.id >> ent.material.emissionTexture.id >>
-					  ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
-				{
-					ls.clear();
-					ls.str(rest);
-					if (!(ls >> ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
-					{
-						outError = "Failed reading Material component.";
-						return false;
-					}
-				}
-				else
-				{
-					(void)(ls >> ent.material.specularStrength >> ent.material.shininess >>
-						   ent.material.normalStrength >> ent.material.emissionStrength);
-					(void)(ls >> std::quoted(ent.material.texturePath) >>
-						   std::quoted(ent.material.specularTexturePath) >>
-						   std::quoted(ent.material.normalTexturePath) >>
-						   std::quoted(ent.material.emissionTexturePath));
-				}
-			}
-			return true;
-		}
-
 		static bool ReadV2(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasMaterial = true;
+			ent.material.parameters.clear();
+
+			const std::string headerPayload = ReadLinePayload(in);
+			std::istringstream headerStream(headerPayload);
 			size_t parameterCount = 0u;
-			if (!(in >> ent.material.shader.id >> std::quoted(ent.material.shaderPath) >> parameterCount))
+			std::string extraToken;
+			if (!(headerStream >> ent.material.shader.id >> std::quoted(ent.material.shaderPath) >> parameterCount) ||
+			    (headerStream >> extraToken))
 			{
-				outError = "Failed reading Material_V2 component.";
+				outError = BuildSchemaError(
+					"Material_V2",
+					"MATERIAL_V2 <shaderId> \"<shaderPath>\" <parameterCount>",
+					headerPayload);
 				return false;
 			}
 
-			ent.material.parameters.clear();
+			if (ent.material.shaderPath.empty())
+			{
+				outError = BuildSchemaError(
+					"Material_V2",
+					"non-empty shader path",
+					headerPayload);
+				return false;
+			}
+
+			const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(ent.material.shaderPath);
+			if (metadata.Empty())
+			{
+				outError = "Material_V2 schema mismatch. Material metadata is required for shader '" +
+				           ent.material.shaderPath + "' and must define all parameters.";
+				return false;
+			}
+
+			if (parameterCount != metadata.parameters.size())
+			{
+				outError = "Material_V2 schema mismatch. Shader '" + ent.material.shaderPath +
+				           "' expects " + std::to_string(metadata.parameters.size()) +
+				           " parameter(s), found " + std::to_string(parameterCount) + ".";
+				return false;
+			}
+
+			std::unordered_set<std::string> seenNames;
 			for (size_t i = 0; i < parameterCount; ++i)
 			{
+				const std::string paramLine = ReadLinePayload(in);
+				std::istringstream paramStream(paramLine);
+
 				std::string key;
-				if (!(in >> key) || key != "MATERIAL_PARAM")
+				std::string name;
+				int typeInt = static_cast<int>(MaterialParameterType::Float);
+				if (!(paramStream >> key >> std::quoted(name) >> typeInt))
 				{
-					outError = "Failed reading Material_V2 parameters.";
+					outError = BuildSchemaError(
+						"Material_V2 parameter",
+						"MATERIAL_PARAM \"<name>\" <type> <value(s)>",
+						paramLine);
+					return false;
+				}
+				if (key != "MATERIAL_PARAM")
+				{
+					outError = BuildSchemaError(
+						"Material_V2 parameter",
+						"token MATERIAL_PARAM",
+						paramLine);
 					return false;
 				}
 
-				std::string name;
-				int typeInt = static_cast<int>(MaterialParameterType::Float);
-				if (!(in >> std::quoted(name) >> typeInt))
+				if (seenNames.find(name) != seenNames.end())
 				{
-					outError = "Failed reading Material_V2 parameter header.";
+					outError = "Material_V2 schema mismatch. Duplicate parameter '" + name + "'.";
+					return false;
+				}
+				seenNames.insert(name);
+
+				const MaterialParameterMetadata &expected = metadata.parameters[i];
+				if (name != expected.name)
+				{
+					outError = "Material_V2 schema mismatch. Parameter #" + std::to_string(i) +
+					           " expected name '" + expected.name + "', found '" + name + "'.";
+					return false;
+				}
+				if (typeInt != static_cast<int>(expected.type))
+				{
+					outError = "Material_V2 schema mismatch. Parameter '" + name + "' expected type " +
+					           std::to_string(static_cast<int>(expected.type)) + ", found " + std::to_string(typeInt) + ".";
 					return false;
 				}
 
 				MaterialParameter value;
-				switch (typeInt)
+				value.type = expected.type;
+				switch (expected.type)
 				{
-				case 0:
-					value.type = MaterialParameterType::Float;
-					if (!(in >> value.numericValue.x))
+				case MaterialParameterType::Float:
+					if (!(paramStream >> value.numericValue.x))
 					{
-						outError = "Failed reading float Material_V2 parameter value.";
+						outError = BuildSchemaError("Material_V2 parameter", "float value", paramLine);
 						return false;
 					}
 					break;
-				case 1:
-					value.type = MaterialParameterType::Vec2;
-					if (!(in >> value.numericValue.x >> value.numericValue.y))
+				case MaterialParameterType::Vec2:
+					if (!(paramStream >> value.numericValue.x >> value.numericValue.y))
 					{
-						outError = "Failed reading vec2 Material_V2 parameter value.";
+						outError = BuildSchemaError("Material_V2 parameter", "vec2 value", paramLine);
 						return false;
 					}
 					break;
-				case 2:
-					value.type = MaterialParameterType::Vec3;
-					if (!(in >> value.numericValue.x >> value.numericValue.y >> value.numericValue.z))
+				case MaterialParameterType::Vec3:
+					if (!(paramStream >> value.numericValue.x >> value.numericValue.y >> value.numericValue.z))
 					{
-						outError = "Failed reading vec3 Material_V2 parameter value.";
+						outError = BuildSchemaError("Material_V2 parameter", "vec3 value", paramLine);
 						return false;
 					}
 					break;
-				case 3:
-					value.type = MaterialParameterType::Vec4;
-					if (!(in >> value.numericValue.x >> value.numericValue.y >>
+				case MaterialParameterType::Vec4:
+					if (!(paramStream >> value.numericValue.x >> value.numericValue.y >>
 						  value.numericValue.z >> value.numericValue.w))
 					{
-						outError = "Failed reading vec4 Material_V2 parameter value.";
+						outError = BuildSchemaError("Material_V2 parameter", "vec4 value", paramLine);
 						return false;
 					}
 					break;
-				case 4:
-					value.type = MaterialParameterType::Texture2D;
-					if (!(in >> std::quoted(value.texturePath)))
+				case MaterialParameterType::Texture2D:
+					if (!(paramStream >> std::quoted(value.texturePath)))
 					{
-						outError = "Failed reading texture Material_V2 parameter value.";
+						outError = BuildSchemaError("Material_V2 parameter", "quoted texture path", paramLine);
 						return false;
 					}
 					break;
 				default:
-					outError = "Unknown Material_V2 parameter type.";
+					outError = "Material_V2 schema mismatch. Unsupported parameter type.";
+					return false;
+				}
+
+				if (paramStream >> extraToken)
+				{
+					outError = BuildSchemaError("Material_V2 parameter", "no trailing tokens", paramLine);
 					return false;
 				}
 
@@ -811,9 +964,12 @@ namespace AthSceneIO
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasMesh = true;
-			if (!(in >> std::quoted(ent.meshPath) >> std::quoted(ent.meshMaterialPath)))
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			std::string extra;
+			if (!(ls >> std::quoted(ent.meshPath) >> std::quoted(ent.meshMaterialPath)) || (ls >> extra))
 			{
-				outError = "Failed reading Mesh component.";
+				outError = BuildSchemaError("Mesh", "MESH \"<meshPath>\" \"<materialPath>\"", payload);
 				return false;
 			}
 			return true;
@@ -871,6 +1027,18 @@ namespace AthSceneIO
 
 	bool AthSceneReader::PeekHeader(const std::string &path, SceneHeader &outHeader, std::string &outError)
 	{
+		bool success = false;
+		auto errorPathScope = [&]()
+		{
+			if (!success && !outError.empty() && outError.rfind(path + ":", 0) != 0)
+				outError = path + ": " + outError;
+		};
+		struct ScopeExit
+		{
+			std::function<void()> fn;
+			~ScopeExit() { fn(); }
+		} scope{errorPathScope};
+
 		std::ifstream in(path);
 		if (!in)
 		{
@@ -883,6 +1051,11 @@ namespace AthSceneIO
 		if (!(in >> magic >> version) || magic != "ATHSCENE" || version != 1)
 		{
 			outError = "Not a supported .athscene file (expected ATHSCENE 1).";
+			return false;
+		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene header schema mismatch. Expected 'ATHSCENE 1' on its own line.";
 			return false;
 		}
 
@@ -893,6 +1066,11 @@ namespace AthSceneIO
 			outError = "Failed reading scene type.";
 			return false;
 		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene header schema mismatch. TYPE line has trailing tokens.";
+			return false;
+		}
 
 		if (!ReadExpectedKeyword(in, "NAME", outError))
 			return false;
@@ -901,7 +1079,13 @@ namespace AthSceneIO
 			outError = "Failed reading scene name.";
 			return false;
 		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene header schema mismatch. NAME line has trailing tokens.";
+			return false;
+		}
 
+		success = true;
 		return true;
 	}
 
@@ -911,6 +1095,18 @@ namespace AthSceneIO
 									  const std::string &path,
 									  std::string &outError)
 	{
+		bool success = false;
+		auto errorPathScope = [&]()
+		{
+			if (!success && !outError.empty() && outError.rfind(path + ":", 0) != 0)
+				outError = path + ": " + outError;
+		};
+		struct ScopeExit
+		{
+			std::function<void()> fn;
+			~ScopeExit() { fn(); }
+		} scope{errorPathScope};
+
 		std::ifstream in(path);
 		if (!in)
 		{
@@ -925,6 +1121,11 @@ namespace AthSceneIO
 			outError = "Not a supported .athscene file (expected ATHSCENE 1).";
 			return false;
 		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene header schema mismatch. Expected 'ATHSCENE 1' on its own line.";
+			return false;
+		}
 
 		if (!ReadExpectedKeyword(in, "TYPE", outError))
 			return false;
@@ -933,6 +1134,11 @@ namespace AthSceneIO
 		if (!(in >> sceneType))
 		{
 			outError = "Failed reading scene type.";
+			return false;
+		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene header schema mismatch. TYPE line has trailing tokens.";
 			return false;
 		}
 
@@ -949,6 +1155,11 @@ namespace AthSceneIO
 			outError = "Failed reading scene name.";
 			return false;
 		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene header schema mismatch. NAME line has trailing tokens.";
+			return false;
+		}
 
 		if (!ReadExpectedKeyword(in, "ENTITY_COUNT", outError))
 			return false;
@@ -957,6 +1168,11 @@ namespace AthSceneIO
 		if (!(in >> count))
 		{
 			outError = "Failed reading entity count.";
+			return false;
+		}
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene schema mismatch. ENTITY_COUNT line has trailing tokens.";
 			return false;
 		}
 
@@ -972,6 +1188,11 @@ namespace AthSceneIO
 			if (!(in >> ent.id))
 			{
 				outError = "Failed reading entity id.";
+				return false;
+			}
+			if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+			{
+				outError = "Scene schema mismatch. ENTITY line has trailing tokens.";
 				return false;
 			}
 
@@ -1064,13 +1285,6 @@ namespace AthSceneIO
 					continue;
 				}
 
-				if (key == "MATERIAL")
-				{
-					if (!ComponentCodecs::MaterialCodec::Read(in, ent, outError))
-						return false;
-					continue;
-				}
-
 				if (key == "MATERIAL_V2")
 				{
 					if (!ComponentCodecs::MaterialCodec::ReadV2(in, ent, outError))
@@ -1085,7 +1299,8 @@ namespace AthSceneIO
 					continue;
 				}
 
-				outError = "Unknown component token '" + key + "' in scene file.";
+				outError = "Unknown component token '" + key +
+				           "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
 				return false;
 			}
 
@@ -1094,6 +1309,17 @@ namespace AthSceneIO
 
 		if (!ReadExpectedKeyword(in, "END_SCENE", outError))
 			return false;
+		if (!StrictParsing::TrimCopy(ReadLinePayload(in)).empty())
+		{
+			outError = "Scene schema mismatch. END_SCENE line has trailing tokens.";
+			return false;
+		}
+		std::string trailingToken;
+		if (in >> trailingToken)
+		{
+			outError = "Scene schema mismatch. Unexpected trailing token after END_SCENE: '" + trailingToken + "'.";
+			return false;
+		}
 
 		ClearRegistry(registry);
 
@@ -1150,6 +1376,7 @@ namespace AthSceneIO
 			}
 		}
 
+		success = true;
 		return true;
 	}
 }

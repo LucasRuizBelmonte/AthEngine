@@ -280,6 +280,8 @@ void Renderer::SubmitMesh(uint32_t meshId,
 	if (shaderPath.empty())
 		shaderPath = m_shaderManager.GetFragmentPath(material.shader);
 	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
+	if (metadata.Empty())
+		return;
 
 	auto bindTextureSlot = [&](GLenum textureUnit,
 	                           int samplerUnit,
@@ -307,81 +309,60 @@ void Renderer::SubmitMesh(uint32_t meshId,
 	std::vector<GLenum> usedTextureUnits;
 	usedTextureUnits.reserve(8);
 
-	if (!metadata.Empty())
+	int samplerUnit = 0;
+	for (const MaterialParameterMetadata &desc : metadata.parameters)
 	{
-		int samplerUnit = 0;
-		for (const MaterialParameterMetadata &desc : metadata.parameters)
+		const auto it = material.parameters.find(desc.name);
+
+		switch (desc.type)
 		{
-			const auto it = material.parameters.find(desc.name);
-
-			switch (desc.type)
-			{
-			case MaterialParameterType::Float:
-			{
-				const float value = (it != material.parameters.end()) ? it->second.numericValue.x : desc.defaultNumeric.x;
-				shader->SetUniform(desc.name, value);
-				break;
-			}
-			case MaterialParameterType::Vec2:
-			{
-				const glm::vec2 value = (it != material.parameters.end())
-				                            ? glm::vec2(it->second.numericValue)
-				                            : glm::vec2(desc.defaultNumeric);
-				shader->SetUniform(desc.name, value);
-				break;
-			}
-			case MaterialParameterType::Vec3:
-			{
-				const glm::vec3 value = (it != material.parameters.end())
-				                            ? glm::vec3(it->second.numericValue)
-				                            : glm::vec3(desc.defaultNumeric);
-				shader->SetUniform(desc.name, value);
-				break;
-			}
-			case MaterialParameterType::Vec4:
-			{
-				const glm::vec4 value = (it != material.parameters.end())
-				                            ? it->second.numericValue
-				                            : desc.defaultNumeric;
-				shader->SetUniform(desc.name, value);
-				break;
-			}
-			case MaterialParameterType::Texture2D:
-			{
-				const GLenum textureUnit = static_cast<GLenum>(GL_TEXTURE0 + samplerUnit);
-				const std::string hasUniform = DeriveTexturePresenceUniform(desc.name);
-				const bool wasBound = bindTextureSlot(textureUnit,
-				                                      samplerUnit,
-				                                      (it != material.parameters.end()) ? it->second.texture : ResourceHandle<Texture>{0},
-				                                      desc.name,
-				                                      hasUniform);
-				if (wasBound)
-					usedTextureUnits.push_back(textureUnit);
-				++samplerUnit;
-				break;
-			}
-			default:
-				break;
-			}
+		case MaterialParameterType::Float:
+		{
+			const float value = (it != material.parameters.end()) ? it->second.numericValue.x : desc.defaultNumeric.x;
+			shader->SetUniform(desc.name, value);
+			break;
 		}
-	}
-	else
-	{
-		shader->SetUniform("u_tint", material.tint);
-		shader->SetUniform("u_specularStrength", material.specularStrength);
-		shader->SetUniform("u_shininess", material.shininess);
-		shader->SetUniform("u_normalStrength", material.normalStrength);
-		shader->SetUniform("u_emissionStrength", material.emissionStrength);
-
-		if (bindTextureSlot(GL_TEXTURE0, 0, material.texture, "u_texBaseColor", "u_hasBaseColorTex"))
-			usedTextureUnits.push_back(GL_TEXTURE0);
-		shader->SetUniform("u_tex0", 0);
-		if (bindTextureSlot(GL_TEXTURE1, 1, material.specularTexture, "u_texSpecular", "u_hasSpecularTex"))
-			usedTextureUnits.push_back(GL_TEXTURE1);
-		if (bindTextureSlot(GL_TEXTURE2, 2, material.normalTexture, "u_texNormal", "u_hasNormalTex"))
-			usedTextureUnits.push_back(GL_TEXTURE2);
-		if (bindTextureSlot(GL_TEXTURE3, 3, material.emissionTexture, "u_texEmission", "u_hasEmissionTex"))
-			usedTextureUnits.push_back(GL_TEXTURE3);
+		case MaterialParameterType::Vec2:
+		{
+			const glm::vec2 value = (it != material.parameters.end())
+			                            ? glm::vec2(it->second.numericValue)
+			                            : glm::vec2(desc.defaultNumeric);
+			shader->SetUniform(desc.name, value);
+			break;
+		}
+		case MaterialParameterType::Vec3:
+		{
+			const glm::vec3 value = (it != material.parameters.end())
+			                            ? glm::vec3(it->second.numericValue)
+			                            : glm::vec3(desc.defaultNumeric);
+			shader->SetUniform(desc.name, value);
+			break;
+		}
+		case MaterialParameterType::Vec4:
+		{
+			const glm::vec4 value = (it != material.parameters.end())
+			                            ? it->second.numericValue
+			                            : desc.defaultNumeric;
+			shader->SetUniform(desc.name, value);
+			break;
+		}
+		case MaterialParameterType::Texture2D:
+		{
+			const GLenum textureUnit = static_cast<GLenum>(GL_TEXTURE0 + samplerUnit);
+			const std::string hasUniform = DeriveTexturePresenceUniform(desc.name);
+			const bool wasBound = bindTextureSlot(textureUnit,
+			                                      samplerUnit,
+			                                      (it != material.parameters.end()) ? it->second.texture : ResourceHandle<Texture>{0},
+			                                      desc.name,
+			                                      hasUniform);
+			if (wasBound)
+				usedTextureUnits.push_back(textureUnit);
+			++samplerUnit;
+			break;
+		}
+		default:
+			break;
+		}
 	}
 
 	glBindVertexArray(static_cast<GLuint>(mesh.vao));

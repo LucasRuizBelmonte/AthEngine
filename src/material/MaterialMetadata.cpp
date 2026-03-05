@@ -1,10 +1,13 @@
 #pragma region Includes
 #include "MaterialMetadata.h"
 
+#include "../utils/StrictParsing.h"
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -20,18 +23,6 @@ namespace
 		bool hasWriteTime = false;
 		ShaderMaterialMetadata metadata;
 	};
-
-	static std::string TrimCopy(std::string text)
-	{
-		auto isNotSpace = [](unsigned char c)
-		{ return !std::isspace(c); };
-
-		auto begin = std::find_if(text.begin(), text.end(), isNotSpace);
-		auto end = std::find_if(text.rbegin(), text.rend(), isNotSpace).base();
-		if (begin >= end)
-			return {};
-		return std::string(begin, end);
-	}
 
 	static std::string StripOptionalQuotes(std::string text)
 	{
@@ -99,22 +90,59 @@ namespace
 		return false;
 	}
 
-	static bool ParseFloatValue(const std::string &text, float &outValue)
+	static bool ParseSingleFloat(const std::string &text, float &outValue, std::string &outError)
 	{
-		std::istringstream ss(text);
-		return static_cast<bool>(ss >> outValue);
+		std::vector<float> values;
+		if (!StrictParsing::ParseFloatList(text, values, outError))
+			return false;
+		if (!StrictParsing::RequireTokenCount(values, 1u, "Material metadata float", outError))
+			return false;
+		outValue = values[0];
+		return true;
 	}
 
-	static size_t ParseFloatList(const std::string &text, float *outValues, size_t maxValues)
+	static bool ParseDefaultNumeric(const std::string &text,
+	                                MaterialParameterType type,
+	                                glm::vec4 &outValue,
+	                                std::string &outError)
 	{
-		std::string normalized = text;
-		std::replace(normalized.begin(), normalized.end(), ',', ' ');
+		std::vector<float> values;
+		if (!StrictParsing::ParseFloatList(text, values, outError))
+			return false;
 
-		std::istringstream ss(normalized);
-		size_t count = 0;
-		while (count < maxValues && (ss >> outValues[count]))
-			++count;
-		return count;
+		size_t expectedCount = 0u;
+		switch (type)
+		{
+		case MaterialParameterType::Float:
+			expectedCount = 1u;
+			break;
+		case MaterialParameterType::Vec2:
+			expectedCount = 2u;
+			break;
+		case MaterialParameterType::Vec3:
+			expectedCount = 3u;
+			break;
+		case MaterialParameterType::Vec4:
+			expectedCount = 4u;
+			break;
+		default:
+			outError = "Numeric default is not valid for this material parameter type.";
+			return false;
+		}
+
+		if (!StrictParsing::RequireTokenCount(values, expectedCount, "Material metadata default value", outError))
+			return false;
+
+		outValue = glm::vec4(0.f);
+		for (size_t i = 0; i < expectedCount; ++i)
+		{
+			std::string field = "default[" + std::to_string(i) + "]";
+			if (!StrictParsing::ValidateFinite(values[i], field, "Material metadata default", outError))
+				return false;
+			outValue[static_cast<glm::vec4::length_type>(i)] = values[i];
+		}
+
+		return true;
 	}
 
 	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
@@ -163,185 +191,150 @@ namespace
 		return {};
 	}
 
-	static bool ParseMetadataFile(const std::string &metadataPath, ShaderMaterialMetadata &outMetadata)
+	static bool ParseMetadataFile(const std::string &metadataPath,
+	                              ShaderMaterialMetadata &outMetadata,
+	                              std::string &outError)
 	{
 		outMetadata.parameters.clear();
 
 		std::ifstream in(metadataPath);
 		if (!in)
+		{
+			outError = "Could not open material metadata file: " + metadataPath;
 			return false;
+		}
 
+		bool headerFound = false;
+		int lineNumber = 0;
 		std::unordered_map<std::string, size_t> indexByName;
 
 		std::string line;
 		while (std::getline(in, line))
 		{
-			line = TrimCopy(line);
+			++lineNumber;
+			line = StrictParsing::TrimCopy(line);
 			if (line.empty())
 				continue;
 			if (line.rfind("#", 0) == 0 || line.rfind("//", 0) == 0)
 				continue;
-			if (line == "ATHMATMETA 1")
+
+			if (!headerFound)
+			{
+				if (line != "ATHMATMETA 1")
+				{
+					outError = "Material metadata schema mismatch at " + metadataPath + ":" + std::to_string(lineNumber) +
+					           ". Expected 'ATHMATMETA 1', found '" + line + "'.";
+					return false;
+				}
+				headerFound = true;
 				continue;
+			}
 
 			std::vector<std::string> cols = SplitPipeSeparated(line);
 			for (std::string &col : cols)
-				col = TrimCopy(col);
+				col = StrictParsing::TrimCopy(col);
 
-			if (cols.size() < 2u)
-				continue;
+			if (cols.size() != 7u)
+			{
+				outError = "Material metadata schema mismatch at " + metadataPath + ":" + std::to_string(lineNumber) +
+				           ". Expected 7 pipe-separated columns (name|type|default|min|max|group|tooltip), found " +
+				           std::to_string(cols.size()) + ". Line: '" + line + "'.";
+				return false;
+			}
+
+			std::unordered_map<std::string, std::string> colMap{
+				{"name", cols[0]},
+				{"type", cols[1]},
+				{"default", cols[2]},
+				{"min", cols[3]},
+				{"max", cols[4]},
+				{"group", cols[5]},
+				{"tooltip", cols[6]},
+			};
+
+			if (!StrictParsing::RequireKeys(colMap,
+			                               {"name", "type"},
+			                               "Material metadata line " + metadataPath + ":" + std::to_string(lineNumber),
+			                               outError))
+				return false;
 
 			MaterialParameterMetadata param;
 			param.name = cols[0];
-			param.name = TrimCopy(param.name);
-			if (param.name.empty())
-				continue;
-
 			if (!ParseParameterType(cols[1], param.type))
-				continue;
-
-			if (cols.size() >= 3u && !cols[2].empty())
 			{
-				if (param.type == MaterialParameterType::Texture2D)
-				{
-					param.defaultTexturePath = StripOptionalQuotes(cols[2]);
-				}
-				else
-				{
-					float values[4] = {};
-					const size_t count = ParseFloatList(cols[2], values, 4u);
-					switch (param.type)
-					{
-					case MaterialParameterType::Float:
-						if (count >= 1u)
-							param.defaultNumeric.x = values[0];
-						break;
-					case MaterialParameterType::Vec2:
-						if (count >= 2u)
-						{
-							param.defaultNumeric.x = values[0];
-							param.defaultNumeric.y = values[1];
-						}
-						break;
-					case MaterialParameterType::Vec3:
-						if (count >= 3u)
-						{
-							param.defaultNumeric.x = values[0];
-							param.defaultNumeric.y = values[1];
-							param.defaultNumeric.z = values[2];
-						}
-						break;
-					case MaterialParameterType::Vec4:
-						if (count >= 4u)
-						{
-							param.defaultNumeric.x = values[0];
-							param.defaultNumeric.y = values[1];
-							param.defaultNumeric.z = values[2];
-							param.defaultNumeric.w = values[3];
-						}
-						break;
-					case MaterialParameterType::Texture2D:
-					default:
-						break;
-					}
-				}
+				outError = "Material metadata invalid type at " + metadataPath + ":" + std::to_string(lineNumber) +
+				           ". Name='" + param.name + "', type='" + cols[1] + "'.";
+				return false;
 			}
 
-			if (cols.size() >= 5u && !cols[3].empty() && !cols[4].empty())
+			if (indexByName.find(param.name) != indexByName.end())
 			{
-				float minValue = 0.f;
-				float maxValue = 0.f;
-				if (ParseFloatValue(cols[3], minValue) && ParseFloatValue(cols[4], maxValue))
-				{
-					param.hasRange = true;
-					param.rangeMin = minValue;
-					param.rangeMax = maxValue;
-				}
+				outError = "Material metadata duplicate parameter name at " + metadataPath + ":" + std::to_string(lineNumber) +
+				           ". Name='" + param.name + "'.";
+				return false;
 			}
 
-			if (cols.size() >= 6u)
-				param.uiGroup = StripOptionalQuotes(cols[5]);
-			if (cols.size() >= 7u)
-				param.tooltip = StripOptionalQuotes(cols[6]);
-
-			auto it = indexByName.find(param.name);
-			if (it != indexByName.end())
+			if (param.type == MaterialParameterType::Texture2D)
 			{
-				outMetadata.parameters[it->second] = std::move(param);
+				param.defaultTexturePath = StripOptionalQuotes(cols[2]);
 			}
 			else
 			{
-				indexByName[param.name] = outMetadata.parameters.size();
-				outMetadata.parameters.push_back(std::move(param));
+				if (cols[2].empty())
+				{
+					outError = "Material metadata missing numeric default at " + metadataPath + ":" + std::to_string(lineNumber) +
+					           ". Name='" + param.name + "'.";
+					return false;
+				}
+
+				if (!ParseDefaultNumeric(cols[2], param.type, param.defaultNumeric, outError))
+				{
+					outError = "Material metadata invalid numeric default at " + metadataPath + ":" + std::to_string(lineNumber) +
+					           ". Name='" + param.name + "'. " + outError;
+					return false;
+				}
 			}
+
+			const bool hasMin = !cols[3].empty();
+			const bool hasMax = !cols[4].empty();
+			if (hasMin != hasMax)
+			{
+				outError = "Material metadata range mismatch at " + metadataPath + ":" + std::to_string(lineNumber) +
+				           ". Name='" + param.name + "'. Both min and max must be set or both empty.";
+				return false;
+			}
+			if (hasMin)
+			{
+				if (!ParseSingleFloat(cols[3], param.rangeMin, outError) || !ParseSingleFloat(cols[4], param.rangeMax, outError))
+				{
+					outError = "Material metadata invalid range at " + metadataPath + ":" + std::to_string(lineNumber) +
+					           ". Name='" + param.name + "'. " + outError;
+					return false;
+				}
+				if (!StrictParsing::ValidateFinite(param.rangeMin, "min", "Material metadata range", outError) ||
+				    !StrictParsing::ValidateFinite(param.rangeMax, "max", "Material metadata range", outError))
+				{
+					outError = "Material metadata invalid range at " + metadataPath + ":" + std::to_string(lineNumber) +
+					           ". Name='" + param.name + "'. " + outError;
+					return false;
+				}
+				param.hasRange = true;
+			}
+
+			param.uiGroup = StripOptionalQuotes(cols[5]);
+			param.tooltip = StripOptionalQuotes(cols[6]);
+
+			indexByName[param.name] = outMetadata.parameters.size();
+			outMetadata.parameters.push_back(std::move(param));
+		}
+
+		if (!headerFound)
+		{
+			outError = "Material metadata schema mismatch in " + metadataPath + ". Missing 'ATHMATMETA 1' header.";
+			return false;
 		}
 
 		return true;
-	}
-
-	static bool SeedLegacyParameterValue(const Material &material,
-	                                     const MaterialParameterMetadata &desc,
-	                                     MaterialParameter &outParam)
-	{
-		if (desc.name == "u_tint")
-		{
-			outParam.type = MaterialParameterType::Vec4;
-			outParam.numericValue = material.tint;
-			return true;
-		}
-		if (desc.name == "u_specularStrength")
-		{
-			outParam.type = MaterialParameterType::Float;
-			outParam.numericValue.x = material.specularStrength;
-			return true;
-		}
-		if (desc.name == "u_shininess")
-		{
-			outParam.type = MaterialParameterType::Float;
-			outParam.numericValue.x = material.shininess;
-			return true;
-		}
-		if (desc.name == "u_normalStrength")
-		{
-			outParam.type = MaterialParameterType::Float;
-			outParam.numericValue.x = material.normalStrength;
-			return true;
-		}
-		if (desc.name == "u_emissionStrength")
-		{
-			outParam.type = MaterialParameterType::Float;
-			outParam.numericValue.x = material.emissionStrength;
-			return true;
-		}
-		if (desc.name == "u_texBaseColor")
-		{
-			outParam.type = MaterialParameterType::Texture2D;
-			outParam.texturePath = material.texturePath;
-			outParam.texture = material.texture;
-			return true;
-		}
-		if (desc.name == "u_texSpecular")
-		{
-			outParam.type = MaterialParameterType::Texture2D;
-			outParam.texturePath = material.specularTexturePath;
-			outParam.texture = material.specularTexture;
-			return true;
-		}
-		if (desc.name == "u_texNormal")
-		{
-			outParam.type = MaterialParameterType::Texture2D;
-			outParam.texturePath = material.normalTexturePath;
-			outParam.texture = material.normalTexture;
-			return true;
-		}
-		if (desc.name == "u_texEmission")
-		{
-			outParam.type = MaterialParameterType::Texture2D;
-			outParam.texturePath = material.emissionTexturePath;
-			outParam.texture = material.emissionTexture;
-			return true;
-		}
-		return false;
 	}
 }
 #pragma endregion
@@ -388,7 +381,14 @@ const ShaderMaterialMetadata &GetShaderMaterialMetadata(const std::string &shade
 	entry.metadataPath = metadataPath;
 	entry.writeTime = writeTime;
 	entry.hasWriteTime = hasWriteTime;
-	(void)ParseMetadataFile(metadataPath, entry.metadata);
+
+	std::string parseError;
+	if (!ParseMetadataFile(metadataPath, entry.metadata, parseError))
+	{
+		entry.metadata.parameters.clear();
+		std::cerr << parseError << std::endl;
+	}
+
 	return entry.metadata;
 }
 
@@ -406,7 +406,7 @@ void SyncMaterialParametersWithMetadata(Material &material, const ShaderMaterial
 		{
 			value = it->second;
 		}
-		else if (!SeedLegacyParameterValue(material, desc, value))
+		else
 		{
 			value.type = desc.type;
 			value.numericValue = desc.defaultNumeric;
@@ -426,4 +426,3 @@ void SyncMaterialParametersWithMetadata(Material &material, const ShaderMaterial
 	material.parameters = std::move(synced);
 }
 #pragma endregion
-

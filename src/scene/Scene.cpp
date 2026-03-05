@@ -13,7 +13,6 @@
 #include <exception>
 #include <functional>
 #include <filesystem>
-#include <initializer_list>
 #include <glm/gtc/matrix_transform.hpp>
 #pragma endregion
 
@@ -25,36 +24,21 @@ namespace
 		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
 	}
 
-	static std::string FirstExistingPath(const std::initializer_list<std::string> &paths)
-	{
-		for (const std::string &path : paths)
-		{
-			std::error_code ec;
-			if (std::filesystem::exists(path, ec))
-				return path;
-		}
-
-		if (paths.size() > 0)
-			return *paths.begin();
-		return {};
-	}
-
-	static std::string ResolveVertexShaderPathForFragment(const std::string &fragmentPath,
-	                                                      const std::string &fallbackVertexPath)
+	static std::string ResolveVertexShaderPathForFragment(const std::string &fragmentPath)
 	{
 		if (fragmentPath.empty())
-			return fallbackVertexPath;
+			return {};
 
 		std::filesystem::path candidate(fragmentPath);
 		if (!candidate.has_extension())
-			return fallbackVertexPath;
+			return {};
 
 		candidate.replace_extension(".vs");
 		std::error_code ec;
 		if (std::filesystem::exists(candidate, ec))
 			return candidate.string();
 
-		return fallbackVertexPath;
+		return {};
 	}
 
 	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
@@ -103,39 +87,8 @@ namespace
 
 	static EditorSceneDimension SceneDimensionFromSerializedType(const std::string &sceneType)
 	{
-		if (sceneType == "Scene2D" || sceneType == "Test2D")
+		if (sceneType == "Scene2D")
 			return EditorSceneDimension::Scene2D;
-		return EditorSceneDimension::Scene3D;
-	}
-
-	static EditorSceneDimension InferLegacySceneDimension(const Registry &registry)
-	{
-		bool hasSprites = false;
-		bool hasMeshes = false;
-
-		for (Entity e : registry.Alive())
-		{
-			hasSprites = hasSprites || registry.Has<Sprite>(e);
-			hasMeshes = hasMeshes || registry.Has<Mesh>(e);
-			if (hasSprites && hasMeshes)
-				break;
-		}
-
-		if (hasSprites && !hasMeshes)
-			return EditorSceneDimension::Scene2D;
-		if (hasMeshes && !hasSprites)
-			return EditorSceneDimension::Scene3D;
-
-		for (Entity e : registry.Alive())
-		{
-			if (!registry.Has<Camera>(e))
-				continue;
-			const Camera &cam = registry.Get<Camera>(e);
-			return (cam.projection == ProjectionType::Orthographic)
-			           ? EditorSceneDimension::Scene2D
-			           : EditorSceneDimension::Scene3D;
-		}
-
 		return EditorSceneDimension::Scene3D;
 	}
 
@@ -150,14 +103,6 @@ namespace
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
-	m_litVsPath = FirstExistingPath({
-		std::string(ASSET_PATH) + "/shaders/lit3D.vs",
-		std::string(ASSET_PATH) + "/shaders/lit3d.vs",
-	});
-	m_spriteVsPath = FirstExistingPath({
-		std::string(ASSET_PATH) + "/shaders/unlit2D.vs",
-		std::string(ASSET_PATH) + "/shaders/sprite.vs",
-	});
 }
 
 const char *Scene::GetName() const
@@ -319,11 +264,8 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	if (!EditorSceneIO::PeekHeader(path, header, outError))
 		return false;
 
-	if (header.sceneType != "Scene" &&
-	    header.sceneType != "Scene2D" &&
-	    header.sceneType != "Scene3D" &&
-	    header.sceneType != "Test2D" &&
-	    header.sceneType != "Test3D")
+	if (header.sceneType != "Scene2D" &&
+	    header.sceneType != "Scene3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;
@@ -333,10 +275,7 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	if (!ok)
 		return false;
 
-	if (header.sceneType == "Scene")
-		m_dimension = InferLegacySceneDimension(m_registry);
-	else
-		m_dimension = SceneDimensionFromSerializedType(header.sceneType);
+	m_dimension = SceneDimensionFromSerializedType(header.sceneType);
 	ApplySceneDimensionRules();
 
 	for (Entity e : m_registry.Alive())
@@ -344,27 +283,52 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 		if (m_registry.Has<Sprite>(e))
 		{
 			const Sprite &spr = m_registry.Get<Sprite>(e);
-			std::string ignoredError;
 			if (!spr.texturePath.empty())
-				(void)EditorSetSpriteTexture(e, spr.texturePath, ignoredError);
+			{
+				if (!EditorSetSpriteTexture(e, spr.texturePath, outError))
+				{
+					outError = "Scene sprite texture apply failed for entity " + std::to_string(e) + ": " + outError;
+					return false;
+				}
+			}
 			if (!spr.materialPath.empty())
-				(void)EditorSetSpriteMaterial(e, spr.materialPath, ignoredError);
+			{
+				if (!EditorSetSpriteMaterial(e, spr.materialPath, outError))
+				{
+					outError = "Scene sprite material apply failed for entity " + std::to_string(e) + ": " + outError;
+					return false;
+				}
+			}
 		}
 
 		if (m_registry.Has<Mesh>(e))
 		{
 			const Mesh &mesh = m_registry.Get<Mesh>(e);
-			std::string ignoredError;
 			if (!mesh.meshPath.empty())
-				(void)EditorSetMeshPath(e, mesh.meshPath, ignoredError);
+			{
+				if (!EditorSetMeshPath(e, mesh.meshPath, outError))
+				{
+					outError = "Scene mesh apply failed for entity " + std::to_string(e) + ": " + outError;
+					return false;
+				}
+			}
 			if (!mesh.materialPath.empty())
-				(void)EditorSetMeshMaterial(e, mesh.materialPath, ignoredError);
+			{
+				if (!EditorSetMeshMaterial(e, mesh.materialPath, outError))
+				{
+					outError = "Scene mesh material apply failed for entity " + std::to_string(e) + ": " + outError;
+					return false;
+				}
+			}
 		}
 
 		if (m_registry.Has<Material>(e))
 		{
-			std::string ignoredError;
-			(void)EditorApplyMaterial(e, ignoredError);
+			if (!EditorApplyMaterial(e, outError))
+			{
+				outError = "Scene material apply failed for entity " + std::to_string(e) + ": " + outError;
+				return false;
+			}
 		}
 	}
 
@@ -419,11 +383,21 @@ bool Scene::EditorSetSpriteMaterial(Entity e, const std::string &path, std::stri
 	}
 
 	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
-	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath, m_spriteVsPath);
+	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath);
+	if (vsPath.empty())
+	{
+		outError = "Could not resolve matching vertex shader for sprite material: " + path;
+		return false;
+	}
 	auto handle = m_shaderManager.Load(EditorAssetName("editor_spr_mat_", path), vsPath, resolvedPath);
 	if (!handle.IsValid())
 	{
 		outError = "Could not load sprite material shader: " + path;
+		return false;
+	}
+	if (GetShaderMaterialMetadata(resolvedPath).Empty())
+	{
+		outError = "Material metadata not found or empty for sprite material shader: " + path;
 		return false;
 	}
 
@@ -493,7 +467,12 @@ bool Scene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string
 	}
 
 	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
-	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath, m_litVsPath);
+	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath);
+	if (vsPath.empty())
+	{
+		outError = "Could not resolve matching vertex shader for mesh material: " + path;
+		return false;
+	}
 	auto shader = m_shaderManager.Load(EditorAssetName("editor_mesh_mat_", path), vsPath, resolvedPath);
 	if (!shader.IsValid())
 	{
@@ -505,6 +484,11 @@ bool Scene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string
 	mat.shaderPath = path;
 
 	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(resolvedPath);
+	if (metadata.Empty())
+	{
+		outError = "Material metadata not found or empty for shader: " + path;
+		return false;
+	}
 	SyncMaterialParametersWithMetadata(mat, metadata);
 
 	std::string applyError;
@@ -532,39 +516,31 @@ bool Scene::EditorApplyMaterial(Entity e, std::string &outError)
 		shaderPath = m_shaderManager.GetFragmentPath(mat.shader);
 
 	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
-	if (!metadata.Empty())
+	if (metadata.Empty())
 	{
-		SyncMaterialParametersWithMetadata(mat, metadata);
-
-		for (const MaterialParameterMetadata &desc : metadata.parameters)
-		{
-			if (desc.type != MaterialParameterType::Texture2D)
-				continue;
-
-			auto paramIt = mat.parameters.find(desc.name);
-			if (paramIt == mat.parameters.end())
-				continue;
-
-			MaterialParameter &param = paramIt->second;
-			if (!ApplyMaterialTextureSlot(m_textureManager,
-			                              param.texture,
-			                              param.texturePath,
-			                              "editor_mat_tex_",
-			                              outError))
-				return false;
-		}
-
-		return true;
+		outError = "Material metadata not found or empty for shader: " + shaderPath;
+		return false;
 	}
 
-	if (!ApplyMaterialTextureSlot(m_textureManager, mat.texture, mat.texturePath, "editor_mat_base_", outError))
-		return false;
-	if (!ApplyMaterialTextureSlot(m_textureManager, mat.specularTexture, mat.specularTexturePath, "editor_mat_spec_", outError))
-		return false;
-	if (!ApplyMaterialTextureSlot(m_textureManager, mat.normalTexture, mat.normalTexturePath, "editor_mat_norm_", outError))
-		return false;
-	if (!ApplyMaterialTextureSlot(m_textureManager, mat.emissionTexture, mat.emissionTexturePath, "editor_mat_emit_", outError))
-		return false;
+	SyncMaterialParametersWithMetadata(mat, metadata);
+
+	for (const MaterialParameterMetadata &desc : metadata.parameters)
+	{
+		if (desc.type != MaterialParameterType::Texture2D)
+			continue;
+
+		auto paramIt = mat.parameters.find(desc.name);
+		if (paramIt == mat.parameters.end())
+			continue;
+
+		MaterialParameter &param = paramIt->second;
+		if (!ApplyMaterialTextureSlot(m_textureManager,
+		                              param.texture,
+		                              param.texturePath,
+		                              "editor_mat_tex_",
+		                              outError))
+			return false;
+	}
 
 	return true;
 }

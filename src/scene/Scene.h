@@ -109,7 +109,7 @@ public:
 	 */
 	EditorSceneDimension GetEditorSceneDimension() const override;
 	/**
-	 * @brief Sets scene dimension and applies compatibility constraints.
+	 * @brief Sets scene dimension and applies scene rules.
 	 */
 	void SetEditorSceneDimension(EditorSceneDimension dimension) override;
 	/**
@@ -191,9 +191,6 @@ private:
 	EditorSceneDimension m_dimension = EditorSceneDimension::Scene3D;
 	bool m_editorInputEnabled = false;
 	float m_fixedSimulationNow = 0.0f;
-
-	std::string m_litVsPath;
-	std::string m_spriteVsPath;
 	#pragma endregion
 };
 #pragma endregion

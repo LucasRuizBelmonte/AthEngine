@@ -5,6 +5,7 @@
 #include "../components/Camera.h"
 #include "../components/Sprite.h"
 #include "../components/Material.h"
+#include "../material/MaterialMetadata.h"
 #include "../rendering/Renderer.h"
 
 #include <GL/glew.h>
@@ -117,8 +118,19 @@ void Render2DSystem::Render(Registry &registry,
 
 		Material m;
 		m.shader = s.shader;
-		m.texture = s.texture;
-		m.tint = s.tint;
+		m.shaderPath = s.materialPath;
+		SyncMaterialParametersWithMetadata(m, GetShaderMaterialMetadata(m.shaderPath));
+
+		auto tintIt = m.parameters.find("u_tint");
+		if (tintIt != m.parameters.end() && tintIt->second.type == MaterialParameterType::Vec4)
+			tintIt->second.numericValue = s.tint;
+
+		auto texIt = m.parameters.find("u_texBaseColor");
+		if (texIt != m.parameters.end() && texIt->second.type == MaterialParameterType::Texture2D)
+		{
+			texIt->second.texturePath = s.texturePath;
+			texIt->second.texture = s.texture;
+		}
 
 		const glm::mat4 model = BuildSpriteModel(t, s, halfW, halfH);
 		renderer.SubmitMesh(quadMeshId, m, model);

@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 #include <thread>
 #pragma endregion
 
@@ -282,11 +283,8 @@ bool SceneOpenSaveService::QueueOpenSceneFromFile(
 	if (!EditorSceneIO::PeekHeader(path, header, outError))
 		return false;
 
-	if (header.sceneType != "Scene" &&
-	    header.sceneType != "Scene2D" &&
-	    header.sceneType != "Scene3D" &&
-	    header.sceneType != "Test2D" &&
-	    header.sceneType != "Test3D")
+	if (header.sceneType != "Scene2D" &&
+	    header.sceneType != "Scene3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;
@@ -308,9 +306,11 @@ void SceneOpenSaveService::ApplyPendingOpen(SceneStack &stack) const
 	if (opened)
 	{
 		std::string loadedName = m_openJob.sceneName;
-		std::string ignoredError;
-		if (opened->LoadFromFile(m_openJob.path, loadedName, ignoredError))
+		std::string loadError;
+		if (opened->LoadFromFile(m_openJob.path, loadedName, loadError))
 			(void)stack.Rename(stack.Count() - 1, loadedName);
+		else
+			std::cerr << "Scene open failed for '" << m_openJob.path << "': " << loadError << std::endl;
 	}
 
 	m_openJob.pending = false;

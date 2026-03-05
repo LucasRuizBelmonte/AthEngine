@@ -535,12 +535,141 @@ namespace sceneeditor
 		return r.Get<Parent>(e).parent;
 	}
 
-	static void SetParentOf(Registry &r, Entity e, Entity parent)
+	struct ResolvedTransformChannels
+	{
+		glm::vec3 position{0.f, 0.f, 0.f};
+		glm::vec3 rotation{0.f, 0.f, 0.f};
+		glm::vec3 scale{1.f, 1.f, 1.f};
+	};
+
+	static Entity GetAliveParentWithTransformOf(Registry &r, Entity e)
+	{
+		const Entity parent = GetParentOf(r, e);
+		if (parent == kInvalidEntity || !r.IsAlive(parent) || !r.Has<Transform>(parent))
+			return kInvalidEntity;
+		return parent;
+	}
+
+	static ResolvedTransformChannels ResolveWorldChannels(Registry &r, Entity e)
+	{
+		ResolvedTransformChannels out;
+		if (e == kInvalidEntity || !r.IsAlive(e) || !r.Has<Transform>(e))
+			return out;
+
+		std::vector<Entity> chain;
+		Entity current = e;
+		for (int i = 0; i < 256 && current != kInvalidEntity && r.IsAlive(current); ++i)
+		{
+			if (!r.Has<Transform>(current))
+				break;
+
+			chain.push_back(current);
+			current = GetAliveParentWithTransformOf(r, current);
+		}
+
+		for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+		{
+			const Transform &local = r.Get<Transform>(*it);
+			out.position = local.absolutePosition ? local.localPosition : (out.position + local.localPosition);
+			out.rotation = local.absoluteRotation ? local.localRotation : (out.rotation + local.localRotation);
+			out.scale = local.absoluteScale ? local.localScale : (out.scale * local.localScale);
+		}
+
+		return out;
+	}
+
+	static glm::vec3 DivideScaleSafe(const glm::vec3 &lhs, const glm::vec3 &rhs)
+	{
+		auto divideAxis = [](float left, float right)
+		{
+			return (std::abs(right) > 1e-6f) ? (left / right) : left;
+		};
+
+		return glm::vec3{
+			divideAxis(lhs.x, rhs.x),
+			divideAxis(lhs.y, rhs.y),
+			divideAxis(lhs.z, rhs.z)};
+	}
+
+	static void ApplyAbsoluteFlagsPreservingWorld(Registry &r,
+												  Entity e,
+												  bool absolutePosition,
+												  bool absoluteRotation,
+												  bool absoluteScale)
+	{
+		if (e == kInvalidEntity || !r.IsAlive(e) || !r.Has<Transform>(e))
+			return;
+
+		Transform &t = r.Get<Transform>(e);
+		const ResolvedTransformChannels world = ResolveWorldChannels(r, e);
+
+		const Entity parent = GetAliveParentWithTransformOf(r, e);
+		const bool hasParent = (parent != kInvalidEntity);
+		const ResolvedTransformChannels parentWorld = hasParent ? ResolveWorldChannels(r, parent) : ResolvedTransformChannels{};
+
+		t.absolutePosition = absolutePosition;
+		t.absoluteRotation = absoluteRotation;
+		t.absoluteScale = absoluteScale;
+
+		t.localPosition =
+			(absolutePosition || !hasParent)
+				? world.position
+				: (world.position - parentWorld.position);
+		t.localRotation =
+			(absoluteRotation || !hasParent)
+				? world.rotation
+				: (world.rotation - parentWorld.rotation);
+		t.localScale =
+			(absoluteScale || !hasParent)
+				? world.scale
+				: DivideScaleSafe(world.scale, parentWorld.scale);
+	}
+
+	static void SetParentOfRaw(Registry &r, Entity e, Entity parent)
 	{
 		if (!r.Has<Parent>(e))
 			r.Emplace<Parent>(e, Parent{parent});
 		else
 			r.Get<Parent>(e).parent = parent;
+	}
+
+	static void ReparentEntityPreservingWorldTransform(Registry &r, Entity e, Entity newParent)
+	{
+		if (e == kInvalidEntity || !r.IsAlive(e))
+			return;
+
+		Entity targetParent = newParent;
+		if (targetParent != kInvalidEntity && (!r.IsAlive(targetParent) || targetParent == e))
+			targetParent = kInvalidEntity;
+
+		const bool hasTransform = r.Has<Transform>(e);
+		ResolvedTransformChannels worldBefore{};
+		if (hasTransform)
+			worldBefore = ResolveWorldChannels(r, e);
+
+		SetParentOfRaw(r, e, targetParent);
+
+		if (!hasTransform)
+			return;
+
+		Transform &t = r.Get<Transform>(e);
+		const Entity parentWithTransform = GetAliveParentWithTransformOf(r, e);
+		const bool hasParentWithTransform = (parentWithTransform != kInvalidEntity);
+		const ResolvedTransformChannels parentWorld =
+			hasParentWithTransform ? ResolveWorldChannels(r, parentWithTransform) : ResolvedTransformChannels{};
+
+		t.localPosition =
+			(t.absolutePosition || !hasParentWithTransform)
+				? worldBefore.position
+				: (worldBefore.position - parentWorld.position);
+		t.localRotation =
+			(t.absoluteRotation || !hasParentWithTransform)
+				? worldBefore.rotation
+				: (worldBefore.rotation - parentWorld.rotation);
+		t.localScale =
+			(t.absoluteScale || !hasParentWithTransform)
+				? worldBefore.scale
+				: DivideScaleSafe(worldBefore.scale, parentWorld.scale);
 	}
 
 	static bool IsDescendant(Registry &r, Entity candidateParent, Entity child)
@@ -815,7 +944,7 @@ namespace sceneeditor
 				{
 					Entity dropped = *(const Entity *)p->Data;
 					if (dropped != e && !IsDescendant(r, e, dropped))
-						SetParentOf(r, dropped, e);
+						ReparentEntityPreservingWorldTransform(r, dropped, e);
 				}
 				ImGui::EndDragDropTarget();
 			}
@@ -878,7 +1007,7 @@ namespace sceneeditor
 			if (const ImGuiPayload *p = ImGui::AcceptDragDropPayload("ATH_ENTITY"))
 			{
 				Entity dropped = *(const Entity *)p->Data;
-				SetParentOf(r, dropped, kInvalidEntity);
+				ReparentEntityPreservingWorldTransform(r, dropped, kInvalidEntity);
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -1088,7 +1217,18 @@ namespace sceneeditor
 		{
 			auto &p = r.Get<Parent>(e);
 			unsigned pid = (p.parent == kInvalidEntity) ? 0u : (unsigned)p.parent;
-			ImGui::InputScalar("Parent (id)", ImGuiDataType_U32, &pid);
+			if (ImGui::InputScalar("Parent (id)", ImGuiDataType_U32, &pid))
+			{
+				const Entity requestedParent = (pid == 0u) ? kInvalidEntity : static_cast<Entity>(pid);
+				if (requestedParent == kInvalidEntity)
+				{
+					ReparentEntityPreservingWorldTransform(r, e, kInvalidEntity);
+				}
+				else if (r.IsAlive(requestedParent) && requestedParent != e && !IsDescendant(r, requestedParent, e))
+				{
+					ReparentEntityPreservingWorldTransform(r, e, requestedParent);
+				}
+			}
 		}
 
 		ImGui::Separator();
@@ -1098,15 +1238,21 @@ namespace sceneeditor
 			RemoveComponentMenu<Transform>(r, e, "TransformCtx");
 
 			auto &t = r.Get<Transform>(e);
-			ImGui::Checkbox("Absolute Position", &t.absolutePosition);
-			DrawVec3(std::format("{} Position!", (t.absolutePosition ? "Abs." : "Local")).c_str(), &t.localPosition.x, 0.05f);
+			bool absolutePosition = t.absolutePosition;
+			bool absoluteRotation = t.absoluteRotation;
+			bool absoluteScale = t.absoluteScale;
+			bool absoluteFlagsChanged = false;
 
-			ImGui::Checkbox("Absolute Rotation", &t.absoluteRotation);
-			DrawRotationEulerDegrees(std::format("{} Rotation!", (t.absoluteRotation ? "Abs." : "Local")).c_str(), t.localRotation, 0.5f);
+			absoluteFlagsChanged |= ImGui::Checkbox("Absolute Position", &absolutePosition);
+			absoluteFlagsChanged |= ImGui::Checkbox("Absolute Rotation", &absoluteRotation);
+			absoluteFlagsChanged |= ImGui::Checkbox("Absolute Scale", &absoluteScale);
 
-			ImGui::Checkbox("Absolute Scale", &t.absoluteScale);
-			DrawVec3(std::format("{} Scale!", (t.absoluteScale ? "Abs." : "Local")).c_str(), &t.localScale.x, 0.05f);
+			if (absoluteFlagsChanged)
+				ApplyAbsoluteFlagsPreservingWorld(r, e, absolutePosition, absoluteRotation, absoluteScale);
 
+			DrawVec3(std::format("{} Position!", (absolutePosition ? "Abs." : "Local")).c_str(), &t.localPosition.x, 0.05f);
+			DrawRotationEulerDegrees(std::format("{} Rotation!", (absoluteRotation ? "Abs." : "Local")).c_str(), t.localRotation, 0.5f);
+			DrawVec3(std::format("{} Scale!", (absoluteScale ? "Abs." : "Local")).c_str(), &t.localScale.x, 0.05f);
 			DrawVec3("Pivot Anchor (-1..1)", &t.pivot.x, 0.05f);
 		}
 

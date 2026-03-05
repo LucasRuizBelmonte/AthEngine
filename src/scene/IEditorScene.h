@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <glm/glm.hpp>
 #include "../ecs/Registry.h"
 #include "../ecs/Entity.h"
 #pragma endregion
@@ -58,6 +59,14 @@ public:
      * @brief Enables/disables editor camera input for this scene.
      */
     virtual void SetEditorInputEnabled(bool enabled) = 0;
+    /**
+     * @brief Sets global 2D physics gravity for this scene.
+     */
+    virtual void SetPhysics2DGravity(const glm::vec2 &gravity) = 0;
+    /**
+     * @brief Gets global 2D physics gravity for this scene.
+     */
+    virtual glm::vec2 GetPhysics2DGravity() const = 0;
     /**
      * @brief Saves the editor scene data to disk.
      */

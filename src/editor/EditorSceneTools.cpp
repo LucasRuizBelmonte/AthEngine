@@ -25,6 +25,9 @@
 #include "../components/Sprite.h"
 #include "../components/Spin.h"
 #include "../components/LightEmitter.h"
+#include "../physics2d/Collider2D.h"
+#include "../physics2d/PhysicsBody2D.h"
+#include "../physics2d/RigidBody2D.h"
 #include "../material/MaterialMetadata.h"
 #pragma endregion
 
@@ -787,6 +790,9 @@ namespace sceneeditor
 		CopyIfPresent<Sprite>(r, src, dst);
 		CopyIfPresent<Spin>(r, src, dst);
 		CopyIfPresent<LightEmitter>(r, src, dst);
+		CopyIfPresent<Collider2D>(r, src, dst);
+		CopyIfPresent<RigidBody2D>(r, src, dst);
+		CopyIfPresent<PhysicsBody2D>(r, src, dst);
 
 		auto it = children.find(src);
 		if (it != children.end())
@@ -1155,6 +1161,12 @@ namespace sceneeditor
 			(void)AddComponentItem<Spin>(r, e, "Spin");
 		if (allowSprite && pass("Sprite"))
 			(void)AddComponentItem<Sprite>(r, e, "Sprite");
+		if (pass("Collider2D"))
+			(void)AddComponentItem<Collider2D>(r, e, "Collider2D");
+		if (pass("RigidBody2D"))
+			(void)AddComponentItem<RigidBody2D>(r, e, "RigidBody2D");
+		if (pass("PhysicsBody2D"))
+			(void)AddComponentItem<PhysicsBody2D>(r, e, "PhysicsBody2D");
 		if (allowMeshAndMaterial && pass("Material"))
 			(void)AddComponentItem<Material>(r, e, "Material");
 		if (allowMeshAndMaterial && pass("Mesh"))
@@ -1377,6 +1389,59 @@ namespace sceneeditor
 			DrawColor4("Tint", &s.tint.x);
 			ImGui::InputInt("Layer", &s.layer);
 			ImGui::InputInt("Order In Layer", &s.orderInLayer);
+		}
+
+		if (r.Has<Collider2D>(e) && ImGui::CollapsingHeader("Collider2D", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<Collider2D>(r, e, "Collider2DCtx");
+
+			auto &c = r.Get<Collider2D>(e);
+			int shapeIndex = (c.shape == Collider2D::Shape::Circle) ? 1 : 0;
+			if (ImGui::Combo("Shape", &shapeIndex, "AABB\0Circle\0"))
+				c.shape = (shapeIndex == 1) ? Collider2D::Shape::Circle : Collider2D::Shape::AABB;
+
+			ImGui::Checkbox("Is Trigger", &c.isTrigger);
+			ImGui::InputScalar("Layer", ImGuiDataType_U32, &c.layer);
+			ImGui::InputScalar("Mask", ImGuiDataType_U32, &c.mask);
+			DrawVec2("Offset", &c.offset.x, 0.05f);
+
+			if (c.shape == Collider2D::Shape::AABB)
+			{
+				DrawVec2("Half Extents", &c.halfExtents.x, 0.05f);
+				c.halfExtents.x = std::max(0.f, c.halfExtents.x);
+				c.halfExtents.y = std::max(0.f, c.halfExtents.y);
+			}
+			else
+			{
+				(void)DragFloatWithSnap("Radius", &c.radius, 0.01f, 0.0f, 1000.0f);
+			}
+		}
+
+		if (r.Has<RigidBody2D>(e) && ImGui::CollapsingHeader("RigidBody2D", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<RigidBody2D>(r, e, "RigidBody2DCtx");
+
+			auto &rb = r.Get<RigidBody2D>(e);
+			DrawVec3("Velocity", &rb.velocity.x, 0.05f);
+			DrawVec3("Accumulated Forces", &rb.accumulatedForces.x, 0.05f);
+			DrawVec3("Angular Velocity", &rb.angularVelocity.x, 0.05f);
+			ImGui::Checkbox("Is Kinematic", &rb.isKinematic);
+			ImGui::Checkbox("Freeze Velocity X", &rb.freezeVelocityX);
+			ImGui::Checkbox("Freeze Velocity Y", &rb.freezeVelocityY);
+			ImGui::Checkbox("Freeze Velocity Z", &rb.freezeVelocityZ);
+			ImGui::Checkbox("Freeze Angular Velocity X", &rb.freezeAngularVelocityX);
+			ImGui::Checkbox("Freeze Angular Velocity Y", &rb.freezeAngularVelocityY);
+			ImGui::Checkbox("Freeze Angular Velocity Z", &rb.freezeAngularVelocityZ);
+			(void)DragFloatWithSnap("Mass", &rb.mass, 0.01f, 0.0f, 100000.0f);
+			(void)DragFloatWithSnap("Linear Damping", &rb.linearDamping, 0.001f, 0.0f, 1000.0f);
+			(void)DragFloatWithSnap("Angular Damping", &rb.angularDamping, 0.001f, 0.0f, 1000.0f);
+		}
+
+		if (r.Has<PhysicsBody2D>(e) && ImGui::CollapsingHeader("PhysicsBody2D", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<PhysicsBody2D>(r, e, "PhysicsBody2DCtx");
+			auto &pb = r.Get<PhysicsBody2D>(e);
+			ImGui::Checkbox("Enabled", &pb.enabled);
 		}
 
 		if (r.Has<Material>(e) && ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))

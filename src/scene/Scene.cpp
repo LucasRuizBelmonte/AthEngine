@@ -223,6 +223,8 @@ void Scene::FixedUpdate(float fixedDt)
 	if (m_sysSpin)
 		m_spinSystem.Update(m_registry, m_fixedSimulationNow);
 
+	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, m_physicsEvents);
+
 	m_transformSystem.Update(m_registry);
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
 }
@@ -251,6 +253,11 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 
 	glDisable(GL_DEPTH_TEST);
 	m_render2DSystem.Render(m_registry, renderer, camera, framebufferWidth, framebufferHeight);
+}
+
+const PhysicsEvents &Scene::GetPhysicsEvents() const
+{
+	return m_physicsEvents;
 }
 
 Registry &Scene::GetEditorRegistry()
@@ -289,6 +296,16 @@ void Scene::SetEditorSceneDimension(EditorSceneDimension dimension)
 void Scene::SetEditorInputEnabled(bool enabled)
 {
 	m_editorInputEnabled = enabled;
+}
+
+void Scene::SetPhysics2DGravity(const glm::vec2 &gravity)
+{
+	m_physics2DSystem.SetGravity(gravity);
+}
+
+glm::vec2 Scene::GetPhysics2DGravity() const
+{
+	return m_physics2DSystem.GetGravity();
 }
 
 bool Scene::SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError)

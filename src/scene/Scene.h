@@ -18,6 +18,8 @@
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
 #include "../systems/CameraSyncSystem.h"
+#include "../physics2d/PhysicsEvents.h"
+#include "../physics2d/Physics2DSystem.h"
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -86,6 +88,11 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 
 	/**
+	 * @brief Gets last fixed-step physics events for this scene.
+	 */
+	const PhysicsEvents &GetPhysicsEvents() const;
+
+	/**
 	 * @brief Executes Get Editor Registry.
 	 */
 	Registry &GetEditorRegistry() override;
@@ -109,6 +116,14 @@ public:
 	 * @brief Enables/disables editor camera input for this scene.
 	 */
 	void SetEditorInputEnabled(bool enabled) override;
+	/**
+	 * @brief Sets global 2D physics gravity for this scene.
+	 */
+	void SetPhysics2DGravity(const glm::vec2 &gravity) override;
+	/**
+	 * @brief Gets global 2D physics gravity for this scene.
+	 */
+	glm::vec2 GetPhysics2DGravity() const override;
 	/**
 	 * @brief Saves the scene to disk.
 	 */
@@ -157,6 +172,8 @@ private:
 	Render2DSystem m_render2DSystem;
 	CameraControllerSystem m_cameraControllerSystem;
 	CameraSyncSystem m_cameraSyncSystem;
+	Physics2DSystem m_physics2DSystem;
+	PhysicsEvents m_physicsEvents;
 
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;

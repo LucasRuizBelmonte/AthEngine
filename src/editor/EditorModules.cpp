@@ -24,6 +24,10 @@
 #include "../components/Parent.h"
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
+#include "../physics2d/Collider2D.h"
+#include "../physics2d/Physics2DAlgorithms.h"
+#include "../physics2d/PhysicsBody2D.h"
+#include "../physics2d/RigidBody2D.h"
 #include "../thirdparty/ImGuizmo.h"
 #include "SceneEditor.h"
 #pragma endregion
@@ -74,6 +78,19 @@ static GizmoState g_gizmoState;
 static GizmoRuntimeDebug g_gizmoRuntimeDebug;
 static bool g_showGizmoDebug = false;
 static bool g_showForwardArrow = true;
+static bool g_showCollisionGizmos = true;
+
+struct GizmoRigidBodyOverride
+{
+	IEditorScene *scene = nullptr;
+	Entity entity = kInvalidEntity;
+	bool hasOverride = false;
+	bool originalIsKinematic = false;
+};
+
+static GizmoRigidBodyOverride g_gizmoRigidBodyOverride;
+
+static Entity FindEditorCameraEntity(Registry &r);
 #pragma endregion
 
 #pragma region Function Definitions
@@ -414,6 +431,122 @@ static void DrawSelectedForwardArrow(
 	dl->AddCircleFilled(p0, 2.5f, color);
 }
 
+static bool BuildViewportViewProjection(IEditorScene *editorScene,
+                                        const ImVec2 &rectSize,
+                                        Registry *&outRegistry,
+                                        glm::mat4 &outView,
+                                        glm::mat4 &outProjection)
+{
+	outRegistry = nullptr;
+	if (!editorScene || rectSize.x <= 0.0f || rectSize.y <= 0.0f)
+		return false;
+
+	Registry &registry = editorScene->GetEditorRegistry();
+	const Entity cameraEntity = FindEditorCameraEntity(registry);
+	if (cameraEntity == kInvalidEntity || !registry.Has<Camera>(cameraEntity))
+		return false;
+
+	const Camera &camera = registry.Get<Camera>(cameraEntity);
+	const float aspect = rectSize.x / rectSize.y;
+	outView = glm::lookAt(
+		camera.position,
+		camera.position + camera.direction,
+		glm::vec3(0.f, 1.f, 0.f));
+
+	if (camera.projection == ProjectionType::Orthographic)
+	{
+		const float halfHeight = camera.orthoHeight * 0.5f;
+		const float halfWidth = halfHeight * aspect;
+		outProjection = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, camera.nearPlane, camera.farPlane);
+	}
+	else
+	{
+		outProjection = glm::perspective(glm::radians(camera.fovDeg), aspect, camera.nearPlane, camera.farPlane);
+	}
+
+	outRegistry = &registry;
+	return true;
+}
+
+static void DrawCollisionGizmos(IEditorScene *editorScene, const ImVec2 &rectMin, const ImVec2 &rectSize)
+{
+	if (!g_showCollisionGizmos)
+		return;
+
+	Registry *registry = nullptr;
+	glm::mat4 view(1.f);
+	glm::mat4 projection(1.f);
+	if (!BuildViewportViewProjection(editorScene, rectSize, registry, view, projection))
+		return;
+
+	std::vector<Entity> entities;
+	registry->ViewEntities<Transform, Collider2D>(entities);
+	if (entities.empty())
+		return;
+
+	ImDrawList *drawList = ImGui::GetWindowDrawList();
+	constexpr int circleSegments = 28;
+
+	for (Entity entity : entities)
+	{
+		const Transform &transform = registry->Get<Transform>(entity);
+		const Collider2D &collider = registry->Get<Collider2D>(entity);
+		const bool hasBodyEnabled = !registry->Has<PhysicsBody2D>(entity) || registry->Get<PhysicsBody2D>(entity).enabled;
+
+		ImU32 color = collider.isTrigger
+		                  ? IM_COL32(255, 170, 0, 220)
+		                  : IM_COL32(64, 220, 90, 220);
+		if (!hasBodyEnabled)
+			color = IM_COL32(145, 145, 145, 170);
+		else if (registry->Has<RigidBody2D>(entity))
+		{
+			const RigidBody2D &body = registry->Get<RigidBody2D>(entity);
+			const bool dynamicBody = !body.isKinematic && body.mass > 0.0f;
+			if (dynamicBody)
+				color = collider.isTrigger ? IM_COL32(255, 170, 0, 220) : IM_COL32(0, 200, 255, 220);
+		}
+
+		const Physics2DAlgorithms::WorldShape2D shape = Physics2DAlgorithms::BuildWorldShape(transform, collider);
+		const float z = transform.localPosition.z;
+
+		if (shape.shape == Collider2D::Shape::AABB)
+		{
+			const glm::vec2 ex = shape.axisX * shape.halfExtents.x;
+			const glm::vec2 ey = shape.axisY * shape.halfExtents.y;
+			ImVec2 points[4];
+			const bool allProjected =
+				ProjectWorldToViewport(glm::vec3(shape.center - ex - ey, z), view, projection, rectMin, rectSize, points[0]) &&
+				ProjectWorldToViewport(glm::vec3(shape.center + ex - ey, z), view, projection, rectMin, rectSize, points[1]) &&
+				ProjectWorldToViewport(glm::vec3(shape.center + ex + ey, z), view, projection, rectMin, rectSize, points[2]) &&
+				ProjectWorldToViewport(glm::vec3(shape.center - ex + ey, z), view, projection, rectMin, rectSize, points[3]);
+			if (!allProjected)
+				continue;
+
+			drawList->AddPolyline(points, 4, color, ImDrawFlags_Closed, 1.5f);
+		}
+		else
+		{
+			ImVec2 points[circleSegments];
+			bool allProjected = true;
+			for (int i = 0; i < circleSegments; ++i)
+			{
+				const float angle = (6.28318530718f * static_cast<float>(i)) / static_cast<float>(circleSegments);
+				const glm::vec2 unit(std::cos(angle), std::sin(angle));
+				const glm::vec2 point = shape.center + unit * shape.radius;
+				if (!ProjectWorldToViewport(glm::vec3(point.x, point.y, z), view, projection, rectMin, rectSize, points[i]))
+				{
+					allProjected = false;
+					break;
+				}
+			}
+			if (!allProjected)
+				continue;
+
+			drawList->AddPolyline(points, circleSegments, color, ImDrawFlags_Closed, 1.5f);
+		}
+	}
+}
+
 static Transform DecomposeTransform(const glm::mat4 &matrix, const Transform &keepPivot)
 {
 	Transform out = keepPivot;
@@ -539,6 +672,65 @@ static bool PerformRedo(Registry &r, TransformHistory &history)
 	return true;
 }
 
+static void ClearGizmoRigidBodyOverride()
+{
+	g_gizmoRigidBodyOverride.scene = nullptr;
+	g_gizmoRigidBodyOverride.entity = kInvalidEntity;
+	g_gizmoRigidBodyOverride.hasOverride = false;
+	g_gizmoRigidBodyOverride.originalIsKinematic = false;
+}
+
+static void ApplyGizmoRigidBodyOverride(IEditorScene *scene, Registry &registry, Entity entity)
+{
+	if (!scene || entity == kInvalidEntity || !registry.IsAlive(entity) || !registry.Has<RigidBody2D>(entity))
+		return;
+
+	if (g_gizmoRigidBodyOverride.hasOverride &&
+	    g_gizmoRigidBodyOverride.scene == scene &&
+	    g_gizmoRigidBodyOverride.entity == entity)
+	{
+		registry.Get<RigidBody2D>(entity).isKinematic = true;
+		return;
+	}
+
+	if (g_gizmoRigidBodyOverride.hasOverride &&
+	    g_gizmoRigidBodyOverride.scene &&
+	    g_gizmoRigidBodyOverride.entity != kInvalidEntity)
+	{
+		Registry &prevRegistry = g_gizmoRigidBodyOverride.scene->GetEditorRegistry();
+		if (prevRegistry.IsAlive(g_gizmoRigidBodyOverride.entity) &&
+		    prevRegistry.Has<RigidBody2D>(g_gizmoRigidBodyOverride.entity))
+		{
+			prevRegistry.Get<RigidBody2D>(g_gizmoRigidBodyOverride.entity).isKinematic =
+				g_gizmoRigidBodyOverride.originalIsKinematic;
+		}
+		ClearGizmoRigidBodyOverride();
+	}
+
+	RigidBody2D &body = registry.Get<RigidBody2D>(entity);
+	g_gizmoRigidBodyOverride.scene = scene;
+	g_gizmoRigidBodyOverride.entity = entity;
+	g_gizmoRigidBodyOverride.hasOverride = true;
+	g_gizmoRigidBodyOverride.originalIsKinematic = body.isKinematic;
+	body.isKinematic = true;
+}
+
+static void RestoreGizmoRigidBodyOverride()
+{
+	if (!g_gizmoRigidBodyOverride.hasOverride || !g_gizmoRigidBodyOverride.scene)
+		return;
+
+	Registry &registry = g_gizmoRigidBodyOverride.scene->GetEditorRegistry();
+	if (registry.IsAlive(g_gizmoRigidBodyOverride.entity) &&
+	    registry.Has<RigidBody2D>(g_gizmoRigidBodyOverride.entity))
+	{
+		registry.Get<RigidBody2D>(g_gizmoRigidBodyOverride.entity).isKinematic =
+			g_gizmoRigidBodyOverride.originalIsKinematic;
+	}
+
+	ClearGizmoRigidBodyOverride();
+}
+
 static void DrawGizmoToolbar(bool viewportFocused)
 {
 	ImGuiIO &io = ImGui::GetIO();
@@ -600,10 +792,12 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 		g_gizmoState.activeScene = nullptr;
 		g_gizmoState.activeEntity = kInvalidEntity;
 		g_gizmoState.hasActiveWorldMatrix = false;
+		RestoreGizmoRigidBodyOverride();
 	};
 
 	if (!editorScene || rectSize.x <= 0.0f || rectSize.y <= 0.0f)
 	{
+		RestoreGizmoRigidBodyOverride();
 		g_gizmoState.isManipulating = false;
 		g_gizmoState.activeScene = nullptr;
 		g_gizmoState.activeEntity = kInvalidEntity;
@@ -616,6 +810,7 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 	if (e == kInvalidEntity || !r.IsAlive(e) || !r.Has<Transform>(e))
 	{
 		finalizeManipulation(r);
+		RestoreGizmoRigidBodyOverride();
 		return;
 	}
 	g_gizmoRuntimeDebug.hasTarget = true;
@@ -624,6 +819,7 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 	if (cameraEntity == kInvalidEntity || !r.Has<Camera>(cameraEntity))
 	{
 		finalizeManipulation(r);
+		RestoreGizmoRigidBodyOverride();
 		return;
 	}
 
@@ -684,6 +880,8 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 
 	if (usingNow)
 	{
+		ApplyGizmoRigidBodyOverride(editorScene, r, e);
+
 		if (!g_gizmoState.isManipulating)
 		{
 			g_gizmoState.isManipulating = true;
@@ -718,6 +916,10 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 	else if (g_gizmoState.isManipulating)
 	{
 		finalizeManipulation(r);
+	}
+	else
+	{
+		RestoreGizmoRigidBodyOverride();
 	}
 
 	if (g_showForwardArrow && r.IsAlive(e) && !r.Has<CameraController>(e))
@@ -1070,6 +1272,25 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 	{
 		ImGui::MenuItem("Debug Clicks", nullptr, &g_showGizmoDebug);
 		ImGui::MenuItem("Forward Arrow", nullptr, &g_showForwardArrow);
+		if (ImGui::BeginMenu("Physics2D"))
+		{
+			if (es)
+			{
+				glm::vec2 gravity = es->GetPhysics2DGravity();
+				ImGui::SetNextItemWidth(170.0f);
+				if (ImGui::DragFloat2("Gravity2D", &gravity.x, 0.05f, -1000.0f, 1000.0f, "%.3f"))
+					es->SetPhysics2DGravity(gravity);
+
+				ImGui::MenuItem("Show 2DCollisions Gizmos", nullptr, &g_showCollisionGizmos);
+			}
+			else
+			{
+				ImGui::MenuItem("Gravity2D", nullptr, false, false);
+				ImGui::MenuItem("Show 2DCollisions Gizmos", nullptr, false, false);
+			}
+
+			ImGui::EndMenu();
+		}
 		ImGui::Separator();
 		ImGui::SetNextItemWidth(150.0f);
 		if (ImGui::DragFloat("Ctrl Drag Snap", &ui.dragSnapStep, 0.001f, 0.0001f, 1000.0f, "%.4f"))
@@ -1415,6 +1636,7 @@ void Editor::Draw(SceneManager &scenes, EditorUIState &state)
 			const ImVec2 imageMin = ImGui::GetItemRectMin();
 			const ImVec2 imageSize = ImGui::GetItemRectSize();
 			const bool imageHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+			DrawCollisionGizmos(editorScene, imageMin, imageSize);
 			DrawTransformGizmo(editorScene, se, imageMin, imageSize, viewportFocused, imageHovered);
 
 			if (g_showGizmoDebug)

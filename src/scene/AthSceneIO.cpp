@@ -11,6 +11,9 @@
 #include "../components/Spin.h"
 #include "../components/Tag.h"
 #include "../components/Transform.h"
+#include "../physics2d/Collider2D.h"
+#include "../physics2d/PhysicsBody2D.h"
+#include "../physics2d/RigidBody2D.h"
 #include "../material/MaterialMetadata.h"
 
 #include <algorithm>
@@ -52,6 +55,15 @@ namespace AthSceneIO
 
 			bool hasSprite = false;
 			Sprite sprite;
+
+			bool hasCollider2D = false;
+			Collider2D collider2D;
+
+			bool hasRigidBody2D = false;
+			RigidBody2D rigidBody2D;
+
+			bool hasPhysicsBody2D = false;
+			PhysicsBody2D physicsBody2D;
 
 			bool hasMaterial = false;
 			Material material;
@@ -216,21 +228,21 @@ namespace AthSceneIO
 				return;
 			const Transform &c = registry.Get<Transform>(e);
 			out << "TRANSFORM "
-			    << c.localPosition.x << " " << c.localPosition.y << " " << c.localPosition.z << " "
-			    << c.localRotation.x << " " << c.localRotation.y << " " << c.localRotation.z << " "
-			    << c.localScale.x << " " << c.localScale.y << " " << c.localScale.z << " "
-			    << c.pivot.x << " " << c.pivot.y << " " << c.pivot.z << " "
-			    << (c.absolutePosition ? 1 : 0) << " "
-			    << (c.absoluteRotation ? 1 : 0) << " "
-			    << (c.absoluteScale ? 1 : 0) << "\n";
+				<< c.localPosition.x << " " << c.localPosition.y << " " << c.localPosition.z << " "
+				<< c.localRotation.x << " " << c.localRotation.y << " " << c.localRotation.z << " "
+				<< c.localScale.x << " " << c.localScale.y << " " << c.localScale.z << " "
+				<< c.pivot.x << " " << c.pivot.y << " " << c.pivot.z << " "
+				<< (c.absolutePosition ? 1 : 0) << " "
+				<< (c.absoluteRotation ? 1 : 0) << " "
+				<< (c.absoluteScale ? 1 : 0) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasTransform = true;
 			if (!(in >> ent.transform.localPosition.x >> ent.transform.localPosition.y >> ent.transform.localPosition.z >>
-			      ent.transform.localRotation.x >> ent.transform.localRotation.y >> ent.transform.localRotation.z >>
-			      ent.transform.localScale.x >> ent.transform.localScale.y >> ent.transform.localScale.z))
+				  ent.transform.localRotation.x >> ent.transform.localRotation.y >> ent.transform.localRotation.z >>
+				  ent.transform.localScale.x >> ent.transform.localScale.y >> ent.transform.localScale.z))
 			{
 				outError = "Failed reading Transform component.";
 				return false;
@@ -272,10 +284,10 @@ namespace AthSceneIO
 				return;
 			const Camera &c = registry.Get<Camera>(e);
 			out << "CAMERA "
-			    << static_cast<int>(c.projection) << " "
-			    << c.position.x << " " << c.position.y << " " << c.position.z << " "
-			    << c.direction.x << " " << c.direction.y << " " << c.direction.z << " "
-			    << c.fovDeg << " " << c.nearPlane << " " << c.farPlane << " " << c.orthoHeight << "\n";
+				<< static_cast<int>(c.projection) << " "
+				<< c.position.x << " " << c.position.y << " " << c.position.z << " "
+				<< c.direction.x << " " << c.direction.y << " " << c.direction.z << " "
+				<< c.fovDeg << " " << c.nearPlane << " " << c.farPlane << " " << c.orthoHeight << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -283,9 +295,9 @@ namespace AthSceneIO
 			ent.hasCamera = true;
 			int projection = 0;
 			if (!(in >> projection >>
-			      ent.camera.position.x >> ent.camera.position.y >> ent.camera.position.z >>
-			      ent.camera.direction.x >> ent.camera.direction.y >> ent.camera.direction.z >>
-			      ent.camera.fovDeg >> ent.camera.nearPlane >> ent.camera.farPlane >> ent.camera.orthoHeight))
+				  ent.camera.position.x >> ent.camera.position.y >> ent.camera.position.z >>
+				  ent.camera.direction.x >> ent.camera.direction.y >> ent.camera.direction.z >>
+				  ent.camera.fovDeg >> ent.camera.nearPlane >> ent.camera.farPlane >> ent.camera.orthoHeight))
 			{
 				outError = "Failed reading Camera component.";
 				return false;
@@ -303,10 +315,10 @@ namespace AthSceneIO
 				return;
 			const CameraController &c = registry.Get<CameraController>(e);
 			out << "CAMERA_CONTROLLER "
-			    << c.yawDeg << " " << c.pitchDeg << " "
-			    << c.moveSpeed << " " << c.fastMultiplier << " " << c.mouseSensitivity << " "
-			    << c.lastMousePos.x << " " << c.lastMousePos.y << " "
-			    << (c.hasLastMousePos ? 1 : 0) << "\n";
+				<< c.yawDeg << " " << c.pitchDeg << " "
+				<< c.moveSpeed << " " << c.fastMultiplier << " " << c.mouseSensitivity << " "
+				<< c.lastMousePos.x << " " << c.lastMousePos.y << " "
+				<< (c.hasLastMousePos ? 1 : 0) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -314,10 +326,10 @@ namespace AthSceneIO
 			ent.hasCameraController = true;
 			int hasLastMouse = 0;
 			if (!(in >> ent.cameraController.yawDeg >> ent.cameraController.pitchDeg >>
-			      ent.cameraController.moveSpeed >> ent.cameraController.fastMultiplier >>
-			      ent.cameraController.mouseSensitivity >>
-			      ent.cameraController.lastMousePos.x >> ent.cameraController.lastMousePos.y >>
-			      hasLastMouse))
+				  ent.cameraController.moveSpeed >> ent.cameraController.fastMultiplier >>
+				  ent.cameraController.mouseSensitivity >>
+				  ent.cameraController.lastMousePos.x >> ent.cameraController.lastMousePos.y >>
+				  hasLastMouse))
 			{
 				outError = "Failed reading CameraController component.";
 				return false;
@@ -335,8 +347,8 @@ namespace AthSceneIO
 				return;
 			const Spin &c = registry.Get<Spin>(e);
 			out << "SPIN "
-			    << c.axis.x << " " << c.axis.y << " " << c.axis.z << " "
-			    << c.freq << " " << c.amplitude << "\n";
+				<< c.axis.x << " " << c.axis.y << " " << c.axis.z << " "
+				<< c.freq << " " << c.amplitude << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -359,12 +371,12 @@ namespace AthSceneIO
 				return;
 			const LightEmitter &c = registry.Get<LightEmitter>(e);
 			out << "LIGHT "
-			    << static_cast<int>(c.type) << " "
-			    << c.color.x << " " << c.color.y << " " << c.color.z << " "
-			    << c.intensity << " "
-			    << c.range << " "
-			    << c.innerCone << " " << c.outerCone << " "
-			    << (c.castShadows ? 1 : 0) << "\n";
+				<< static_cast<int>(c.type) << " "
+				<< c.color.x << " " << c.color.y << " " << c.color.z << " "
+				<< c.intensity << " "
+				<< c.range << " "
+				<< c.innerCone << " " << c.outerCone << " "
+				<< (c.castShadows ? 1 : 0) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -372,12 +384,7 @@ namespace AthSceneIO
 			ent.hasLight = true;
 			int type = static_cast<int>(LightType::Directional);
 			int castShadows = 0;
-			if (!(in >> type
-			      >> ent.light.color.x >> ent.light.color.y >> ent.light.color.z
-			      >> ent.light.intensity
-			      >> ent.light.range
-			      >> ent.light.innerCone >> ent.light.outerCone
-			      >> castShadows))
+			if (!(in >> type >> ent.light.color.x >> ent.light.color.y >> ent.light.color.z >> ent.light.intensity >> ent.light.range >> ent.light.innerCone >> ent.light.outerCone >> castShadows))
 			{
 				outError = "Failed reading LightEmitter component.";
 				return false;
@@ -410,24 +417,24 @@ namespace AthSceneIO
 				return;
 			const Sprite &c = registry.Get<Sprite>(e);
 			out << "SPRITE "
-			    << c.texture.id << " " << c.shader.id << " "
-			    << c.size.x << " " << c.size.y << " "
-			    << c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
-			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
-			    << c.layer << " " << c.orderInLayer << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.texturePath)) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << " "
-			    << static_cast<int>(c.pivot) << "\n";
+				<< c.texture.id << " " << c.shader.id << " "
+				<< c.size.x << " " << c.size.y << " "
+				<< c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
+				<< c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
+				<< c.layer << " " << c.orderInLayer << " "
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(c.texturePath)) << " "
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << " "
+				<< static_cast<int>(c.pivot) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
 		{
 			ent.hasSprite = true;
 			if (!(in >> ent.sprite.texture.id >> ent.sprite.shader.id >>
-			      ent.sprite.size.x >> ent.sprite.size.y >>
-			      ent.sprite.uv.x >> ent.sprite.uv.y >> ent.sprite.uv.z >> ent.sprite.uv.w >>
-			      ent.sprite.tint.x >> ent.sprite.tint.y >> ent.sprite.tint.z >> ent.sprite.tint.w >>
-			      ent.sprite.layer >> ent.sprite.orderInLayer))
+				  ent.sprite.size.x >> ent.sprite.size.y >>
+				  ent.sprite.uv.x >> ent.sprite.uv.y >> ent.sprite.uv.z >> ent.sprite.uv.w >>
+				  ent.sprite.tint.x >> ent.sprite.tint.y >> ent.sprite.tint.z >> ent.sprite.tint.w >>
+				  ent.sprite.layer >> ent.sprite.orderInLayer))
 			{
 				outError = "Failed reading Sprite component.";
 				return false;
@@ -447,6 +454,164 @@ namespace AthSceneIO
 		}
 	};
 
+	struct ComponentCodecs::Collider2DCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<Collider2D>(e))
+				return;
+
+			const Collider2D &c = registry.Get<Collider2D>(e);
+			out << "COLLIDER2D "
+				<< static_cast<int>(c.shape) << " "
+				<< (c.isTrigger ? 1 : 0) << " "
+				<< c.layer << " " << c.mask << " "
+				<< c.halfExtents.x << " " << c.halfExtents.y << " "
+				<< c.radius << " "
+				<< c.offset.x << " " << c.offset.y << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasCollider2D = true;
+			int shape = static_cast<int>(Collider2D::Shape::AABB);
+			int isTrigger = 0;
+			if (!(in >> shape >> isTrigger >>
+				  ent.collider2D.layer >> ent.collider2D.mask >>
+				  ent.collider2D.halfExtents.x >> ent.collider2D.halfExtents.y >>
+				  ent.collider2D.radius >>
+				  ent.collider2D.offset.x >> ent.collider2D.offset.y))
+			{
+				outError = "Failed reading Collider2D component.";
+				return false;
+			}
+
+			ent.collider2D.shape = (shape == static_cast<int>(Collider2D::Shape::Circle))
+									   ? Collider2D::Shape::Circle
+									   : Collider2D::Shape::AABB;
+			ent.collider2D.isTrigger = (isTrigger != 0);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::RigidBody2DCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<RigidBody2D>(e))
+				return;
+
+			const RigidBody2D &c = registry.Get<RigidBody2D>(e);
+			out << "RIGIDBODY2D "
+				<< c.velocity.x << " " << c.velocity.y << " " << c.velocity.z << " "
+				<< c.accumulatedForces.x << " " << c.accumulatedForces.y << " " << c.accumulatedForces.z << " "
+				<< c.angularVelocity.x << " " << c.angularVelocity.y << " " << c.angularVelocity.z << " "
+				<< c.mass << " "
+				<< c.linearDamping << " "
+				<< c.angularDamping << " "
+				<< (c.isKinematic ? 1 : 0) << " "
+				<< (c.freezeVelocityX ? 1 : 0) << " "
+				<< (c.freezeVelocityY ? 1 : 0) << " "
+				<< (c.freezeVelocityZ ? 1 : 0) << " "
+				<< (c.freezeAngularVelocityX ? 1 : 0) << " "
+				<< (c.freezeAngularVelocityY ? 1 : 0) << " "
+				<< (c.freezeAngularVelocityZ ? 1 : 0) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasRigidBody2D = true;
+			std::string rest;
+			std::getline(in, rest);
+			if (rest.empty())
+			{
+				outError = "Failed reading RigidBody2D component.";
+				return false;
+			}
+
+			std::istringstream ls(rest);
+			std::vector<float> values;
+			float value = 0.f;
+			while (ls >> value)
+				values.push_back(value);
+
+			if (values.size() >= 19u)
+			{
+				ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], values[2]);
+				ent.rigidBody2D.accumulatedForces = glm::vec3(values[3], values[4], values[5]);
+				ent.rigidBody2D.angularVelocity = glm::vec3(values[6], values[7], values[8]);
+				ent.rigidBody2D.mass = values[9];
+				ent.rigidBody2D.linearDamping = values[10];
+				ent.rigidBody2D.angularDamping = values[11];
+				ent.rigidBody2D.isKinematic = (values[12] != 0.f);
+				ent.rigidBody2D.freezeVelocityX = (values[13] != 0.f);
+				ent.rigidBody2D.freezeVelocityY = (values[14] != 0.f);
+				ent.rigidBody2D.freezeVelocityZ = (values[15] != 0.f);
+				ent.rigidBody2D.freezeAngularVelocityX = (values[16] != 0.f);
+				ent.rigidBody2D.freezeAngularVelocityY = (values[17] != 0.f);
+				ent.rigidBody2D.freezeAngularVelocityZ = (values[18] != 0.f);
+				return true;
+			}
+
+			if (values.size() >= 18u)
+			{
+				ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], values[2]);
+				ent.rigidBody2D.accumulatedForces = glm::vec3(values[3], values[4], values[5]);
+				ent.rigidBody2D.angularVelocity = glm::vec3(values[6], values[7], values[8]);
+				ent.rigidBody2D.mass = values[9];
+				ent.rigidBody2D.linearDamping = values[10];
+				ent.rigidBody2D.angularDamping = 0.f;
+				ent.rigidBody2D.isKinematic = (values[11] != 0.f);
+				ent.rigidBody2D.freezeVelocityX = (values[12] != 0.f);
+				ent.rigidBody2D.freezeVelocityY = (values[13] != 0.f);
+				ent.rigidBody2D.freezeVelocityZ = (values[14] != 0.f);
+				ent.rigidBody2D.freezeAngularVelocityX = (values[15] != 0.f);
+				ent.rigidBody2D.freezeAngularVelocityY = (values[16] != 0.f);
+				ent.rigidBody2D.freezeAngularVelocityZ = (values[17] != 0.f);
+				return true;
+			}
+
+			if (values.size() >= 6u)
+			{
+				ent.rigidBody2D.velocity = glm::vec3(values[0], values[1], 0.f);
+				ent.rigidBody2D.accumulatedForces = glm::vec3(values[2], values[3], 0.f);
+				ent.rigidBody2D.angularVelocity = glm::vec3(0.f, 0.f, 0.f);
+				ent.rigidBody2D.mass = values[4];
+				ent.rigidBody2D.linearDamping = values[5];
+				return true;
+			}
+
+			outError = "Failed reading RigidBody2D component.";
+			return false;
+		}
+	};
+
+	struct ComponentCodecs::PhysicsBody2DCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<PhysicsBody2D>(e))
+				return;
+
+			const PhysicsBody2D &c = registry.Get<PhysicsBody2D>(e);
+			out << "PHYSICSBODY2D " << (c.enabled ? 1 : 0) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasPhysicsBody2D = true;
+			int enabled = 1;
+			if (!(in >> enabled))
+			{
+				outError = "Failed reading PhysicsBody2D component.";
+				return false;
+			}
+
+			ent.physicsBody2D.enabled = (enabled != 0);
+			return true;
+		}
+	};
+
 	struct ComponentCodecs::MaterialCodec
 	{
 		static void Write(const Registry &registry, Entity e, std::ostream &out)
@@ -462,9 +627,9 @@ namespace AthSceneIO
 
 			const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
 			out << "MATERIAL_V2 "
-			    << c.shader.id << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(shaderPath)) << " "
-			    << metadata.parameters.size() << "\n";
+				<< c.shader.id << " "
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(shaderPath)) << " "
+				<< metadata.parameters.size() << "\n";
 
 			for (const MaterialParameterMetadata &desc : metadata.parameters)
 			{
@@ -479,8 +644,8 @@ namespace AthSceneIO
 					value = it->second;
 
 				out << "MATERIAL_PARAM "
-				    << std::quoted(desc.name) << " "
-				    << static_cast<int>(desc.type) << " ";
+					<< std::quoted(desc.name) << " "
+					<< static_cast<int>(desc.type) << " ";
 
 				switch (desc.type)
 				{
@@ -495,7 +660,7 @@ namespace AthSceneIO
 					break;
 				case MaterialParameterType::Vec4:
 					out << value.numericValue.x << " " << value.numericValue.y << " "
-					    << value.numericValue.z << " " << value.numericValue.w;
+						<< value.numericValue.z << " " << value.numericValue.w;
 					break;
 				case MaterialParameterType::Texture2D:
 					out << std::quoted(ScenePathResolver::ToRelativePathForSave(value.texturePath));
@@ -524,7 +689,7 @@ namespace AthSceneIO
 				std::istringstream ls(rest);
 
 				if (!(ls >> ent.material.specularTexture.id >> ent.material.normalTexture.id >> ent.material.emissionTexture.id >>
-				      ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
+					  ent.material.tint.x >> ent.material.tint.y >> ent.material.tint.z >> ent.material.tint.w))
 				{
 					ls.clear();
 					ls.str(rest);
@@ -537,11 +702,11 @@ namespace AthSceneIO
 				else
 				{
 					(void)(ls >> ent.material.specularStrength >> ent.material.shininess >>
-					      ent.material.normalStrength >> ent.material.emissionStrength);
+						   ent.material.normalStrength >> ent.material.emissionStrength);
 					(void)(ls >> std::quoted(ent.material.texturePath) >>
-					      std::quoted(ent.material.specularTexturePath) >>
-					      std::quoted(ent.material.normalTexturePath) >>
-					      std::quoted(ent.material.emissionTexturePath));
+						   std::quoted(ent.material.specularTexturePath) >>
+						   std::quoted(ent.material.normalTexturePath) >>
+						   std::quoted(ent.material.emissionTexturePath));
 				}
 			}
 			return true;
@@ -605,7 +770,7 @@ namespace AthSceneIO
 				case 3:
 					value.type = MaterialParameterType::Vec4;
 					if (!(in >> value.numericValue.x >> value.numericValue.y >>
-					      value.numericValue.z >> value.numericValue.w))
+						  value.numericValue.z >> value.numericValue.w))
 					{
 						outError = "Failed reading vec4 Material_V2 parameter value.";
 						return false;
@@ -639,8 +804,8 @@ namespace AthSceneIO
 				return;
 			const Mesh &c = registry.Get<Mesh>(e);
 			out << "MESH "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.meshPath)) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << "\n";
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(c.meshPath)) << " "
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -656,10 +821,10 @@ namespace AthSceneIO
 	};
 
 	bool AthSceneWriter::SaveRegistry(const Registry &registry,
-	                                  const std::string &sceneType,
-	                                  const std::string &sceneName,
-	                                  const std::string &path,
-	                                  std::string &outError)
+									  const std::string &sceneType,
+									  const std::string &sceneName,
+									  const std::string &path,
+									  std::string &outError)
 	{
 		std::filesystem::path outPath(path);
 		if (outPath.has_parent_path())
@@ -691,6 +856,9 @@ namespace AthSceneIO
 			ComponentCodecs::SpinCodec::Write(registry, e, out);
 			ComponentCodecs::LightEmitterCodec::Write(registry, e, out);
 			ComponentCodecs::SpriteCodec::Write(registry, e, out);
+			ComponentCodecs::Collider2DCodec::Write(registry, e, out);
+			ComponentCodecs::RigidBody2DCodec::Write(registry, e, out);
+			ComponentCodecs::PhysicsBody2DCodec::Write(registry, e, out);
 			ComponentCodecs::MaterialCodec::Write(registry, e, out);
 			ComponentCodecs::MeshCodec::Write(registry, e, out);
 
@@ -738,10 +906,10 @@ namespace AthSceneIO
 	}
 
 	bool AthSceneReader::LoadRegistry(Registry &registry,
-	                                  const std::string &expectedSceneType,
-	                                  std::string &inOutSceneName,
-	                                  const std::string &path,
-	                                  std::string &outError)
+									  const std::string &expectedSceneType,
+									  std::string &inOutSceneName,
+									  const std::string &path,
+									  std::string &outError)
 	{
 		std::ifstream in(path);
 		if (!in)
@@ -875,6 +1043,27 @@ namespace AthSceneIO
 					continue;
 				}
 
+				if (key == "COLLIDER2D")
+				{
+					if (!ComponentCodecs::Collider2DCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "RIGIDBODY2D")
+				{
+					if (!ComponentCodecs::RigidBody2DCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "PHYSICSBODY2D")
+				{
+					if (!ComponentCodecs::PhysicsBody2DCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
 				if (key == "MATERIAL")
 				{
 					if (!ComponentCodecs::MaterialCodec::Read(in, ent, outError))
@@ -944,6 +1133,12 @@ namespace AthSceneIO
 				registry.Emplace<LightEmitter>(e, ent.light);
 			if (ent.hasSprite)
 				registry.Emplace<Sprite>(e, ent.sprite);
+			if (ent.hasCollider2D)
+				registry.Emplace<Collider2D>(e, ent.collider2D);
+			if (ent.hasRigidBody2D)
+				registry.Emplace<RigidBody2D>(e, ent.rigidBody2D);
+			if (ent.hasPhysicsBody2D)
+				registry.Emplace<PhysicsBody2D>(e, ent.physicsBody2D);
 			if (ent.hasMaterial)
 				registry.Emplace<Material>(e, ent.material);
 			if (ent.hasMesh)

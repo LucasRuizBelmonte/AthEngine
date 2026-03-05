@@ -15,6 +15,13 @@
 #pragma endregion
 
 #pragma region Declarations
+namespace prefab
+{
+	class PrefabRegistry;
+	struct PrefabSpawnOverrides;
+}
+struct Transform;
+
 struct EditorSystemToggle
 {
     const char *name = "";
@@ -39,6 +46,20 @@ public:
      * @brief Executes Get Editor Registry.
      */
     virtual Registry &GetEditorRegistry() = 0;
+    /**
+     * @brief Returns the in-memory prefab registry for this scene.
+     */
+    virtual prefab::PrefabRegistry &GetPrefabRegistry() = 0;
+    /**
+     * @brief Spawns a prefab at the provided transform.
+     */
+    virtual Entity SpawnPrefab(const std::string &name, const Transform &at) = 0;
+    /**
+     * @brief Spawns a prefab with per-spawn component overrides.
+     */
+    virtual Entity SpawnPrefab(const std::string &name,
+                               const Transform &at,
+                               const prefab::PrefabSpawnOverrides &overrides) = 0;
     /**
      * @brief Executes Get Editor Systems.
      */

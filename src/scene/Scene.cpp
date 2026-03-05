@@ -5,6 +5,7 @@
 #include "../rendering/Renderer.h"
 #include "../rendering/ModelLoader.h"
 #include "../material/MaterialMetadata.h"
+#include "../prefab/BuiltinPrefabs.h"
 
 #include "EditorSceneIO.h"
 
@@ -106,6 +107,7 @@ Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
 	RegisterBuiltin2DAnimationClips();
+	RegisterBuiltinPrefabs();
 }
 
 const char *Scene::GetName() const
@@ -213,6 +215,38 @@ const PhysicsEvents &Scene::GetPhysicsEvents() const
 Registry &Scene::GetEditorRegistry()
 {
 	return m_registry;
+}
+
+prefab::PrefabRegistry &Scene::GetPrefabRegistry()
+{
+	return m_prefabRegistry;
+}
+
+Entity Scene::SpawnPrefab(const std::string &name, const Transform &at)
+{
+	return SpawnPrefab(name, at, prefab::PrefabSpawnOverrides{});
+}
+
+Entity Scene::SpawnPrefab(const std::string &name,
+                          const Transform &at,
+                          const prefab::PrefabSpawnOverrides &overrides)
+{
+	const Entity spawned = m_prefabRegistry.SpawnPrefab(m_registry, name, at, overrides);
+	if (spawned == kInvalidEntity || !m_registry.IsAlive(spawned))
+		return kInvalidEntity;
+
+	if (m_registry.Has<Sprite>(spawned))
+	{
+		const Sprite currentSprite = m_registry.Get<Sprite>(spawned);
+		std::string ignoredError;
+
+		if (!currentSprite.texturePath.empty())
+			(void)EditorSetSpriteTexture(spawned, currentSprite.texturePath, ignoredError);
+		if (!currentSprite.materialPath.empty())
+			(void)EditorSetSpriteMaterial(spawned, currentSprite.materialPath, ignoredError);
+	}
+
+	return spawned;
 }
 
 void Scene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
@@ -576,6 +610,11 @@ void Scene::BuildBaseTemplate()
 	}
 
 	ApplySceneDimensionRules();
+}
+
+void Scene::RegisterBuiltinPrefabs()
+{
+	prefab::RegisterBuiltinPrefabs(m_prefabRegistry);
 }
 
 void Scene::RefreshRuntimeReferences()

@@ -22,6 +22,7 @@
 #include "../physics2d/Physics2DSystem.h"
 #include "../animation2d/Animation2DLibrary.h"
 #include "../animation2d/SpriteAnimationSystem.h"
+#include "../prefab/PrefabRegistry.h"
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -42,7 +43,7 @@ class Renderer;
 class Scene final : public IScene, public IEditorScene
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
 	/**
 	 * @brief Constructs a new Scene instance.
 	 */
@@ -98,6 +99,20 @@ public:
 	 * @brief Executes Get Editor Registry.
 	 */
 	Registry &GetEditorRegistry() override;
+	/**
+	 * @brief Executes Get Prefab Registry.
+	 */
+	prefab::PrefabRegistry &GetPrefabRegistry() override;
+	/**
+	 * @brief Spawns a prefab at the given transform.
+	 */
+	Entity SpawnPrefab(const std::string &name, const Transform &at) override;
+	/**
+	 * @brief Spawns a prefab using per-spawn overrides.
+	 */
+	Entity SpawnPrefab(const std::string &name,
+					   const Transform &at,
+					   const prefab::PrefabSpawnOverrides &overrides) override;
 	/**
 	 * @brief Executes Get Editor Systems.
 	 */
@@ -155,10 +170,11 @@ public:
 	 */
 	bool EditorApplyMaterial(Entity e, std::string &outError) override;
 
-	#pragma endregion
+#pragma endregion
 private:
-	#pragma region Private Implementation
+#pragma region Private Implementation
 	void BuildBaseTemplate();
+	void RegisterBuiltinPrefabs();
 	void RefreshRuntimeReferences();
 	Entity ResolvePrimaryCamera();
 	void ApplySceneDimensionRules();
@@ -167,6 +183,7 @@ private:
 	void RegisterBuiltin2DAnimationClips();
 
 	Registry m_registry;
+	prefab::PrefabRegistry m_prefabRegistry;
 
 	ClearColorSystem m_clearColorSystem;
 	SpinSystem m_spinSystem;
@@ -197,6 +214,6 @@ private:
 	EditorSceneDimension m_dimension = EditorSceneDimension::Scene3D;
 	bool m_editorInputEnabled = false;
 	float m_fixedSimulationNow = 0.0f;
-	#pragma endregion
+#pragma endregion
 };
 #pragma endregion

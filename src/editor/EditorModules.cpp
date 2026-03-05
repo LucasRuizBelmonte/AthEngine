@@ -35,6 +35,7 @@
 #include "../physics2d/Physics2DAlgorithms.h"
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
+#include "../prefab/PrefabRegistry.h"
 #include "../thirdparty/ImGuizmo.h"
 #include "../thirdparty/stb_image.h"
 #include "SceneEditor.h"
@@ -1714,6 +1715,44 @@ namespace editorui
 		return e;
 	}
 
+	static Transform BuildPrefabSpawnTransform(IEditorScene *editorScene, const SceneEditorState &se)
+	{
+		Transform at;
+		if (!editorScene)
+			return at;
+
+		Registry &registry = editorScene->GetEditorRegistry();
+		if (se.selectedEntity != kInvalidEntity &&
+		    registry.IsAlive(se.selectedEntity) &&
+		    registry.Has<Transform>(se.selectedEntity))
+		{
+			at = registry.Get<Transform>(se.selectedEntity);
+		}
+
+		return at;
+	}
+
+	static Entity AddPrefab(IEditorScene *editorScene,
+	                        SceneEditorState &se,
+	                        const std::string &prefabName,
+	                        const prefab::PrefabSpawnOverrides *overrides = nullptr)
+	{
+		if (!editorScene)
+			return kInvalidEntity;
+
+		const Transform at = BuildPrefabSpawnTransform(editorScene, se);
+		const Entity entity = overrides
+		                          ? editorScene->SpawnPrefab(prefabName, at, *overrides)
+		                          : editorScene->SpawnPrefab(prefabName, at);
+
+		if (entity == kInvalidEntity)
+			se.inspectorStatus = "Prefab spawn failed: " + prefabName;
+		else
+			se.inspectorStatus.clear();
+
+		return entity;
+	}
+
 	static void AddSystemPopup(IEditorScene *editorScene)
 	{
 		if (!editorScene)
@@ -2060,6 +2099,46 @@ namespace editorui
 			{
 				Registry &r = es->GetEditorRegistry();
 				se.selectedEntity = SceneEditor::CreateEntity(r, "New Entity", se.selectedEntity, true);
+			}
+
+			if (ImGui::BeginMenu("Prefab"))
+			{
+				if (!canEdit)
+				{
+					ImGui::MenuItem("Requires editable scene", nullptr, false, false);
+				}
+				else
+				{
+					std::vector<std::string> prefabNames;
+					es->GetPrefabRegistry().GetNames(prefabNames);
+					if (prefabNames.empty())
+					{
+						ImGui::MenuItem("No prefabs registered", nullptr, false, false);
+					}
+					else
+					{
+						for (const std::string &prefabName : prefabNames)
+						{
+							ImGui::PushID(prefabName.c_str());
+							if (ImGui::MenuItem(prefabName.c_str()))
+								se.selectedEntity = AddPrefab(es, se, prefabName);
+							ImGui::PopID();
+						}
+					}
+
+					if (es->GetPrefabRegistry().Has("EnemyBasic"))
+					{
+						ImGui::Separator();
+						if (ImGui::MenuItem("EnemyBasic (Override Tint/Size)"))
+						{
+							prefab::PrefabSpawnOverrides overrides;
+							overrides.spriteTint = glm::vec4(1.0f, 0.2f, 0.2f, 1.0f);
+							overrides.spriteSize = glm::vec2(1.4f, 1.4f);
+							se.selectedEntity = AddPrefab(es, se, "EnemyBasic", &overrides);
+						}
+					}
+				}
+				ImGui::EndMenu();
 			}
 
 			if (ImGui::BeginMenu("Add Basic Shape"))

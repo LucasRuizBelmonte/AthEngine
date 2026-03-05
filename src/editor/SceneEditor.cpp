@@ -58,6 +58,7 @@ struct BufferedStringEditState
 	bool editing = false;
 	std::string originalValue;
 	std::string buffer;
+	std::vector<char> inputBuffer;
 };
 
 static std::unordered_map<std::string, BufferedStringEditState> s_bufferedStringEdits;
@@ -74,13 +75,15 @@ static void ResetBufferedStringEdit(Entity entity, const char *fieldKey, const s
 	state.editing = false;
 	state.originalValue = value;
 	state.buffer = value;
+	state.inputBuffer.assign(std::max<size_t>(state.buffer.size() + 1u, 64u), '\0');
+	std::snprintf(state.inputBuffer.data(), state.inputBuffer.size(), "%s", state.buffer.c_str());
 }
 
 static bool DrawBufferedStringInput(Entity entity,
-                                    const char *fieldKey,
-                                    const char *inputLabel,
-                                    std::string &inOutValue,
-                                    size_t minCapacity)
+									const char *fieldKey,
+									const char *inputLabel,
+									std::string &inOutValue,
+									size_t minCapacity)
 {
 	BufferedStringEditState &state = s_bufferedStringEdits[BuildBufferedStringEditKey(entity, fieldKey)];
 	if (!state.editing)
@@ -90,13 +93,16 @@ static bool DrawBufferedStringInput(Entity entity,
 	}
 
 	const size_t capacity = std::max(minCapacity, state.buffer.size() + 1u);
-	std::vector<char> inputBuffer(capacity, '\0');
-	std::snprintf(inputBuffer.data(), inputBuffer.size(), "%s", state.buffer.c_str());
+	if (state.inputBuffer.size() < capacity)
+		state.inputBuffer.resize(capacity, '\0');
+
+	// Keep the editable character buffer persistent across frames.
+	std::snprintf(state.inputBuffer.data(), state.inputBuffer.size(), "%s", state.buffer.c_str());
 
 	const bool enterPressed = ImGui::InputText(inputLabel,
-	                                           inputBuffer.data(),
-	                                           inputBuffer.size(),
-	                                           ImGuiInputTextFlags_EnterReturnsTrue);
+											   state.inputBuffer.data(),
+											   state.inputBuffer.size(),
+											   ImGuiInputTextFlags_EnterReturnsTrue);
 
 	if (ImGui::IsItemActivated())
 	{
@@ -112,7 +118,7 @@ static bool DrawBufferedStringInput(Entity entity,
 			state.editing = true;
 			state.originalValue = inOutValue;
 		}
-		state.buffer = inputBuffer.data();
+		state.buffer = state.inputBuffer.data();
 	}
 
 	if (state.editing && ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape))
@@ -186,12 +192,12 @@ static void ApplySnapToFloat(float &value, float minValue = 0.0f, float maxValue
 }
 
 static bool DragFloatWithSnap(const char *label,
-                              float *v,
-                              float speed,
-                              float minValue = 0.0f,
-                              float maxValue = 0.0f,
-                              const char *format = "%.3f",
-                              ImGuiSliderFlags flags = 0)
+							  float *v,
+							  float speed,
+							  float minValue = 0.0f,
+							  float maxValue = 0.0f,
+							  const char *format = "%.3f",
+							  ImGuiSliderFlags flags = 0)
 {
 	const bool changed = ImGui::DragFloat(label, v, speed, minValue, maxValue, format, flags);
 	if (changed)
@@ -200,10 +206,10 @@ static bool DragFloatWithSnap(const char *label,
 }
 
 static bool DragFloat2WithSnap(const char *label,
-                               float *v,
-                               float speed,
-                               const char *format = "%.3f",
-                               ImGuiSliderFlags flags = 0)
+							   float *v,
+							   float speed,
+							   const char *format = "%.3f",
+							   ImGuiSliderFlags flags = 0)
 {
 	const bool changed = ImGui::DragFloat2(label, v, speed, 0.0f, 0.0f, format, flags);
 	if (changed && ShouldSnapDraggedValues())
@@ -216,12 +222,12 @@ static bool DragFloat2WithSnap(const char *label,
 }
 
 static bool DragFloat3WithSnap(const char *label,
-                               float *v,
-                               float speed,
-                               float minValue = 0.0f,
-                               float maxValue = 0.0f,
-                               const char *format = "%.3f",
-                               ImGuiSliderFlags flags = 0)
+							   float *v,
+							   float speed,
+							   float minValue = 0.0f,
+							   float maxValue = 0.0f,
+							   const char *format = "%.3f",
+							   ImGuiSliderFlags flags = 0)
 {
 	const bool changed = ImGui::DragFloat3(label, v, speed, minValue, maxValue, format, flags);
 	if (changed && ShouldSnapDraggedValues())
@@ -241,10 +247,10 @@ static bool DragFloat3WithSnap(const char *label,
 }
 
 static bool DragFloat4WithSnap(const char *label,
-                               float *v,
-                               float speed,
-                               const char *format = "%.3f",
-                               ImGuiSliderFlags flags = 0)
+							   float *v,
+							   float speed,
+							   const char *format = "%.3f",
+							   ImGuiSliderFlags flags = 0)
 {
 	const bool changed = ImGui::DragFloat4(label, v, speed, 0.0f, 0.0f, format, flags);
 	if (changed && ShouldSnapDraggedValues())
@@ -277,7 +283,7 @@ static const char *AssetPickerTypeLabel(AssetPickerType type)
 static std::string ToLowerCopy(std::string text)
 {
 	std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c)
-	               { return static_cast<char>(std::tolower(c)); });
+				   { return static_cast<char>(std::tolower(c)); });
 	return text;
 }
 
@@ -295,12 +301,12 @@ static bool PathMatchesAssetType(const std::filesystem::path &path, AssetPickerT
 	{
 	case AssetPickerType::Texture:
 		return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" ||
-		       ext == ".gif" || ext == ".hdr" || ext == ".psd";
+			   ext == ".gif" || ext == ".hdr" || ext == ".psd";
 	case AssetPickerType::Material:
 		return ext == ".fs" || ext == ".frag" || ext == ".glsl";
 	case AssetPickerType::Mesh:
 		return ext == ".fbx" || ext == ".obj" || ext == ".dae" || ext == ".gltf" || ext == ".glb" ||
-		       ext == ".3ds" || ext == ".blend";
+			   ext == ".3ds" || ext == ".blend";
 	case AssetPickerType::None:
 	default:
 		return false;
@@ -356,10 +362,10 @@ static std::vector<std::string> CollectAssetPickerEntries(AssetPickerType type)
 }
 
 static void RequestAssetPicker(AssetPickerRuntime &picker,
-	                               Entity entity,
-	                               const char *fieldKey,
-	                               AssetPickerType type,
-	                               const std::string &currentValue)
+							   Entity entity,
+							   const char *fieldKey,
+							   AssetPickerType type,
+							   const std::string &currentValue)
 {
 	picker.openRequested = true;
 	picker.entity = entity;
@@ -381,9 +387,9 @@ static void RequestAssetPicker(AssetPickerRuntime &picker,
 }
 
 static bool ConsumeAssetPickerCommit(AssetPickerRuntime &picker,
-	                                     Entity entity,
-	                                     const char *fieldKey,
-	                                     std::string &inOutValue)
+									 Entity entity,
+									 const char *fieldKey,
+									 std::string &inOutValue)
 {
 	if (!picker.commitPending)
 		return false;
@@ -403,11 +409,11 @@ static bool ConsumeAssetPickerCommit(AssetPickerRuntime &picker,
 }
 
 static bool DrawPathFieldWithAssetPicker(AssetPickerRuntime &picker,
-	                                     Entity entity,
-	                                     const char *label,
-	                                     const char *fieldKey,
-	                                     AssetPickerType type,
-	                                     std::string &inOutValue)
+										 Entity entity,
+										 const char *label,
+										 const char *fieldKey,
+										 AssetPickerType type,
+										 std::string &inOutValue)
 {
 	bool changed = ConsumeAssetPickerCommit(picker, entity, fieldKey, inOutValue);
 
@@ -476,7 +482,7 @@ static void DrawAssetPickerPopup(AssetPickerRuntime &picker)
 		ImGui::TextUnformatted("No matching assets.");
 
 	const bool canSelect = picker.selection >= 0 &&
-	                       picker.selection < static_cast<int>(picker.entries.size());
+						   picker.selection < static_cast<int>(picker.entries.size());
 	if (!canSelect)
 		ImGui::BeginDisabled();
 	if (ImGui::Button("Select"))
@@ -899,12 +905,12 @@ static void DrawRotationEulerDegrees(const char *label, glm::vec3 &rotationEuler
 		WrapDegrees360(glm::degrees(rotationEulerRadians.z))};
 
 	if (DragFloat3WithSnap(label,
-	                       &deg.x,
-	                       speedDeg,
-	                       0.0f,
-	                       360.0f,
-	                       "%.3f",
-	                       ImGuiSliderFlags_AlwaysClamp))
+						   &deg.x,
+						   speedDeg,
+						   0.0f,
+						   360.0f,
+						   "%.3f",
+						   ImGuiSliderFlags_AlwaysClamp))
 	{
 		deg.x = WrapDegrees360(deg.x);
 		deg.y = WrapDegrees360(deg.y);
@@ -1201,7 +1207,7 @@ void SceneEditor::DrawInspector(Registry &r, SceneEditorState &st, IEditorScene 
 		DrawVec2("Size", &s.size.x, 0.05f);
 		int spritePivot = SpritePivotToIndex(s.pivot);
 		if (ImGui::Combo("Sprite Pivot", &spritePivot,
-		                 "Center\0Top Left\0Top\0Top Right\0Left\0Right\0Bottom Left\0Bottom\0Bottom Right\0"))
+						 "Center\0Top Left\0Top\0Top Right\0Left\0Right\0Bottom Left\0Bottom\0Bottom Right\0"))
 		{
 			s.pivot = SpritePivotFromIndex(spritePivot);
 		}

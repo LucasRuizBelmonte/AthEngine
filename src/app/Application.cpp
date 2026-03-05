@@ -13,7 +13,6 @@
 #include "../input/Input.h"
 #include "../editor/EditorUI.h"
 
-
 Application::Application()
 {
 	m_Window = std::make_unique<Window>(1280, 720, "AthEngine");
@@ -36,12 +35,65 @@ Application::Application()
 	m_LastTime = (float)glfwGetTime();
 }
 
-Application::~Application()
+Application::~Application() noexcept
 {
-	DestroySceneRenderTarget();
-	ShutdownImGui();
-}
+	try
+	{
+		if (m_Window && m_Window->GetNative())
+			glfwMakeContextCurrent(m_Window->GetNative());
+	}
+	catch (...)
+	{
+	}
 
+	try
+	{
+		m_Scenes.reset();
+	}
+	catch (...)
+	{
+	}
+
+	try
+	{
+		m_Renderer.reset();
+	}
+	catch (...)
+	{
+	}
+
+	try
+	{
+		m_TextureManager = TextureManager{};
+	}
+	catch (...)
+	{
+	}
+
+	try
+	{
+		m_ShaderManager = ShaderManager{};
+	}
+	catch (...)
+	{
+	}
+
+	try
+	{
+		DestroySceneRenderTarget();
+	}
+	catch (...)
+	{
+	}
+
+	try
+	{
+		ShutdownImGui();
+	}
+	catch (...)
+	{
+	}
+}
 
 #pragma region Main Loop
 
@@ -50,6 +102,9 @@ void Application::Run()
 	while (!m_Window->ShouldClose())
 	{
 		m_Window->PollEvents();
+		if (m_Window->ShouldClose())
+			break;
+
 		Input::Update();
 
 		float now = (float)glfwGetTime();
@@ -65,7 +120,12 @@ void Application::Run()
 		glfwGetFramebufferSize(m_Window->GetNative(), &width, &height);
 
 		HandleSceneInput();
+		if (m_Window->ShouldClose())
+			break;
+
 		m_Scenes->Update(dt, now);
+		if (m_Window->ShouldClose())
+			break;
 
 		if (m_SceneFbo == 0)
 			EnsureSceneRenderTarget(width, height);
@@ -102,6 +162,9 @@ void Application::Run()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		EndImGuiFrame();
+
+		if (m_Window->ShouldClose())
+			break;
 
 		m_Window->SwapBuffers();
 	}
@@ -242,13 +305,23 @@ void Application::InitImGui()
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 330");
+	m_imguiInitialized = true;
 }
 
 void Application::ShutdownImGui()
 {
+	if (!m_imguiInitialized)
+		return;
+	if (ImGui::GetCurrentContext() == nullptr)
+	{
+		m_imguiInitialized = false;
+		return;
+	}
+
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
+	m_imguiInitialized = false;
 }
 
 void Application::BeginImGuiFrame()

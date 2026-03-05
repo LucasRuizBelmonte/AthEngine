@@ -23,7 +23,7 @@
 class Application
 {
 public:
-	#pragma region Lifecycle
+#pragma region Lifecycle
 
 	/**
 	 * @brief Constructs the application, initializing core subsystems.
@@ -40,7 +40,7 @@ public:
 	 * Automatically destroys managed objects and shuts down GLFW when the
 	 * last context is gone.
 	 */
-	~Application();
+	~Application() noexcept;
 
 	/**
 	 * @brief Runs the main application loop.
@@ -50,9 +50,9 @@ public:
 	 */
 	void Run();
 
-	#pragma endregion
+#pragma endregion
 
-	#pragma region Input Handling
+#pragma region Input Handling
 
 	/**
 	 * @brief Toggles mouse capture mode.
@@ -61,9 +61,9 @@ public:
 	 */
 	void ToggleMouseCapture();
 
-	#pragma endregion
+#pragma endregion
 
-	#pragma region ImGui Integration
+#pragma region ImGui Integration
 
 	/**
 	 * @brief Executes Init Im Gui.
@@ -82,7 +82,7 @@ public:
 	 */
 	void EndImGuiFrame();
 
-	#pragma endregion
+#pragma endregion
 
 private:
 	/**
@@ -94,7 +94,7 @@ private:
 	 */
 	void DestroySceneRenderTarget();
 
-	#pragma region Input Processing
+#pragma region Input Processing
 
 	/**
 	 * @brief Process input related to scene management.
@@ -104,9 +104,9 @@ private:
 	 */
 	void HandleSceneInput();
 
-	#pragma endregion
+#pragma endregion
 
-	#pragma region Core Subsystems
+#pragma region Core Subsystems
 
 	GlfwContext m_Glfw;
 
@@ -116,13 +116,13 @@ private:
 	std::unique_ptr<Renderer> m_Renderer;
 	std::unique_ptr<SceneManager> m_Scenes;
 
-	#pragma endregion
+#pragma endregion
 
-	#pragma region Frame Timing
+#pragma region Frame Timing
 
 	float m_LastTime = 0.0f;
 
-	#pragma endregion
+#pragma endregion
 
 	unsigned int m_SceneFbo = 0;
 	unsigned int m_SceneColorTexture = 0;
@@ -130,12 +130,13 @@ private:
 	int m_SceneTargetWidth = 0;
 	int m_SceneTargetHeight = 0;
 
-	#pragma region Input State
+#pragma region Input State
 
 	double m_LastMouseX = 0.0;
 	double m_LastMouseY = 0.0;
 	bool m_MouseCaptured = false;
 	bool m_RightMouseCaptureOwned = false;
+	bool m_imguiInitialized = false;
 
-	#pragma endregion
+#pragma endregion
 };

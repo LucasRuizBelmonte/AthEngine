@@ -10,9 +10,39 @@
 #include "IEditorScene.h"
 #include "EditorSceneIO.h"
 #include <algorithm>
+#include <thread>
+#include <chrono>
 #pragma endregion
 
 #pragma region Function Definitions
+
+void SceneManager::Shutdown()
+{
+	if (!m_stack.empty())
+	{
+		for (size_t i = 0; i < m_stack.size(); ++i)
+		{
+			if (m_stack[i])
+				m_stack[i]->OnDetach(m_window);
+		}
+	}
+
+	if (m_loading)
+		m_loading->OnDetach(m_window);
+	if (m_pending)
+		m_pending->OnDetach(m_window);
+
+	while (!m_loader.IsIdle())
+	{
+		m_loader.Update();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+
+	m_stack.clear();
+	m_sceneNames.clear();
+	m_removeQueue.clear();
+}
+
 SceneManager::SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window)
 	: m_shaders(shaders), m_textures(textures), m_window(window)
 {
@@ -289,10 +319,10 @@ bool SceneManager::QueueOpenSceneFromFile(const std::string &path, std::string &
 		return false;
 
 	if (header.sceneType != "Scene" &&
-	    header.sceneType != "Scene2D" &&
-	    header.sceneType != "Scene3D" &&
-	    header.sceneType != "Test2D" &&
-	    header.sceneType != "Test3D")
+		header.sceneType != "Scene2D" &&
+		header.sceneType != "Scene3D" &&
+		header.sceneType != "Test2D" &&
+		header.sceneType != "Test3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;

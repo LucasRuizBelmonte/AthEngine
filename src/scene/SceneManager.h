@@ -33,6 +33,7 @@ public:
      * @brief Constructs a new SceneManager instance.
      */
     SceneManager(ShaderManager &shaders, TextureManager &textures, GLFWwindow &window);
+    ~SceneManager() { Shutdown(); }
 
     /**
      * @brief Executes Request.
@@ -114,6 +115,11 @@ public:
 #pragma endregion
 private:
 #pragma region Private Implementation
+    /**
+     * @brief Executes orderly shutdown for scene lifetime resources.
+     */
+    void Shutdown();
+
     /**
      * @brief Executes Create Scene.
      */

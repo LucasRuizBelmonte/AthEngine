@@ -645,7 +645,6 @@ static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, con
 	std::string err;
 	if (!editorScene->EditorSetMeshPath(e, mesh.meshPath, err))
 	{
-		// Fallback for cases where asset files are missing.
 		mesh.Destroy();
 		if (kind == BasicShapeKind::Box)
 			mesh = MeshFactory::CreateLitBox();

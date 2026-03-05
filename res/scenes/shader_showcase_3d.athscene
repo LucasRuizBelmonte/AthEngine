@@ -1,19 +1,17 @@
 ATHSCENE 1
 TYPE Scene3D
 NAME "Shader Showcase 3D"
-ENTITY_COUNT 19
-ENTITY 1
+ENTITY_COUNT 18
+ENTITY 1048577
 TAG "Camera3D"
 PARENT 4294967295
 TRANSFORM -37.2 17.0587 153.06 -0.0544545 -1.65039 0 1 1 1 0 0 0
-CAMERA 0 -37.2 17.0587 153.06 -0.0793945 -0.0544276 -0.995356 84.2 0.01 529.4 20.9
+CAMERA 0 -37.2 17.0587 153.06 -0.0793918 -0.0544276 -0.995357 84.2 0.01 529.4 20.9
 END_ENTITY
-ENTITY 0
-TAG "House_DoorHeader Copy"
-PARENT 11
-TRANSFORM 0 74.483 44.7537 0 0 0 27.3728 8.3795 8 0 0 0
-MATERIAL 3 0 0 0 0 0.85 0.78 0.68 1 1 32 1 0 "" "" "" ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+ENTITY 18
+TAG "Lights"
+PARENT 4294967295
+TRANSFORM 0 0 0 0 0 0 1 1 1 0 0 0
 END_ENTITY
 ENTITY 2
 TAG "PointLight_InteriorWarm"
@@ -37,84 +35,84 @@ ENTITY 5
 TAG "Ground_Plane"
 PARENT 4294967295
 TRANSFORM 0 -2 0 0 0 0 240 1 240 0 0 0
-MATERIAL 3 0 0 0 0 0.32 0.36 0.3 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.32 0.36 0.3 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/plane.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 6
 TAG "House_BackWall"
 PARENT 4294967295
 TRANSFORM 0 10 -45 0 0 0 53.1412 42 8 0 0 0
-MATERIAL 3 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 7
 TAG "House_LeftWall"
 PARENT 4294967295
 TRANSFORM -45 10 0 0 0 0 8 42 51.3408 0 0 0
-MATERIAL 3 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 8
 TAG "House_RightWall"
 PARENT 4294967295
 TRANSFORM 45 10 0 0 0 0 8 42 49.9129 0 0 0
-MATERIAL 3 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 9
 TAG "House_FrontWall_Left"
 PARENT 4294967295
 TRANSFORM -22 10 45 0 0 0 15 42 8 0 0 0
-MATERIAL 3 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 10
 TAG "House_FrontWall_Right"
 PARENT 4294967295
 TRANSFORM 22 10 45 0 0 0 15 42 8 0 0 0
-MATERIAL 3 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.9 0.82 0.72 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 11
 TAG "House_DoorHeader"
 PARENT 4294967295
 TRANSFORM 0 53.7587 44.7537 0 0 0 43.9375 12.977 8 0 0 0
-MATERIAL 3 0 0 0 0 0.85 0.78 0.68 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.85 0.78 0.68 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 12
 TAG "House_Roof_Left"
 PARENT 4294967295
 TRANSFORM -32 70 0 0 0 0.62 35 8 60 0 0 0
-MATERIAL 3 0 0 0 0 0.58 0.2 0.18 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.58 0.2 0.18 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 13
 TAG "House_Roof_Right"
 PARENT 4294967295
 TRANSFORM 32 70 0 0 0 -0.62 35 8 60 0 0 0
-MATERIAL 3 0 0 0 0 0.58 0.2 0.18 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.58 0.2 0.18 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 14
 TAG "House_Chimney"
 PARENT 4294967295
 TRANSFORM 30 99.4038 -12 0 0 0 12 24 12 0 0 0
-MATERIAL 3 0 0 0 0 0.35 0.35 0.38 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.35 0.35 0.38 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cylinder.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 15
 TAG "House_PorchStep"
 PARENT 4294967295
 TRANSFORM 0 -0.5 56 0 0 0 28 4 14 0 0 0
-MATERIAL 3 0 0 0 0 0.6 0.58 0.55 1 1 32 1 0 "" "" "" ""
+MATERIAL 1 0 0 0 0 0.6 0.58 0.55 1 1 32 1 0 "" "" "" ""
 MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
 END_ENTITY
 ENTITY 16
 TAG "Unlit_Mailbox"
 PARENT 4294967295
 TRANSFORM -30 2 60 0 0.25 0 10 12 10 0 0 0
-MATERIAL 4 0 0 0 0 1 1 1 1 0 1 1 0 "" "" "" ""
+MATERIAL 2 0 0 0 0 1 1 1 1 0 1 1 0 "" "" "" ""
 MESH "res/models/basicShapes/capsule.fbx" "res/shaders/unlit3D.fs"
 END_ENTITY
 ENTITY 17
@@ -122,10 +120,5 @@ TAG "GlobalLight"
 PARENT 18
 TRANSFORM 0 0 0 -1.13523 -0 -0.401251 1 1 1 0 0 0
 LIGHT 0 1 1 1 0.11 10 0.5 0.7 0
-END_ENTITY
-ENTITY 18
-TAG "Lights"
-PARENT 4294967295
-TRANSFORM 0 0 0 0 0 0 1 1 1 0 0 0
 END_ENTITY
 END_SCENE

@@ -13,6 +13,7 @@
 #include <tuple>
 #include <utility>
 #include <algorithm>
+#include <cstdint>
 
 #include "Entity.h"
 #include "SparseSet.h"
@@ -45,16 +46,25 @@ public:
 	 */
 	Entity Create()
 	{
-		Entity e;
+		uint32_t id = 0;
 		if (!m_free.empty())
 		{
-			e = m_free.back();
+			id = m_free.back();
 			m_free.pop_back();
 		}
 		else
 		{
-			e = m_next++;
+			if (m_nextId > kEntityIdMask)
+				return kInvalidEntity;
+			id = m_nextId++;
+			m_generations.push_back(0u);
+			m_aliveFlags.push_back(0u);
+			m_aliveIndex.push_back(npos);
 		}
+
+		Entity e = MakeEntity(id, m_generations[id]);
+		m_aliveFlags[id] = 1u;
+		m_aliveIndex[id] = m_alive.size();
 		m_alive.push_back(e);
 		return e;
 	}
@@ -71,16 +81,27 @@ public:
 	 */
 	void Destroy(Entity e)
 	{
+		if (!IsAlive(e))
+			return;
+
 		for (auto &kv : m_pools)
 			kv.second->RemoveEntity(e);
 
-		auto it = std::find(m_alive.begin(), m_alive.end(), e);
-		if (it != m_alive.end())
+		const uint32_t id = EntityIdOf(e);
+		const size_t idx = m_aliveIndex[id];
+		const size_t last = m_alive.size() - 1;
+		if (idx != last)
 		{
-			*it = m_alive.back();
-			m_alive.pop_back();
+			const Entity moved = m_alive[last];
+			m_alive[idx] = moved;
+			m_aliveIndex[EntityIdOf(moved)] = idx;
 		}
-		m_free.push_back(e);
+		m_alive.pop_back();
+
+		m_aliveFlags[id] = 0u;
+		m_aliveIndex[id] = npos;
+		m_generations[id] = (m_generations[id] + 1u) & kEntityGenerationMask;
+		m_free.push_back(id);
 	}
 
 	/**
@@ -181,7 +202,15 @@ public:
 	 */
 	bool IsAlive(Entity e) const
 	{
-		return std::find(m_alive.begin(), m_alive.end(), e) != m_alive.end();
+		if (e == kInvalidEntity)
+			return false;
+
+		const uint32_t id = EntityIdOf(e);
+		if (id >= m_generations.size())
+			return false;
+
+		return m_aliveFlags[id] != 0u &&
+		       m_generations[id] == EntityGenerationOf(e);
 	}
 
 	/**
@@ -298,11 +327,22 @@ private:
 		return smallest->Entities();
 	}
 
-	// Next entity ID to allocate when free list is empty
-	Entity m_next = 0;
+	static constexpr size_t npos = static_cast<size_t>(-1);
 
-	// Recycled entity IDs available for reuse
-	std::vector<Entity> m_free;
+	// Next entity id to allocate when free list is empty
+	uint32_t m_nextId = 0;
+
+	// Per-id generation (upper bits in Entity handle)
+	std::vector<uint32_t> m_generations;
+
+	// O(1) liveness bit per id
+	std::vector<uint8_t> m_aliveFlags;
+
+	// O(1) index lookup into m_alive per id
+	std::vector<size_t> m_aliveIndex;
+
+	// Recycled entity ids available for reuse
+	std::vector<uint32_t> m_free;
 
 	// Currently alive entities
 	std::vector<Entity> m_alive;

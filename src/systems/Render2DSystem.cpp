@@ -79,8 +79,7 @@ void Render2DSystem::Render(Registry &registry,
 							Renderer &renderer,
 							Entity cameraEntity,
 							int framebufferWidth,
-							int framebufferHeight,
-							const Mesh &quadMesh) const
+							int framebufferHeight)
 {
 	if (cameraEntity == kInvalidEntity)
 		return;
@@ -105,14 +104,16 @@ void Render2DSystem::Render(Registry &registry,
 		glm::vec3(0.f, 1.f, 0.f));
 
 	renderer.SetCamera(view, proj);
+	const uint32_t quadMeshId = renderer.AcquireBuiltinQuad();
+	if (quadMeshId == 0)
+		return;
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	std::vector<Entity> items;
-	registry.ViewEntities<Transform, Sprite>(items);
+	registry.ViewEntities<Transform, Sprite>(m_items);
 
-	std::sort(items.begin(), items.end(), [&](Entity a, Entity b)
+	std::sort(m_items.begin(), m_items.end(), [&](Entity a, Entity b)
 			  {
         const auto& sa = registry.Get<Sprite>(a);
         const auto& sb = registry.Get<Sprite>(b);
@@ -122,7 +123,7 @@ void Render2DSystem::Render(Registry &registry,
         const auto& tb = registry.Get<Transform>(b);
         return ta.worldMatrix[3][2] < tb.worldMatrix[3][2]; });
 
-	for (Entity e : items)
+	for (Entity e : m_items)
 	{
 		const auto &t = registry.Get<Transform>(e);
 		const auto &s = registry.Get<Sprite>(e);
@@ -136,7 +137,7 @@ void Render2DSystem::Render(Registry &registry,
 		const glm::mat4 parentWorld = (parent != kInvalidEntity) ? registry.Get<Transform>(parent).worldMatrix : glm::mat4(1.f);
 		const glm::mat4 localSprite = BuildSpriteModel(t, s, halfW, halfH);
 		const glm::mat4 model = parentWorld * localSprite;
-		renderer.Submit(quadMesh, m, model);
+		renderer.SubmitMesh(quadMeshId, m, model);
 	}
 
 	glDisable(GL_BLEND);

@@ -17,7 +17,14 @@ public:
 	/**
 	 * @brief Computes world transforms from local transforms and hierarchy.
 	 */
-	void Update(Registry &registry) const;
+	void Update(Registry &registry);
 	#pragma endregion
+private:
+	void EnsureEntityCapacity(uint32_t entityId);
+
+	std::vector<Entity> m_entities;
+	std::vector<uint32_t> m_visitStamp;
+	std::vector<uint32_t> m_doneStamp;
+	uint32_t m_currentStamp = 0;
 };
 #pragma endregion

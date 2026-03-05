@@ -7,11 +7,10 @@
 
 #pragma region Includes
 #include "../ecs/Registry.h"
+#include "../rendering/Renderer.h"
 #pragma endregion
 
 #pragma region Declarations
-class Renderer;
-
 class Render2DSystem
 {
 public:
@@ -23,8 +22,9 @@ public:
 				Renderer &renderer,
 				Entity cameraEntity,
 				int framebufferWidth,
-				int framebufferHeight,
-				const struct Mesh &quadMesh) const;
+				int framebufferHeight);
 	#pragma endregion
+private:
+	std::vector<Entity> m_items;
 };
 #pragma endregion

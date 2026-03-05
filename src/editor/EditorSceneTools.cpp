@@ -68,7 +68,7 @@ static float s_dragSnapStep = 0.5f;
 
 static std::string BuildBufferedStringEditKey(Entity entity, const char *fieldKey)
 {
-	return std::to_string(static_cast<unsigned>(entity)) + ":" + (fieldKey ? fieldKey : "");
+	return std::to_string(EntityIdOf(entity)) + ":" + (fieldKey ? fieldKey : "");
 }
 
 static void ResetBufferedStringEdit(Entity entity, const char *fieldKey, const std::string &value)
@@ -98,7 +98,6 @@ static bool DrawBufferedStringInput(Entity entity,
 	if (state.inputBuffer.size() < capacity)
 		state.inputBuffer.resize(capacity, '\0');
 
-	// Keep the editable character buffer persistent across frames.
 	std::snprintf(state.inputBuffer.data(), state.inputBuffer.size(), "%s", state.buffer.c_str());
 
 	const bool enterPressed = ImGui::InputText(inputLabel,
@@ -523,7 +522,7 @@ static const char *EntityLabel(Registry &r, Entity e, char *tmp, int tmpSize)
 		if (!t.name.empty())
 			return t.name.c_str();
 	}
-	std::snprintf(tmp, (size_t)tmpSize, "Entity %u", (unsigned)e);
+	std::snprintf(tmp, (size_t)tmpSize, "Entity %u", EntityIdOf(e));
 	return tmp;
 }
 
@@ -1275,7 +1274,7 @@ void EditorSceneTools::DrawInspector(Registry &r, SceneEditorState &st, IEditorS
 			}
 		}
 
-		ImGui::Text("Index Count: %d", (int)m.indexCount);
+		ImGui::Text("Index Count: %u", m.gpuIndexCount);
 	}
 
 	if (!st.inspectorStatus.empty())

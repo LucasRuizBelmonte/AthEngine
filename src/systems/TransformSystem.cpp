@@ -6,8 +6,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
 #include <cstdint>
-#include <unordered_map>
 #include <vector>
 #pragma endregion
 
@@ -26,17 +26,20 @@ namespace
 	}
 
 	static void ResolveWorldRecursive(Registry &registry,
+	                                  uint32_t stamp,
 	                                  Entity entity,
-	                                  std::unordered_map<Entity, uint8_t> &visitState)
+	                                  std::vector<uint32_t> &visitStamp,
+	                                  std::vector<uint32_t> &doneStamp)
 	{
-		const auto stateIt = visitState.find(entity);
-		const uint8_t state = (stateIt == visitState.end()) ? 0u : stateIt->second;
-		if (state == 2u)
+		const uint32_t entityId = EntityIdOf(entity);
+		if (entityId >= visitStamp.size())
 			return;
-		if (state == 1u)
+		if (doneStamp[entityId] == stamp)
+			return;
+		if (visitStamp[entityId] == stamp)
 			return;
 
-		visitState[entity] = 1u;
+		visitStamp[entityId] = stamp;
 
 		glm::mat4 parentWorld(1.f);
 		if (registry.Has<Parent>(entity))
@@ -44,32 +47,46 @@ namespace
 			const Entity parent = registry.Get<Parent>(entity).parent;
 			if (parent != kInvalidEntity && registry.IsAlive(parent) && registry.Has<Transform>(parent))
 			{
-				const auto parentStateIt = visitState.find(parent);
-				const uint8_t parentState = (parentStateIt == visitState.end()) ? 0u : parentStateIt->second;
-				if (parentState == 0u)
-					ResolveWorldRecursive(registry, parent, visitState);
-				if (visitState[parent] == 2u)
+				const uint32_t parentId = EntityIdOf(parent);
+				if (parentId < visitStamp.size() && doneStamp[parentId] != stamp)
+					ResolveWorldRecursive(registry, stamp, parent, visitStamp, doneStamp);
+				if (parentId < doneStamp.size() && doneStamp[parentId] == stamp)
 					parentWorld = registry.Get<Transform>(parent).worldMatrix;
 			}
 		}
 
 		auto &transform = registry.Get<Transform>(entity);
 		transform.worldMatrix = parentWorld * BuildLocalMatrix(transform);
-		visitState[entity] = 2u;
+		doneStamp[entityId] = stamp;
 	}
 }
 #pragma endregion
 
 #pragma region Function Definitions
-void TransformSystem::Update(Registry &registry) const
+void TransformSystem::EnsureEntityCapacity(uint32_t entityId)
 {
-	std::vector<Entity> entities;
-	registry.ViewEntities<Transform>(entities);
+	const size_t required = static_cast<size_t>(entityId) + 1u;
+	if (required <= m_visitStamp.size())
+		return;
+	m_visitStamp.resize(required, 0u);
+	m_doneStamp.resize(required, 0u);
+}
 
-	std::unordered_map<Entity, uint8_t> visitState;
-	visitState.reserve(entities.size());
+void TransformSystem::Update(Registry &registry)
+{
+	++m_currentStamp;
+	if (m_currentStamp == 0u)
+	{
+		std::fill(m_visitStamp.begin(), m_visitStamp.end(), 0u);
+		std::fill(m_doneStamp.begin(), m_doneStamp.end(), 0u);
+		m_currentStamp = 1u;
+	}
 
-	for (const Entity entity : entities)
-		ResolveWorldRecursive(registry, entity, visitState);
+	registry.ViewEntities<Transform>(m_entities);
+	for (const Entity entity : m_entities)
+		EnsureEntityCapacity(EntityIdOf(entity));
+
+	for (const Entity entity : m_entities)
+		ResolveWorldRecursive(registry, m_currentStamp, entity, m_visitStamp, m_doneStamp);
 }
 #pragma endregion

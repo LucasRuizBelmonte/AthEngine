@@ -7,11 +7,13 @@
 
 #pragma region Includes
 #include <glm/glm.hpp>
+#include <cstdint>
+#include <string>
+#include <unordered_map>
 #include <vector>
 #pragma endregion
 
 #pragma region Declarations
-struct Mesh;
 struct Material;
 
 class ShaderManager;
@@ -39,6 +41,7 @@ public:
 	 * @brief Constructs a new Renderer instance.
 	 */
 	Renderer(ShaderManager &shaderManager, TextureManager &textureManager);
+	~Renderer();
 
 	/**
 	 * @brief Executes Begin Frame.
@@ -54,20 +57,52 @@ public:
 	void SetLights(const std::vector<LightData> &lights);
 
 	/**
+	 * @brief Returns a renderer-owned GPU mesh id for an asset path.
+	 */
+	uint32_t AcquireMesh(const std::string &meshPath);
+
+	/**
+	 * @brief Returns a renderer-owned GPU mesh id for the built-in quad.
+	 */
+	uint32_t AcquireBuiltinQuad();
+
+	/**
+	 * @brief Returns index count for a GPU mesh id.
+	 */
+	uint32_t GetMeshIndexCount(uint32_t meshId) const;
+
+	/**
 	 * @brief Executes Submit.
 	 */
-	void Submit(const Mesh &mesh,
-				const Material &material,
-				const glm::mat4 &model);
+	void SubmitMesh(uint32_t meshId,
+	                const Material &material,
+	                const glm::mat4 &model);
 
 	#pragma endregion
 private:
 	#pragma region Private Implementation
+	struct GpuMesh
+	{
+		uint32_t vao = 0;
+		uint32_t vbo = 0;
+		uint32_t ebo = 0;
+		uint32_t indexCount = 0;
+	};
+
+	uint32_t UploadMesh(const std::vector<float> &vertices,
+	                   const std::vector<uint32_t> &indices,
+	                   uint32_t vertexStrideBytes);
+	uint32_t AcquireOrCreateMesh(const std::string &cacheKey, const std::string &resolvedPath);
+	void DestroyGpuMesh(GpuMesh &mesh);
+	void DestroyAllGpuMeshes();
+
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
 	glm::mat4 m_view{};
 	glm::mat4 m_proj{};
 	std::vector<LightData> m_lights;
+	std::vector<GpuMesh> m_gpuMeshes;
+	std::unordered_map<std::string, uint32_t> m_meshCacheByKey;
 	#pragma endregion
 };
 #pragma endregion

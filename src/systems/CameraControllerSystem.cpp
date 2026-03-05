@@ -7,7 +7,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <cmath>
-#include <unordered_map>
 #pragma endregion
 
 #pragma region Function Definitions
@@ -35,11 +34,9 @@ void CameraControllerSystem::Update(Registry &registry, GLFWwindow &window, Enti
 		return;
 
 	auto &cam = registry.Get<Camera>(cameraEntity);
-	static std::unordered_map<Entity, CameraController> s_fallbackControllers;
-	CameraController &ctrl =
-		registry.Has<CameraController>(cameraEntity)
-			? registry.Get<CameraController>(cameraEntity)
-			: s_fallbackControllers[cameraEntity];
+	if (!registry.Has<CameraController>(cameraEntity))
+		registry.Emplace<CameraController>(cameraEntity);
+	CameraController &ctrl = registry.Get<CameraController>(cameraEntity);
 
 	glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
 

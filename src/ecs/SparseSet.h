@@ -25,9 +25,10 @@ public:
 	 */
 	bool Has(Entity e) const
 	{
-		if (e >= m_sparse.size())
+		const uint32_t id = EntityIdOf(e);
+		if (id >= m_sparse.size())
 			return false;
-		size_t idx = m_sparse[e];
+		size_t idx = m_sparse[id];
 		return idx != npos && idx < m_denseEntities.size() && m_denseEntities[idx] == e;
 	}
 
@@ -36,7 +37,7 @@ public:
 	 */
 	T &Get(Entity e)
 	{
-		return m_denseComponents[m_sparse[e]];
+		return m_denseComponents[m_sparse[EntityIdOf(e)]];
 	}
 
 	/**
@@ -44,7 +45,7 @@ public:
 	 */
 	const T &Get(Entity e) const
 	{
-		return m_denseComponents[m_sparse[e]];
+		return m_denseComponents[m_sparse[EntityIdOf(e)]];
 	}
 
 	/**
@@ -56,14 +57,14 @@ public:
 		EnsureSparse(e);
 		if (Has(e))
 		{
-			m_denseComponents[m_sparse[e]] = T(std::forward<Args>(args)...);
-			return m_denseComponents[m_sparse[e]];
+			m_denseComponents[m_sparse[EntityIdOf(e)]] = T(std::forward<Args>(args)...);
+			return m_denseComponents[m_sparse[EntityIdOf(e)]];
 		}
 
 		size_t idx = m_denseEntities.size();
 		m_denseEntities.push_back(e);
 		m_denseComponents.emplace_back(std::forward<Args>(args)...);
-		m_sparse[e] = idx;
+		m_sparse[EntityIdOf(e)] = idx;
 		return m_denseComponents.back();
 	}
 
@@ -75,7 +76,8 @@ public:
 		if (!Has(e))
 			return;
 
-		size_t idx = m_sparse[e];
+		const uint32_t id = EntityIdOf(e);
+		size_t idx = m_sparse[id];
 		size_t last = m_denseEntities.size() - 1;
 
 		if (idx != last)
@@ -83,12 +85,12 @@ public:
 			Entity movedEntity = m_denseEntities[last];
 			m_denseEntities[idx] = movedEntity;
 			m_denseComponents[idx] = std::move(m_denseComponents[last]);
-			m_sparse[movedEntity] = idx;
+			m_sparse[EntityIdOf(movedEntity)] = idx;
 		}
 
 		m_denseEntities.pop_back();
 		m_denseComponents.pop_back();
-		m_sparse[e] = npos;
+		m_sparse[id] = npos;
 	}
 
 	/**
@@ -113,9 +115,10 @@ private:
 	 */
 	void EnsureSparse(Entity e)
 	{
-		if (e < m_sparse.size())
+		const uint32_t id = EntityIdOf(e);
+		if (id < m_sparse.size())
 			return;
-		size_t newSize = static_cast<size_t>(e) + 1;
+		size_t newSize = static_cast<size_t>(id) + 1;
 		m_sparse.resize(newSize, npos);
 	}
 

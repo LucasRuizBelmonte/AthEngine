@@ -24,7 +24,7 @@ void RenderSystem::Render(Registry &registry,
 						  Renderer &renderer,
 						  Entity cameraEntity,
 						  int framebufferWidth,
-						  int framebufferHeight) const
+						  int framebufferHeight)
 {
 	if (cameraEntity == kInvalidEntity)
 		return;
@@ -49,13 +49,11 @@ void RenderSystem::Render(Registry &registry,
 
 	renderer.SetCamera(view, proj);
 
-	std::vector<Entity> lightEntities;
-	registry.ViewEntities<Transform, LightEmitter>(lightEntities);
+	registry.ViewEntities<Transform, LightEmitter>(m_lightEntities);
+	m_lights.clear();
+	m_lights.reserve(m_lightEntities.size());
 
-	std::vector<Renderer::LightData> lights;
-	lights.reserve(lightEntities.size());
-
-	for (Entity e : lightEntities)
+	for (Entity e : m_lightEntities)
 	{
 		const auto &t = registry.Get<Transform>(e);
 		const auto &l = registry.Get<LightEmitter>(e);
@@ -73,22 +71,29 @@ void RenderSystem::Render(Registry &registry,
 		const float forwardLen = glm::length(forward);
 		out.direction = (forwardLen > 1e-6f) ? (forward / forwardLen) : glm::vec3(0.f, 0.f, -1.f);
 
-		lights.push_back(out);
+		m_lights.push_back(out);
 	}
 
-	renderer.SetLights(lights);
+	renderer.SetLights(m_lights);
 
-	std::vector<Entity> entities;
-	registry.ViewEntities<Transform, Mesh, Material>(entities);
+	registry.ViewEntities<Transform, Mesh, Material>(m_renderEntities);
 
-	for (Entity e : entities)
+	for (Entity e : m_renderEntities)
 	{
 		const auto &t = registry.Get<Transform>(e);
-		const auto &mesh = registry.Get<Mesh>(e);
+		auto &mesh = registry.Get<Mesh>(e);
 		const auto &mat = registry.Get<Material>(e);
 
+		if (mesh.gpuMeshId == 0 && !mesh.meshPath.empty())
+		{
+			mesh.gpuMeshId = renderer.AcquireMesh(mesh.meshPath);
+			mesh.gpuIndexCount = renderer.GetMeshIndexCount(mesh.gpuMeshId);
+		}
+		if (mesh.gpuMeshId == 0)
+			continue;
+
 		glm::mat4 model = BuildModel(t);
-		renderer.Submit(mesh, mat, model);
+		renderer.SubmitMesh(mesh.gpuMeshId, mat, model);
 	}
 }
 #pragma endregion

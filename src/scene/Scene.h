@@ -17,6 +17,7 @@
 #include "../systems/RenderSystem.h"
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
+#include "../systems/CameraSyncSystem.h"
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -139,8 +140,6 @@ private:
 	void BuildBaseTemplate();
 	void RefreshRuntimeReferences();
 	Entity ResolvePrimaryCamera();
-	void SyncCameraFromTransform(Entity cameraEntity);
-	void SyncTransformFromCamera(Entity cameraEntity);
 	void ApplySceneDimensionRules();
 	void Remove3DContent();
 	void Remove2DContent();
@@ -153,6 +152,7 @@ private:
 	RenderSystem m_renderSystem;
 	Render2DSystem m_render2DSystem;
 	CameraControllerSystem m_cameraControllerSystem;
+	CameraSyncSystem m_cameraSyncSystem;
 
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
@@ -164,7 +164,6 @@ private:
 	bool m_sysRender2D = true;
 
 	Entity m_camera = kInvalidEntity;
-	Mesh m_quadMesh;
 
 	GLFWwindow *m_window = nullptr;
 	bool m_loaded = false;

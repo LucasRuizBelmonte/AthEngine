@@ -25,7 +25,6 @@
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
 #include "../thirdparty/ImGuizmo.h"
-#include "../rendering/MeshFactory.h"
 #include "SceneEditor.h"
 #pragma endregion
 
@@ -647,13 +646,6 @@ static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, con
 	std::string err;
 	if (!editorScene->EditorSetMeshPath(e, mesh.meshPath, err))
 	{
-		mesh.Destroy();
-		if (kind == BasicShapeKind::Box)
-			mesh = MeshFactory::CreateLitBox();
-		else
-			mesh = MeshFactory::CreateLitPlane();
-
-		mesh.meshPath = meshPath;
 		se.inspectorStatus = "Basic shape mesh error: " + err;
 	}
 
@@ -1364,7 +1356,6 @@ void SceneListPanel::Draw(SceneManager &scenes, EditorUIState &ui, SceneEditorSt
 {
 	(void)se;
 	(void)editorScene;
-	// Drawn by Editor::Draw to preserve exact legacy ordering and behavior.
 	(void)scenes;
 	(void)ui;
 }

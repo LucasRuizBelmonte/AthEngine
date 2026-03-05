@@ -69,6 +69,22 @@ Shader *ShaderManager::Get(ShaderHandle handle)
     return it->second.shader.get();
 }
 
+std::string ShaderManager::GetFragmentPath(ShaderHandle handle) const
+{
+    auto it = m_entries.find(handle.id);
+    if (it == m_entries.end())
+        return {};
+    return it->second.fsPath;
+}
+
+std::string ShaderManager::GetVertexPath(ShaderHandle handle) const
+{
+    auto it = m_entries.find(handle.id);
+    if (it == m_entries.end())
+        return {};
+    return it->second.vsPath;
+}
+
 void ShaderManager::ReloadAll()
 {
     for (auto &kv : m_entries)

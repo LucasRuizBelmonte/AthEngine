@@ -25,6 +25,7 @@
 #include "../components/Sprite.h"
 #include "../components/Spin.h"
 #include "../components/LightEmitter.h"
+#include "../material/MaterialMetadata.h"
 #pragma endregion
 
 #pragma region Function Definitions
@@ -1177,9 +1178,16 @@ namespace sceneeditor
 
 			ImGui::ColorEdit3("Color", &l.color.x);
 			(void)DragFloatWithSnap("Intensity", &l.intensity, 0.01f, 0.0f, 1000.0f);
-			(void)DragFloatWithSnap("Range", &l.range, 0.05f, 0.0f, 10000.0f);
-			(void)DragFloatWithSnap("Inner Cone", &l.innerCone, 0.005f, 0.0f, 1.0f);
-			(void)DragFloatWithSnap("Outer Cone", &l.outerCone, 0.005f, 0.0f, 1.0f);
+
+			if (l.type == LightType::Point || l.type == LightType::Spot)
+				(void)DragFloatWithSnap("Range", &l.range, 0.05f, 0.0f, 10000.0f);
+
+			if (l.type == LightType::Spot)
+			{
+				(void)DragFloatWithSnap("Inner Cone", &l.innerCone, 0.005f, 0.0f, 1.0f);
+				(void)DragFloatWithSnap("Outer Cone", &l.outerCone, 0.005f, 0.0f, 1.0f);
+			}
+
 			ImGui::Checkbox("Cast Shadows", &l.castShadows);
 		}
 
@@ -1230,19 +1238,86 @@ namespace sceneeditor
 			RemoveComponentMenu<Material>(r, e, "MaterialCtx");
 
 			auto &m = r.Get<Material>(e);
+			std::string shaderPath = m.shaderPath;
+			if (shaderPath.empty() && r.Has<Mesh>(e))
+				shaderPath = r.Get<Mesh>(e).materialPath;
+
+			const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
+			SyncMaterialParametersWithMetadata(m, metadata);
+
 			bool materialPathChanged = false;
-			materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Base Color Path", "Material.TexturePath", AssetPickerType::Texture, m.texturePath);
-			materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Specular Path", "Material.SpecularTexturePath", AssetPickerType::Texture, m.specularTexturePath);
-			materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Normal Path", "Material.NormalTexturePath", AssetPickerType::Texture, m.normalTexturePath);
-			materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker, e, "Emission Path", "Material.EmissionTexturePath", AssetPickerType::Texture, m.emissionTexturePath);
+			std::string currentGroup;
 
-			DrawColor4("Tint", &m.tint.x);
-			(void)DragFloatWithSnap("Specular Strength", &m.specularStrength, 0.01f, 0.0f, 8.0f);
-			(void)DragFloatWithSnap("Shininess", &m.shininess, 0.1f, 1.0f, 512.0f);
-			(void)DragFloatWithSnap("Normal Strength", &m.normalStrength, 0.01f, 0.0f, 4.0f);
-			(void)DragFloatWithSnap("Emission Strength", &m.emissionStrength, 0.01f, 0.0f, 16.0f);
+			for (const MaterialParameterMetadata &desc : metadata.parameters)
+			{
+				auto paramIt = m.parameters.find(desc.name);
+				if (paramIt == m.parameters.end())
+					continue;
 
-			if ((materialPathChanged || ImGui::Button("Apply Material Textures")) && editorScene)
+				MaterialParameter &param = paramIt->second;
+
+				if (!desc.uiGroup.empty() && desc.uiGroup != currentGroup)
+				{
+					currentGroup = desc.uiGroup;
+					ImGui::Separator();
+					ImGui::TextUnformatted(currentGroup.c_str());
+				}
+
+				switch (desc.type)
+				{
+				case MaterialParameterType::Float:
+					if (desc.hasRange)
+						(void)DragFloatWithSnap(desc.name.c_str(), &param.numericValue.x, 0.01f, desc.rangeMin, desc.rangeMax);
+					else
+						(void)DragFloatWithSnap(desc.name.c_str(), &param.numericValue.x, 0.01f);
+					break;
+				case MaterialParameterType::Vec2:
+					(void)DragFloat2WithSnap(desc.name.c_str(), &param.numericValue.x, 0.01f);
+					if (desc.hasRange)
+					{
+						param.numericValue.x = std::clamp(param.numericValue.x, desc.rangeMin, desc.rangeMax);
+						param.numericValue.y = std::clamp(param.numericValue.y, desc.rangeMin, desc.rangeMax);
+					}
+					break;
+				case MaterialParameterType::Vec3:
+					if (desc.hasRange)
+						(void)DragFloat3WithSnap(desc.name.c_str(), &param.numericValue.x, 0.01f, desc.rangeMin, desc.rangeMax);
+					else
+						(void)DragFloat3WithSnap(desc.name.c_str(), &param.numericValue.x, 0.01f);
+					break;
+				case MaterialParameterType::Vec4:
+					(void)DragFloat4WithSnap(desc.name.c_str(), &param.numericValue.x, 0.01f);
+					if (desc.hasRange)
+					{
+						param.numericValue.x = std::clamp(param.numericValue.x, desc.rangeMin, desc.rangeMax);
+						param.numericValue.y = std::clamp(param.numericValue.y, desc.rangeMin, desc.rangeMax);
+						param.numericValue.z = std::clamp(param.numericValue.z, desc.rangeMin, desc.rangeMax);
+						param.numericValue.w = std::clamp(param.numericValue.w, desc.rangeMin, desc.rangeMax);
+					}
+					break;
+				case MaterialParameterType::Texture2D:
+				{
+					const std::string key = "Material.ParamPath." + desc.name;
+					materialPathChanged |= DrawPathFieldWithAssetPicker(s_assetPicker,
+					                                                    e,
+					                                                    desc.name.c_str(),
+					                                                    key.c_str(),
+					                                                    AssetPickerType::Texture,
+					                                                    param.texturePath);
+					break;
+				}
+				default:
+					break;
+				}
+
+				if (!desc.tooltip.empty() && ImGui::IsItemHovered())
+					ImGui::SetTooltip("%s", desc.tooltip.c_str());
+			}
+
+			if (metadata.Empty())
+				ImGui::TextUnformatted("No shader material metadata found.");
+
+			if ((materialPathChanged || ImGui::Button("Apply Material Parameters")) && editorScene)
 			{
 				std::string err;
 				if (!editorScene->EditorApplyMaterial(e, err))

@@ -1,0 +1,3 @@
+# name|type|default|min|max|group|tooltip
+u_tint|vec4|1,1,1,1|||Surface|Tint multiplied with the sampled texture color.
+u_texBaseColor|texture2D||||Surface|Base color texture.

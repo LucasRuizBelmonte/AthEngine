@@ -11,6 +11,7 @@
 #include "../components/Spin.h"
 #include "../components/Tag.h"
 #include "../components/Transform.h"
+#include "../material/MaterialMetadata.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -452,17 +453,59 @@ namespace AthSceneIO
 		{
 			if (!registry.Has<Material>(e))
 				return;
+
 			const Material &c = registry.Get<Material>(e);
-			out << "MATERIAL "
-			    << c.shader.id << " " << c.texture.id << " "
-			    << c.specularTexture.id << " " << c.normalTexture.id << " " << c.emissionTexture.id << " "
-			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
-			    << c.specularStrength << " " << c.shininess << " "
-			    << c.normalStrength << " " << c.emissionStrength << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.texturePath)) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.specularTexturePath)) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.normalTexturePath)) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.emissionTexturePath)) << "\n";
+
+			std::string shaderPath = c.shaderPath;
+			if (shaderPath.empty() && registry.Has<Mesh>(e))
+				shaderPath = registry.Get<Mesh>(e).materialPath;
+
+			const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
+			out << "MATERIAL_V2 "
+			    << c.shader.id << " "
+			    << std::quoted(ScenePathResolver::ToRelativePathForSave(shaderPath)) << " "
+			    << metadata.parameters.size() << "\n";
+
+			for (const MaterialParameterMetadata &desc : metadata.parameters)
+			{
+				MaterialParameter value;
+				value.type = desc.type;
+				value.numericValue = desc.defaultNumeric;
+				if (desc.type == MaterialParameterType::Texture2D)
+					value.texturePath = desc.defaultTexturePath;
+
+				auto it = c.parameters.find(desc.name);
+				if (it != c.parameters.end() && it->second.type == desc.type)
+					value = it->second;
+
+				out << "MATERIAL_PARAM "
+				    << std::quoted(desc.name) << " "
+				    << static_cast<int>(desc.type) << " ";
+
+				switch (desc.type)
+				{
+				case MaterialParameterType::Float:
+					out << value.numericValue.x;
+					break;
+				case MaterialParameterType::Vec2:
+					out << value.numericValue.x << " " << value.numericValue.y;
+					break;
+				case MaterialParameterType::Vec3:
+					out << value.numericValue.x << " " << value.numericValue.y << " " << value.numericValue.z;
+					break;
+				case MaterialParameterType::Vec4:
+					out << value.numericValue.x << " " << value.numericValue.y << " "
+					    << value.numericValue.z << " " << value.numericValue.w;
+					break;
+				case MaterialParameterType::Texture2D:
+					out << std::quoted(ScenePathResolver::ToRelativePathForSave(value.texturePath));
+					break;
+				default:
+					break;
+				}
+
+				out << "\n";
+			}
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -501,6 +544,89 @@ namespace AthSceneIO
 					      std::quoted(ent.material.emissionTexturePath));
 				}
 			}
+			return true;
+		}
+
+		static bool ReadV2(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasMaterial = true;
+			size_t parameterCount = 0u;
+			if (!(in >> ent.material.shader.id >> std::quoted(ent.material.shaderPath) >> parameterCount))
+			{
+				outError = "Failed reading Material_V2 component.";
+				return false;
+			}
+
+			ent.material.parameters.clear();
+			for (size_t i = 0; i < parameterCount; ++i)
+			{
+				std::string key;
+				if (!(in >> key) || key != "MATERIAL_PARAM")
+				{
+					outError = "Failed reading Material_V2 parameters.";
+					return false;
+				}
+
+				std::string name;
+				int typeInt = static_cast<int>(MaterialParameterType::Float);
+				if (!(in >> std::quoted(name) >> typeInt))
+				{
+					outError = "Failed reading Material_V2 parameter header.";
+					return false;
+				}
+
+				MaterialParameter value;
+				switch (typeInt)
+				{
+				case 0:
+					value.type = MaterialParameterType::Float;
+					if (!(in >> value.numericValue.x))
+					{
+						outError = "Failed reading float Material_V2 parameter value.";
+						return false;
+					}
+					break;
+				case 1:
+					value.type = MaterialParameterType::Vec2;
+					if (!(in >> value.numericValue.x >> value.numericValue.y))
+					{
+						outError = "Failed reading vec2 Material_V2 parameter value.";
+						return false;
+					}
+					break;
+				case 2:
+					value.type = MaterialParameterType::Vec3;
+					if (!(in >> value.numericValue.x >> value.numericValue.y >> value.numericValue.z))
+					{
+						outError = "Failed reading vec3 Material_V2 parameter value.";
+						return false;
+					}
+					break;
+				case 3:
+					value.type = MaterialParameterType::Vec4;
+					if (!(in >> value.numericValue.x >> value.numericValue.y >>
+					      value.numericValue.z >> value.numericValue.w))
+					{
+						outError = "Failed reading vec4 Material_V2 parameter value.";
+						return false;
+					}
+					break;
+				case 4:
+					value.type = MaterialParameterType::Texture2D;
+					if (!(in >> std::quoted(value.texturePath)))
+					{
+						outError = "Failed reading texture Material_V2 parameter value.";
+						return false;
+					}
+					break;
+				default:
+					outError = "Unknown Material_V2 parameter type.";
+					return false;
+				}
+
+				ent.material.parameters[name] = std::move(value);
+			}
+
 			return true;
 		}
 	};
@@ -752,6 +878,13 @@ namespace AthSceneIO
 				if (key == "MATERIAL")
 				{
 					if (!ComponentCodecs::MaterialCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "MATERIAL_V2")
+				{
+					if (!ComponentCodecs::MaterialCodec::ReadV2(in, ent, outError))
 						return false;
 					continue;
 				}

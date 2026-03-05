@@ -43,6 +43,16 @@ public:
 	Shader *Get(ShaderHandle handle);
 
 	/**
+	 * @brief Gets the fragment shader source path associated with a handle.
+	 */
+	std::string GetFragmentPath(ShaderHandle handle) const;
+
+	/**
+	 * @brief Gets the vertex shader source path associated with a handle.
+	 */
+	std::string GetVertexPath(ShaderHandle handle) const;
+
+	/**
 	 * @brief Executes Reload All.
 	 */
 	void ReloadAll();

@@ -1,0 +1,8 @@
+# name|type|default|min|max|group|tooltip
+u_tint|vec4|1,1,1,1|||Surface|Albedo tint multiplied with the base color.
+u_texBaseColor|texture2D||||Surface|Base color texture.
+u_specularStrength|float|1|0|8|Lighting|Specular reflection multiplier.
+u_shininess|float|32|1|512|Lighting|Specular exponent.
+u_texSpecular|texture2D||||Lighting|Specular texture mask.
+u_emissionStrength|float|0|0|16|Emission|Emission multiplier.
+u_texEmission|texture2D||||Emission|Emission texture.

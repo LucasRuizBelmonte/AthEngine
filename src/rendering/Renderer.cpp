@@ -8,10 +8,12 @@
 #include "../resources/TextureManager.h"
 #include "../rendering/Texture.h"
 #include "../rendering/ModelLoader.h"
+#include "../material/MaterialMetadata.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -49,6 +51,17 @@ namespace
 			-0.5f, 0.5f, 0.0f, 0.f, 1.f, 0.f, 0.f, 1.f, 1.f, 0.f, 0.f};
 
 		outIndices = {0, 1, 2, 2, 3, 0};
+	}
+
+	static std::string DeriveTexturePresenceUniform(const std::string &samplerUniform)
+	{
+		constexpr const char *kTexturePrefix = "u_tex";
+		if (samplerUniform.rfind(kTexturePrefix, 0) != 0)
+			return {};
+		const std::string suffix = samplerUniform.substr(std::strlen(kTexturePrefix));
+		if (suffix.empty())
+			return {};
+		return "u_has" + suffix + "Tex";
 	}
 }
 #pragma endregion
@@ -239,11 +252,6 @@ void Renderer::SubmitMesh(uint32_t meshId,
 	shader->SetUniform("u_model", model);
 	shader->SetUniform("u_view", m_view);
 	shader->SetUniform("u_proj", m_proj);
-	shader->SetUniform("u_tint", material.tint);
-	shader->SetUniform("u_specularStrength", material.specularStrength);
-	shader->SetUniform("u_shininess", material.shininess);
-	shader->SetUniform("u_normalStrength", material.normalStrength);
-	shader->SetUniform("u_emissionStrength", material.emissionStrength);
 
 	const glm::mat4 invView = glm::inverse(m_view);
 	const glm::vec3 viewPos = glm::vec3(invView[3]);
@@ -268,11 +276,16 @@ void Renderer::SubmitMesh(uint32_t meshId,
 		shader->SetUniform(prefix + ".outerCone", l.outerCone);
 	}
 
+	std::string shaderPath = material.shaderPath;
+	if (shaderPath.empty())
+		shaderPath = m_shaderManager.GetFragmentPath(material.shader);
+	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
+
 	auto bindTextureSlot = [&](GLenum textureUnit,
 	                           int samplerUnit,
 	                           const ResourceHandle<Texture> &handle,
-	                           const char *samplerUniform,
-	                           const char *hasUniform)
+	                           const std::string &samplerUniform,
+	                           const std::string &hasUniform)
 	{
 		bool bound = false;
 		if (handle.IsValid())
@@ -282,31 +295,105 @@ void Renderer::SubmitMesh(uint32_t meshId,
 			{
 				glActiveTexture(textureUnit);
 				glBindTexture(GL_TEXTURE_2D, tex->GetId());
-				shader->SetUniform(samplerUniform, samplerUnit);
 				bound = true;
 			}
 		}
-		shader->SetUniform(hasUniform, bound);
+		shader->SetUniform(samplerUniform, samplerUnit);
+		if (!hasUniform.empty())
+			shader->SetUniform(hasUniform, bound);
+		return bound;
 	};
 
-	bindTextureSlot(GL_TEXTURE0, 0, material.texture, "u_texBaseColor", "u_hasBaseColorTex");
-	shader->SetUniform("u_tex0", 0);
-	bindTextureSlot(GL_TEXTURE1, 1, material.specularTexture, "u_texSpecular", "u_hasSpecularTex");
-	bindTextureSlot(GL_TEXTURE2, 2, material.normalTexture, "u_texNormal", "u_hasNormalTex");
-	bindTextureSlot(GL_TEXTURE3, 3, material.emissionTexture, "u_texEmission", "u_hasEmissionTex");
+	std::vector<GLenum> usedTextureUnits;
+	usedTextureUnits.reserve(8);
+
+	if (!metadata.Empty())
+	{
+		int samplerUnit = 0;
+		for (const MaterialParameterMetadata &desc : metadata.parameters)
+		{
+			const auto it = material.parameters.find(desc.name);
+
+			switch (desc.type)
+			{
+			case MaterialParameterType::Float:
+			{
+				const float value = (it != material.parameters.end()) ? it->second.numericValue.x : desc.defaultNumeric.x;
+				shader->SetUniform(desc.name, value);
+				break;
+			}
+			case MaterialParameterType::Vec2:
+			{
+				const glm::vec2 value = (it != material.parameters.end())
+				                            ? glm::vec2(it->second.numericValue)
+				                            : glm::vec2(desc.defaultNumeric);
+				shader->SetUniform(desc.name, value);
+				break;
+			}
+			case MaterialParameterType::Vec3:
+			{
+				const glm::vec3 value = (it != material.parameters.end())
+				                            ? glm::vec3(it->second.numericValue)
+				                            : glm::vec3(desc.defaultNumeric);
+				shader->SetUniform(desc.name, value);
+				break;
+			}
+			case MaterialParameterType::Vec4:
+			{
+				const glm::vec4 value = (it != material.parameters.end())
+				                            ? it->second.numericValue
+				                            : desc.defaultNumeric;
+				shader->SetUniform(desc.name, value);
+				break;
+			}
+			case MaterialParameterType::Texture2D:
+			{
+				const GLenum textureUnit = static_cast<GLenum>(GL_TEXTURE0 + samplerUnit);
+				const std::string hasUniform = DeriveTexturePresenceUniform(desc.name);
+				const bool wasBound = bindTextureSlot(textureUnit,
+				                                      samplerUnit,
+				                                      (it != material.parameters.end()) ? it->second.texture : ResourceHandle<Texture>{0},
+				                                      desc.name,
+				                                      hasUniform);
+				if (wasBound)
+					usedTextureUnits.push_back(textureUnit);
+				++samplerUnit;
+				break;
+			}
+			default:
+				break;
+			}
+		}
+	}
+	else
+	{
+		shader->SetUniform("u_tint", material.tint);
+		shader->SetUniform("u_specularStrength", material.specularStrength);
+		shader->SetUniform("u_shininess", material.shininess);
+		shader->SetUniform("u_normalStrength", material.normalStrength);
+		shader->SetUniform("u_emissionStrength", material.emissionStrength);
+
+		if (bindTextureSlot(GL_TEXTURE0, 0, material.texture, "u_texBaseColor", "u_hasBaseColorTex"))
+			usedTextureUnits.push_back(GL_TEXTURE0);
+		shader->SetUniform("u_tex0", 0);
+		if (bindTextureSlot(GL_TEXTURE1, 1, material.specularTexture, "u_texSpecular", "u_hasSpecularTex"))
+			usedTextureUnits.push_back(GL_TEXTURE1);
+		if (bindTextureSlot(GL_TEXTURE2, 2, material.normalTexture, "u_texNormal", "u_hasNormalTex"))
+			usedTextureUnits.push_back(GL_TEXTURE2);
+		if (bindTextureSlot(GL_TEXTURE3, 3, material.emissionTexture, "u_texEmission", "u_hasEmissionTex"))
+			usedTextureUnits.push_back(GL_TEXTURE3);
+	}
 
 	glBindVertexArray(static_cast<GLuint>(mesh.vao));
 	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.indexCount), GL_UNSIGNED_INT, nullptr);
 	glBindVertexArray(0);
 
-	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	for (auto it = usedTextureUnits.rbegin(); it != usedTextureUnits.rend(); ++it)
+	{
+		glActiveTexture(*it);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void Renderer::DestroyGpuMesh(GpuMesh &mesh)

@@ -4,6 +4,7 @@
 
 #include "../rendering/Renderer.h"
 #include "../rendering/ModelLoader.h"
+#include "../material/MaterialMetadata.h"
 
 #include "EditorSceneIO.h"
 
@@ -457,6 +458,8 @@ bool Scene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string
 	if (path.empty())
 	{
 		mat.shader = {0};
+		mat.shaderPath.clear();
+		mat.parameters.clear();
 		return true;
 	}
 
@@ -470,6 +473,18 @@ bool Scene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string
 	}
 
 	mat.shader = shader;
+	mat.shaderPath = path;
+
+	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(resolvedPath);
+	SyncMaterialParametersWithMetadata(mat, metadata);
+
+	std::string applyError;
+	if (!EditorApplyMaterial(e, applyError))
+	{
+		outError = applyError;
+		return false;
+	}
+
 	return true;
 }
 
@@ -482,6 +497,36 @@ bool Scene::EditorApplyMaterial(Entity e, std::string &outError)
 	}
 
 	auto &mat = m_registry.Get<Material>(e);
+
+	std::string shaderPath = mat.shaderPath;
+	if (shaderPath.empty())
+		shaderPath = m_shaderManager.GetFragmentPath(mat.shader);
+
+	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
+	if (!metadata.Empty())
+	{
+		SyncMaterialParametersWithMetadata(mat, metadata);
+
+		for (const MaterialParameterMetadata &desc : metadata.parameters)
+		{
+			if (desc.type != MaterialParameterType::Texture2D)
+				continue;
+
+			auto paramIt = mat.parameters.find(desc.name);
+			if (paramIt == mat.parameters.end())
+				continue;
+
+			MaterialParameter &param = paramIt->second;
+			if (!ApplyMaterialTextureSlot(m_textureManager,
+			                              param.texture,
+			                              param.texturePath,
+			                              "editor_mat_tex_",
+			                              outError))
+				return false;
+		}
+
+		return true;
+	}
 
 	if (!ApplyMaterialTextureSlot(m_textureManager, mat.texture, mat.texturePath, "editor_mat_base_", outError))
 		return false;

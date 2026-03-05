@@ -221,11 +221,61 @@ static std::vector<std::string> CollectSceneAssetEntries()
 	return entries;
 }
 
-enum class BasicShapeKind
+struct BasicShapeEntry
 {
-	Box,
-	Plane
+	std::string label;
+	std::string meshPath;
 };
+
+static std::vector<BasicShapeEntry> CollectBasicShapeEntries()
+{
+	std::vector<BasicShapeEntry> entries;
+	std::error_code ec;
+
+	const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
+	const std::filesystem::path projectRoot = assetRoot.parent_path();
+	const std::filesystem::path basicShapeRoot = assetRoot / "models" / "basicShapes";
+	if (!std::filesystem::exists(basicShapeRoot, ec))
+		return entries;
+
+	std::filesystem::recursive_directory_iterator it(basicShapeRoot, std::filesystem::directory_options::skip_permission_denied, ec);
+	const std::filesystem::recursive_directory_iterator end;
+	for (; it != end; it.increment(ec))
+	{
+		if (ec)
+		{
+			ec.clear();
+			continue;
+		}
+
+		if (!it->is_regular_file(ec))
+		{
+			if (ec)
+				ec.clear();
+			continue;
+		}
+
+		const std::filesystem::path candidate = it->path();
+		const std::string ext = ToLowerCopy(candidate.extension().string());
+		if (ext != ".fbx" && ext != ".obj" && ext != ".gltf" && ext != ".glb")
+			continue;
+
+		std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+		if (ec)
+		{
+			ec.clear();
+			rel = candidate.lexically_normal();
+		}
+
+		entries.push_back(BasicShapeEntry{
+			candidate.stem().string(),
+			rel.generic_string()});
+	}
+
+	std::sort(entries.begin(), entries.end(), [](const BasicShapeEntry &a, const BasicShapeEntry &b)
+			  { return ToLowerCopy(a.label) < ToLowerCopy(b.label); });
+	return entries;
+}
 
 static bool IsEditable3DScene(IEditorScene *editorScene)
 {
@@ -680,21 +730,18 @@ static void DrawTransformGizmo(IEditorScene *editorScene, SceneEditorState &se, 
 	}
 }
 
-static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, const char *name, BasicShapeKind kind)
+static Entity AddBasicShape(IEditorScene *editorScene, SceneEditorState &se, const std::string &name, const std::string &meshPath)
 {
 	if (!editorScene)
 		return kInvalidEntity;
 
 	Registry &r = editorScene->GetEditorRegistry();
-	Entity e = SceneEditor::CreateEntity(r, name, kInvalidEntity, true);
+	Entity e = SceneEditor::CreateEntity(r, name.c_str(), kInvalidEntity, true);
 
 	if (!r.Has<Mesh>(e))
 		r.Emplace<Mesh>(e);
 
 	auto &mesh = r.Get<Mesh>(e);
-	const std::string meshPath = (kind == BasicShapeKind::Box)
-									 ? "res/models/basicShapes/cube.fbx"
-									 : "res/models/basicShapes/plane.fbx";
 	mesh.meshPath = meshPath;
 	mesh.materialPath = "res/shaders/lit3D.fs";
 
@@ -1047,10 +1094,28 @@ static void DrawTopBar(SceneManager &scenes, EditorUIState &ui, SceneEditorState
 		if (ImGui::BeginMenu("Add Basic Shape"))
 		{
 			const bool canAddShape = canEdit && IsEditable3DScene(es);
-			if (ImGui::MenuItem("Box", nullptr, false, canAddShape))
-				se.selectedEntity = AddBasicShape(es, se, "Box", BasicShapeKind::Box);
-			if (ImGui::MenuItem("Plane", nullptr, false, canAddShape))
-				se.selectedEntity = AddBasicShape(es, se, "Plane", BasicShapeKind::Plane);
+			if (!canAddShape)
+			{
+				ImGui::MenuItem("Requires an editable 3D scene", nullptr, false, false);
+			}
+			else
+			{
+				const std::vector<BasicShapeEntry> shapes = CollectBasicShapeEntries();
+				if (shapes.empty())
+				{
+					ImGui::MenuItem("No models found in res/models/basicShapes", nullptr, false, false);
+				}
+				else
+				{
+					for (const BasicShapeEntry &shape : shapes)
+					{
+						ImGui::PushID(shape.meshPath.c_str());
+						if (ImGui::MenuItem(shape.label.c_str()))
+							se.selectedEntity = AddBasicShape(es, se, shape.label, shape.meshPath);
+						ImGui::PopID();
+					}
+				}
+			}
 			ImGui::EndMenu();
 		}
 

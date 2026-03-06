@@ -65,10 +65,10 @@ namespace
 	}
 
 	static bool ApplyMaterialTextureSlot(TextureManager &textureManager,
-	                                     ResourceHandle<Texture> &slot,
-	                                     const std::string &path,
-	                                     const char *namePrefix,
-	                                     std::string &outError)
+										 ResourceHandle<Texture> &slot,
+										 const std::string &path,
+										 const char *namePrefix,
+										 std::string &outError)
 	{
 		if (path.empty())
 		{
@@ -119,6 +119,10 @@ void Scene::RequestLoad(AsyncLoader &)
 {
 	m_loaded = false;
 	m_fixedSimulationNow = 0.0f;
+	m_fixedStepCounter = 0u;
+	m_lastGameplayProjectionStep = 0u;
+	m_hasProjectedFixedEvents = false;
+	m_eventBus.ClearAll();
 	BuildBaseTemplate();
 	RefreshRuntimeReferences();
 	m_loaded = true;
@@ -146,6 +150,30 @@ void Scene::Update(float dt, float now, const InputState &input)
 {
 	if (!m_loaded)
 		return;
+
+	// Gameplay events are frame-scoped in this scene.
+	m_eventBus.Clear<events::GameplayEvent>();
+
+	// Minimal wiring example: read fixed-step trigger events once and project gameplay events.
+	if (!m_hasProjectedFixedEvents || m_lastGameplayProjectionStep != m_fixedStepCounter)
+	{
+		m_hasProjectedFixedEvents = true;
+		m_lastGameplayProjectionStep = m_fixedStepCounter;
+
+		const std::vector<events::PhysicsTriggerEvent2D> &triggerEvents = m_eventBus.Get<events::PhysicsTriggerEvent2D>();
+		for (const events::PhysicsTriggerEvent2D &triggerEvent : triggerEvents)
+		{
+			if (triggerEvent.phase != events::PhysicsEventPhase2D::Enter)
+				continue;
+
+			events::GameplayEvent gameplayEvent{};
+			gameplayEvent.type = events::GameplayEventType::TriggerEnter2D;
+			gameplayEvent.source = triggerEvent.a;
+			gameplayEvent.target = triggerEvent.b;
+			gameplayEvent.value = triggerEvent.penetration;
+			m_eventBus.Push(gameplayEvent);
+		}
+	}
 
 	if (m_sysClearColor)
 		m_clearColorSystem.Update(now);
@@ -204,7 +232,8 @@ void Scene::FixedUpdate(float fixedDt)
 	if (m_sysSpin)
 		m_spinSystem.Update(m_registry, m_fixedSimulationNow);
 
-	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, m_physicsEvents);
+	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, m_eventBus);
+	++m_fixedStepCounter;
 
 	m_transformSystem.Update(m_registry);
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
@@ -247,9 +276,14 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 	}
 }
 
-const PhysicsEvents &Scene::GetPhysicsEvents() const
+events::SceneEventBus &Scene::GetEventBus()
 {
-	return m_physicsEvents;
+	return m_eventBus;
+}
+
+const events::SceneEventBus &Scene::GetEventBus() const
+{
+	return m_eventBus;
 }
 
 Registry &Scene::GetEditorRegistry()
@@ -268,8 +302,8 @@ Entity Scene::SpawnPrefab(const std::string &name, const Transform &at)
 }
 
 Entity Scene::SpawnPrefab(const std::string &name,
-                          const Transform &at,
-                          const prefab::PrefabSpawnOverrides &overrides)
+						  const Transform &at,
+						  const prefab::PrefabSpawnOverrides &overrides)
 {
 	const Entity spawned = m_prefabRegistry.SpawnPrefab(m_registry, name, at, overrides);
 	if (spawned == kInvalidEntity || !m_registry.IsAlive(spawned))
@@ -348,7 +382,7 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 		return false;
 
 	if (header.sceneType != "Scene2D" &&
-	    header.sceneType != "Scene3D")
+		header.sceneType != "Scene3D")
 	{
 		outError = "Unsupported scene type in file: " + header.sceneType;
 		return false;
@@ -417,6 +451,10 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 
 	RefreshRuntimeReferences();
 	m_fixedSimulationNow = 0.0f;
+	m_fixedStepCounter = 0u;
+	m_lastGameplayProjectionStep = 0u;
+	m_hasProjectedFixedEvents = false;
+	m_eventBus.ClearAll();
 	m_loaded = true;
 	return true;
 }
@@ -618,10 +656,10 @@ bool Scene::EditorApplyMaterial(Entity e, std::string &outError)
 
 		MaterialParameter &param = paramIt->second;
 		if (!ApplyMaterialTextureSlot(m_textureManager,
-		                              param.texture,
-		                              param.texturePath,
-		                              "editor_mat_tex_",
-		                              outError))
+									  param.texture,
+									  param.texturePath,
+									  "editor_mat_tex_",
+									  outError))
 			return false;
 	}
 

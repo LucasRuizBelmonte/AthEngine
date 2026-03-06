@@ -7,7 +7,7 @@
 
 #pragma region Includes
 #include "../ecs/Registry.h"
-#include "PhysicsEvents.h"
+#include "../events/SceneEventBus.h"
 
 #include <glm/glm.hpp>
 
@@ -19,11 +19,11 @@
 class Physics2DSystem
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
 	void SetGravity(const glm::vec2 &gravity);
 	glm::vec2 GetGravity() const;
-	void FixedUpdate(Registry &registry, float fixedDt, PhysicsEvents &events);
-	#pragma endregion
+	void FixedUpdate(Registry &registry, float fixedDt, events::SceneEventBus &eventBus);
+#pragma endregion
 private:
 	struct CollisionPairKey
 	{
@@ -48,7 +48,7 @@ private:
 		float penetration = 0.f;
 	};
 
-	void EmitEvents(PhysicsEvents &events);
+	void EmitEvents(events::SceneEventBus &eventBus);
 
 	std::unordered_map<CollisionPairKey, CollisionPairState, CollisionPairKeyHash> m_previousPairs;
 	std::unordered_map<CollisionPairKey, CollisionPairState, CollisionPairKeyHash> m_currentPairs;

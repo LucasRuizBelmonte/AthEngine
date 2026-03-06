@@ -18,7 +18,7 @@
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
 #include "../systems/CameraSyncSystem.h"
-#include "../physics2d/PhysicsEvents.h"
+#include "../events/SceneEventBus.h"
 #include "../physics2d/Physics2DSystem.h"
 #include "../animation2d/Animation2DLibrary.h"
 #include "../animation2d/SpriteAnimationSystem.h"
@@ -39,6 +39,8 @@
 
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
+
+#include <cstdint>
 #pragma endregion
 
 #pragma region Declarations
@@ -95,9 +97,13 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 
 	/**
-	 * @brief Gets last fixed-step physics events for this scene.
+	 * @brief Gets this scene event bus.
 	 */
-	const PhysicsEvents &GetPhysicsEvents() const;
+	events::SceneEventBus &GetEventBus();
+	/**
+	 * @brief Gets this scene event bus.
+	 */
+	const events::SceneEventBus &GetEventBus() const;
 
 	/**
 	 * @brief Executes Get Editor Registry.
@@ -203,7 +209,7 @@ private:
 	UILayoutSystem m_uiLayoutSystem;
 	UITransformSystem m_uiTransformSystem;
 	UIRenderSystem m_uiRenderSystem;
-	PhysicsEvents m_physicsEvents;
+	events::SceneEventBus m_eventBus;
 
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
@@ -223,6 +229,9 @@ private:
 	EditorSceneDimension m_dimension = EditorSceneDimension::Scene3D;
 	bool m_editorInputEnabled = false;
 	float m_fixedSimulationNow = 0.0f;
+	uint64_t m_fixedStepCounter = 0u;
+	uint64_t m_lastGameplayProjectionStep = 0u;
+	bool m_hasProjectedFixedEvents = false;
 #pragma endregion
 };
 #pragma endregion

@@ -148,8 +148,8 @@ namespace
 		else
 		{
 			inertia = (body.rigidBody->mass / 3.f) *
-			          (body.shape.halfExtents.x * body.shape.halfExtents.x +
-			           body.shape.halfExtents.y * body.shape.halfExtents.y);
+					  (body.shape.halfExtents.x * body.shape.halfExtents.x +
+					   body.shape.halfExtents.y * body.shape.halfExtents.y);
 		}
 
 		if (inertia <= 0.000001f)
@@ -167,9 +167,9 @@ namespace
 	}
 
 	static void IntegrateDynamicBodies(Registry &registry,
-	                                   float fixedDt,
-	                                   const glm::vec2 &gravity,
-	                                   std::vector<Entity> &dynamicEntities)
+									   float fixedDt,
+									   const glm::vec2 &gravity,
+									   std::vector<Entity> &dynamicEntities)
 	{
 		dynamicEntities.clear();
 		registry.ViewEntities<Transform, RigidBody2D>(dynamicEntities);
@@ -229,8 +229,8 @@ namespace
 	}
 
 	static void BuildBodyStates(Registry &registry,
-	                            std::vector<Entity> &colliderEntities,
-	                            std::vector<BodyState> &outBodies)
+								std::vector<Entity> &colliderEntities,
+								std::vector<BodyState> &outBodies)
 	{
 		colliderEntities.clear();
 		registry.ViewEntities<Transform, Collider2D>(colliderEntities);
@@ -254,7 +254,7 @@ namespace
 	}
 
 	static void BuildBroadphasePairs(const std::vector<BodyState> &bodies,
-	                                 std::vector<std::pair<size_t, size_t>> &outPairs)
+									 std::vector<std::pair<size_t, size_t>> &outPairs)
 	{
 		outPairs.clear();
 		const size_t count = bodies.size();
@@ -288,9 +288,9 @@ namespace
 	}
 
 	static void ApplyRollingResistance(RigidBody2D &rigidBody,
-	                                   float invInertiaZ,
-	                                   float normalImpulseMagnitude,
-	                                   float effectiveRadius)
+									   float invInertiaZ,
+									   float normalImpulseMagnitude,
+									   float effectiveRadius)
 	{
 		if (invInertiaZ <= 0.f || normalImpulseMagnitude <= 0.f || rigidBody.freezeAngularVelocityZ)
 			return;
@@ -311,8 +311,8 @@ namespace
 	}
 
 	static void SolveContactVelocity(ContactManifold &manifold,
-	                                 std::vector<BodyState> &bodies,
-	                                 float fixedDt)
+									 std::vector<BodyState> &bodies,
+									 float fixedDt)
 	{
 		BodyState &a = bodies[manifold.indexA];
 		BodyState &b = bodies[manifold.indexB];
@@ -467,25 +467,37 @@ glm::vec2 Physics2DSystem::GetGravity() const
 	return m_gravity;
 }
 
-void Physics2DSystem::EmitEvents(PhysicsEvents &events)
+void Physics2DSystem::EmitEvents(events::SceneEventBus &eventBus)
 {
 	for (const auto &kv : m_currentPairs)
 	{
 		const CollisionPairKey &key = kv.first;
 		const CollisionPairState &state = kv.second;
 
-		PhysicsEvent2D event;
-		event.a = key.a;
-		event.b = key.b;
-		event.normal = state.normal;
-		event.penetration = state.penetration;
-
 		const bool existed = m_previousPairs.find(key) != m_previousPairs.end();
+		const events::PhysicsEventPhase2D phase = existed ? events::PhysicsEventPhase2D::Stay : events::PhysicsEventPhase2D::Enter;
 		if (key.trigger)
-			event.type = existed ? PhysicsEventType2D::OnTriggerStay : PhysicsEventType2D::OnTriggerEnter;
+		{
+			events::PhysicsTriggerEvent2D event{};
+			event.phase = phase;
+			event.a = key.a;
+			event.b = key.b;
+			event.normalX = state.normal.x;
+			event.normalY = state.normal.y;
+			event.penetration = state.penetration;
+			eventBus.Push(event);
+		}
 		else
-			event.type = existed ? PhysicsEventType2D::OnCollisionStay : PhysicsEventType2D::OnCollisionEnter;
-		events.Push(event);
+		{
+			events::PhysicsCollisionEvent2D event{};
+			event.phase = phase;
+			event.a = key.a;
+			event.b = key.b;
+			event.normalX = state.normal.x;
+			event.normalY = state.normal.y;
+			event.penetration = state.penetration;
+			eventBus.Push(event);
+		}
 	}
 
 	for (const auto &kv : m_previousPairs)
@@ -495,19 +507,35 @@ void Physics2DSystem::EmitEvents(PhysicsEvents &events)
 		if (m_currentPairs.find(key) != m_currentPairs.end())
 			continue;
 
-		PhysicsEvent2D event;
-		event.a = key.a;
-		event.b = key.b;
-		event.normal = state.normal;
-		event.penetration = 0.f;
-		event.type = key.trigger ? PhysicsEventType2D::OnTriggerExit : PhysicsEventType2D::OnCollisionExit;
-		events.Push(event);
+		if (key.trigger)
+		{
+			events::PhysicsTriggerEvent2D event{};
+			event.phase = events::PhysicsEventPhase2D::Exit;
+			event.a = key.a;
+			event.b = key.b;
+			event.normalX = state.normal.x;
+			event.normalY = state.normal.y;
+			event.penetration = 0.f;
+			eventBus.Push(event);
+		}
+		else
+		{
+			events::PhysicsCollisionEvent2D event{};
+			event.phase = events::PhysicsEventPhase2D::Exit;
+			event.a = key.a;
+			event.b = key.b;
+			event.normalX = state.normal.x;
+			event.normalY = state.normal.y;
+			event.penetration = 0.f;
+			eventBus.Push(event);
+		}
 	}
 }
 
-void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, PhysicsEvents &events)
+void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::SceneEventBus &eventBus)
 {
-	events.Clear();
+	eventBus.Clear<events::PhysicsCollisionEvent2D>();
+	eventBus.Clear<events::PhysicsTriggerEvent2D>();
 	m_currentPairs.clear();
 
 	IntegrateDynamicBodies(registry, fixedDt, m_gravity, m_dynamicEntities);
@@ -575,7 +603,7 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, PhysicsEven
 		RefreshBodyShapeAndMassProps(body);
 	}
 
-	EmitEvents(events);
+	EmitEvents(eventBus);
 	m_previousPairs = m_currentPairs;
 }
 #pragma endregion

@@ -21,8 +21,10 @@ namespace platform
 	namespace
 	{
 #ifdef _WIN32
-		static constexpr double kThreadPollIntervalSeconds = 1.0;
-		static constexpr double kStoragePollIntervalSeconds = 2.0;
+		static constexpr double kThreadPollIntervalStandardSeconds = 5.0;
+		static constexpr double kThreadPollIntervalDeepSeconds = 1.0;
+		static constexpr double kStoragePollIntervalStandardSeconds = 15.0;
+		static constexpr double kStoragePollIntervalDeepSeconds = 2.0;
 
 		static uint64_t FileTimeToUint64(const FILETIME &time)
 		{
@@ -73,7 +75,7 @@ namespace platform
 		m_storageProbePath = path;
 	}
 
-	void PlatformMetrics::Update(double nowSeconds)
+	void PlatformMetrics::Update(double nowSeconds, bool deepMode)
 	{
 		m_snapshot.sampleTimeSeconds = nowSeconds;
 
@@ -86,8 +88,9 @@ namespace platform
 
 		const HANDLE process = GetCurrentProcess();
 		m_snapshot.cpu.processId = static_cast<uint64_t>(GetCurrentProcessId());
+		const double threadPollInterval = deepMode ? kThreadPollIntervalDeepSeconds : kThreadPollIntervalStandardSeconds;
 		if (m_lastThreadPollSeconds < 0.0 ||
-		    (nowSeconds - m_lastThreadPollSeconds) >= kThreadPollIntervalSeconds)
+		    (nowSeconds - m_lastThreadPollSeconds) >= threadPollInterval)
 		{
 			const uint32_t threadCount = CountProcessThreads(static_cast<DWORD>(m_snapshot.cpu.processId));
 			if (threadCount > 0u)
@@ -183,8 +186,9 @@ namespace platform
 		}
 
 		{
+			const double storagePollInterval = deepMode ? kStoragePollIntervalDeepSeconds : kStoragePollIntervalStandardSeconds;
 			if (m_lastStoragePollSeconds < 0.0 ||
-			    (nowSeconds - m_lastStoragePollSeconds) >= kStoragePollIntervalSeconds)
+			    (nowSeconds - m_lastStoragePollSeconds) >= storagePollInterval)
 			{
 				m_lastStoragePollSeconds = nowSeconds;
 				m_snapshot.storage.available = false;
@@ -212,6 +216,7 @@ namespace platform
 		}
 #else
 		(void)nowSeconds;
+		(void)deepMode;
 		m_snapshot.cpu = CpuMetrics{};
 		m_snapshot.memory = MemoryMetrics{};
 		m_snapshot.process = ProcessMetrics{};

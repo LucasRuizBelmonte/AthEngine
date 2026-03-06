@@ -77,8 +77,8 @@ private:
 	void ResolvePendingGpuQueries();
 	void BeginGpuTiming();
 	void EndGpuTiming();
-	void UpdateVramInfo(double nowSeconds);
-	void UpdatePlatformMetrics(double nowSeconds);
+	void UpdateVramInfo(double nowSeconds, bool deepMode);
+	void UpdatePlatformMetrics(double nowSeconds, bool deepMode);
 
 	HistoryStats ComputeStats(const MetricHistory &history) const;
 	void DrawHistoryPlot(const char *label, const MetricHistory &history, float minScale, float maxScale, const char *overlayText) const;
@@ -105,12 +105,17 @@ private:
 	MetricHistory m_indicesHistory;
 	MetricHistory m_vramPressureMbHistory;
 	MetricHistory m_cpuOtherMsHistory;
+	MetricHistory m_cpuPhysicsMsHistory;
+	MetricHistory m_cpuScriptsMsHistory;
+	MetricHistory m_cpuRenderingMsHistory;
+	MetricHistory m_cpuUiMsHistory;
 	std::array<MetricHistory, kCpuSampleCount> m_cpuSampleHistory;
 	std::array<float, kCpuSampleCount> m_cpuSampleFrameMs{};
 	std::array<std::chrono::steady_clock::time_point, kCpuSampleCount> m_cpuSampleStart{};
 	std::array<bool, kCpuSampleCount> m_cpuSampleActive{};
 	RenderCounters m_renderCounters{};
 	bool m_deepProfilerEnabled = false;
+	bool m_deepModeFrameActive = false;
 
 	platform::PlatformMetrics m_platformMetrics;
 	platform::PlatformMetricsSnapshot m_platformSnapshot{};

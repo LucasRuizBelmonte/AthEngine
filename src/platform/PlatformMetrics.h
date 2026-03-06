@@ -66,7 +66,7 @@ namespace platform
 		PlatformMetrics();
 
 		void SetStorageProbePath(const std::string &path);
-		void Update(double nowSeconds);
+		void Update(double nowSeconds, bool deepMode);
 
 		const PlatformMetricsSnapshot &GetSnapshot() const;
 

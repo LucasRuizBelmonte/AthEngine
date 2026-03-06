@@ -14,8 +14,10 @@
 
 namespace
 {
-	static constexpr double kPlatformPollIntervalSeconds = 0.25;
-	static constexpr double kVramPollIntervalSeconds = 0.5;
+	static constexpr double kPlatformPollIntervalStandardSeconds = 1.0;
+	static constexpr double kPlatformPollIntervalDeepSeconds = 0.25;
+	static constexpr double kVramPollIntervalStandardSeconds = 1.5;
+	static constexpr double kVramPollIntervalDeepSeconds = 0.25;
 	static constexpr ImGuiTableFlags kStatsTableFlags =
 		ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp;
 	static constexpr ImGuiTreeNodeFlags kDeepLeafFlags =
@@ -103,6 +105,137 @@ namespace
 		else
 			ImGui::TextUnformatted("N/A");
 	}
+
+	static void DrawCpuTimeline(const Profiler::MetricHistory &frameHistory,
+	                            const Profiler::MetricHistory &physicsHistory,
+	                            const Profiler::MetricHistory &scriptsHistory,
+	                            const Profiler::MetricHistory &renderingHistory,
+	                            const Profiler::MetricHistory &uiHistory,
+	                            const Profiler::MetricHistory &otherHistory)
+	{
+		const size_t availableFrames = frameHistory.count;
+		if (availableFrames == 0u)
+		{
+			ImGui::TextUnformatted("CPU Timeline: N/A");
+			return;
+		}
+
+		const bool hasCategoryData =
+			physicsHistory.count > 0u ||
+			scriptsHistory.count > 0u ||
+			renderingHistory.count > 0u ||
+			uiHistory.count > 0u ||
+			otherHistory.count > 0u;
+		if (!hasCategoryData)
+		{
+			ImGui::TextUnformatted("Start Record to capture timeline categories.");
+			return;
+		}
+
+		const ImVec2 canvasSize(std::max(32.0f, ImGui::GetContentRegionAvail().x), 170.0f);
+		ImGui::InvisibleButton("##CpuTimelineCanvas", canvasSize);
+		ImDrawList *drawList = ImGui::GetWindowDrawList();
+		const ImVec2 rectMin = ImGui::GetItemRectMin();
+		const ImVec2 rectMax = ImGui::GetItemRectMax();
+		const ImVec2 plotMin(rectMin.x + 1.0f, rectMin.y + 1.0f);
+		const ImVec2 plotMax(rectMax.x - 1.0f, rectMax.y - 1.0f);
+		const float plotWidth = std::max(1.0f, plotMax.x - plotMin.x);
+		const float plotHeight = std::max(1.0f, plotMax.y - plotMin.y);
+
+		const ImU32 colorBg = IM_COL32(13, 13, 20, 255);
+		const ImU32 colorBorder = IM_COL32(92, 92, 118, 255);
+		const ImU32 colorGrid = IM_COL32(55, 55, 78, 255);
+		const ImU32 color16Ms = IM_COL32(100, 210, 120, 180);
+		const ImU32 color33Ms = IM_COL32(220, 180, 80, 170);
+		const ImU32 colorPhysics = IM_COL32(90, 180, 255, 230);
+		const ImU32 colorScripts = IM_COL32(255, 152, 78, 230);
+		const ImU32 colorRendering = IM_COL32(130, 230, 125, 230);
+		const ImU32 colorUi = IM_COL32(208, 130, 255, 230);
+		const ImU32 colorOther = IM_COL32(168, 168, 168, 215);
+
+		drawList->AddRectFilled(rectMin, rectMax, colorBg);
+		drawList->AddRect(rectMin, rectMax, colorBorder);
+
+		const size_t frameCount = std::min<size_t>(availableFrames, 220u);
+		const size_t firstFrame = availableFrames - frameCount;
+
+		float maxScaleMs = 16.0f;
+		for (size_t i = 0u; i < frameCount; ++i)
+			maxScaleMs = std::max(maxScaleMs, frameHistory.GetChronological(firstFrame + i));
+		maxScaleMs = std::max(16.0f, maxScaleMs * 1.1f);
+
+		auto drawMsLine = [&](float ms, ImU32 color)
+		{
+			if (ms <= 0.0f || ms > maxScaleMs)
+				return;
+
+			const float y = plotMax.y - (ms / maxScaleMs) * plotHeight;
+			drawList->AddLine(ImVec2(plotMin.x, y), ImVec2(plotMax.x, y), color, 1.0f);
+		};
+		drawMsLine(16.67f, color16Ms);
+		drawMsLine(33.33f, color33Ms);
+
+		const float barWidth = std::max(1.0f, plotWidth / static_cast<float>(frameCount));
+		for (size_t i = 0u; i < frameCount; ++i)
+		{
+			const size_t frameIndex = firstFrame + i;
+			const float x0 = plotMin.x + static_cast<float>(i) * barWidth;
+			const float x1 = std::max(x0 + 1.0f, plotMin.x + static_cast<float>(i + 1u) * barWidth);
+			float yCursor = plotMax.y;
+
+			auto drawSegment = [&](float valueMs, ImU32 color)
+			{
+				if (valueMs <= 0.0f)
+					return;
+
+				const float h = (valueMs / maxScaleMs) * plotHeight;
+				const float y0 = std::max(plotMin.y, yCursor - h);
+				drawList->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, yCursor), color);
+				yCursor = y0;
+			};
+
+			drawSegment(physicsHistory.GetChronological(frameIndex), colorPhysics);
+			drawSegment(scriptsHistory.GetChronological(frameIndex), colorScripts);
+			drawSegment(renderingHistory.GetChronological(frameIndex), colorRendering);
+			drawSegment(uiHistory.GetChronological(frameIndex), colorUi);
+			drawSegment(otherHistory.GetChronological(frameIndex), colorOther);
+		}
+
+		const ImVec2 mousePos = ImGui::GetIO().MousePos;
+		if (ImGui::IsItemHovered() && frameCount > 0u && mousePos.x >= plotMin.x && mousePos.x <= plotMax.x)
+		{
+			const float localX = mousePos.x - plotMin.x;
+			const size_t offset = std::min(frameCount - 1u, static_cast<size_t>((localX / plotWidth) * static_cast<float>(frameCount)));
+			const size_t frameIndex = firstFrame + offset;
+
+			const float frameMs = frameHistory.GetChronological(frameIndex);
+			const float physicsMs = physicsHistory.GetChronological(frameIndex);
+			const float scriptsMs = scriptsHistory.GetChronological(frameIndex);
+			const float renderingMs = renderingHistory.GetChronological(frameIndex);
+			const float uiMs = uiHistory.GetChronological(frameIndex);
+			const float otherMs = otherHistory.GetChronological(frameIndex);
+
+			ImGui::BeginTooltip();
+			ImGui::Text("Frame: %.2f ms (%.1f FPS)", frameMs, (frameMs > 0.0001f) ? 1000.0f / frameMs : 0.0f);
+			ImGui::Separator();
+			ImGui::Text("Physics:   %.2f ms", physicsMs);
+			ImGui::Text("Scripts:   %.2f ms", scriptsMs);
+			ImGui::Text("Rendering: %.2f ms", renderingMs);
+			ImGui::Text("UI:        %.2f ms", uiMs);
+			ImGui::Text("Other:     %.2f ms", otherMs);
+			ImGui::EndTooltip();
+		}
+
+		ImGui::TextColored(ImColor(colorPhysics), "Physics");
+		ImGui::SameLine();
+		ImGui::TextColored(ImColor(colorScripts), "Scripts");
+		ImGui::SameLine();
+		ImGui::TextColored(ImColor(colorRendering), "Rendering");
+		ImGui::SameLine();
+		ImGui::TextColored(ImColor(colorUi), "UI");
+		ImGui::SameLine();
+		ImGui::TextColored(ImColor(colorOther), "Other");
+	}
 }
 
 void Profiler::MetricHistory::Push(float value)
@@ -129,25 +262,27 @@ Profiler::Profiler()
 
 void Profiler::BeginFrame()
 {
-	if (!m_recording)
-	{
-		m_frameActive = false;
-		return;
-	}
-
 	m_frameStart = std::chrono::steady_clock::now();
 	m_frameActive = true;
 	std::fill(m_cpuSampleFrameMs.begin(), m_cpuSampleFrameMs.end(), 0.0f);
 	std::fill(m_cpuSampleActive.begin(), m_cpuSampleActive.end(), false);
+	m_deepModeFrameActive = m_recording && m_deepProfilerEnabled;
 
+	if (!m_recording)
+		return;
+
+	const bool deepMode = m_deepModeFrameActive;
 	const std::chrono::steady_clock::time_point backendStart = std::chrono::steady_clock::now();
 	const double nowSeconds = NowSeconds();
-	UpdatePlatformMetrics(nowSeconds);
+	UpdatePlatformMetrics(nowSeconds, deepMode);
 
-	EnsureGpuQuerySupport();
-	ResolvePendingGpuQueries();
-	UpdateVramInfo(nowSeconds);
-	BeginGpuTiming();
+	if (deepMode)
+	{
+		EnsureGpuQuerySupport();
+		ResolvePendingGpuQueries();
+		UpdateVramInfo(nowSeconds, deepMode);
+		BeginGpuTiming();
+	}
 	const float backendMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - backendStart).count();
 	m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::ProfilerBackend)] += backendMs;
 }
@@ -157,10 +292,13 @@ void Profiler::EndFrame()
 	if (!m_frameActive)
 		return;
 
-	const std::chrono::steady_clock::time_point backendStart = std::chrono::steady_clock::now();
-	EndGpuTiming();
-	const float backendMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - backendStart).count();
-	m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::ProfilerBackend)] += backendMs;
+	if (m_recording && m_deepModeFrameActive)
+	{
+		const std::chrono::steady_clock::time_point backendStart = std::chrono::steady_clock::now();
+		EndGpuTiming();
+		const float backendMs = std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - backendStart).count();
+		m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::ProfilerBackend)] += backendMs;
+	}
 
 	const std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
@@ -180,19 +318,43 @@ void Profiler::EndFrame()
 	if (frameMs > 0.0001f)
 		m_fpsHistory.Push(1000.0f / frameMs);
 
+	if (!m_recording)
+	{
+		m_frameActive = false;
+		m_deepModeFrameActive = false;
+		return;
+	}
+
 	float knownCpuMs = 0.0f;
 	for (size_t i = 0u; i < m_cpuSampleHistory.size(); ++i)
 	{
 		m_cpuSampleHistory[i].Push(m_cpuSampleFrameMs[i]);
 		knownCpuMs += m_cpuSampleFrameMs[i];
 	}
-	m_cpuOtherMsHistory.Push(std::max(0.0f, frameMs - knownCpuMs));
+	const float cpuOtherMs = std::max(0.0f, frameMs - knownCpuMs);
+	m_cpuOtherMsHistory.Push(cpuOtherMs);
+
+	const float cpuPhysicsMs = m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::FixedUpdate)];
+	const float cpuScriptsMs = m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::Update)];
+	const float cpuRenderingMs =
+		m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::Render3D)] +
+		m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::Render2D)];
+	const float cpuUiMs =
+		m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::EditorUi)] +
+		m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::ProfilerUi)] +
+		m_cpuSampleFrameMs[CpuSampleIndex(CpuSample::ImGuiRender)];
+
+	m_cpuPhysicsMsHistory.Push(cpuPhysicsMs);
+	m_cpuScriptsMsHistory.Push(cpuScriptsMs);
+	m_cpuRenderingMsHistory.Push(cpuRenderingMs);
+	m_cpuUiMsHistory.Push(cpuUiMs);
 
 	m_drawCallsHistory.Push(static_cast<float>(m_renderCounters.drawCalls));
 	m_trianglesHistory.Push(static_cast<float>(m_renderCounters.triangles));
 	m_indicesHistory.Push(static_cast<float>(m_renderCounters.indices));
 
 	m_frameActive = false;
+	m_deepModeFrameActive = false;
 }
 
 void Profiler::BeginCpuSample(CpuSample sample)
@@ -262,6 +424,10 @@ void Profiler::RenderImGui(bool *open)
 		m_indicesHistory = MetricHistory{};
 		m_vramPressureMbHistory = MetricHistory{};
 		m_cpuOtherMsHistory = MetricHistory{};
+		m_cpuPhysicsMsHistory = MetricHistory{};
+		m_cpuScriptsMsHistory = MetricHistory{};
+		m_cpuRenderingMsHistory = MetricHistory{};
+		m_cpuUiMsHistory = MetricHistory{};
 		for (MetricHistory &history : m_cpuSampleHistory)
 			history = MetricHistory{};
 
@@ -278,6 +444,11 @@ void Profiler::RenderImGui(bool *open)
 
 	ImGui::SameLine();
 	ImGui::TextUnformatted(m_recording ? "Status: Recording" : "Status: Stopped");
+	if (m_deepProfilerEnabled && !m_recording)
+	{
+		ImGui::SameLine();
+		ImGui::TextUnformatted("DEEP armed");
+	}
 	ImGui::Separator();
 
 	const HistoryStats frameStats = ComputeStats(m_frameTimeMsHistory);
@@ -292,6 +463,15 @@ void Profiler::RenderImGui(bool *open)
 	const HistoryStats indexStats = ComputeStats(m_indicesHistory);
 	const HistoryStats vramPressureStats = ComputeStats(m_vramPressureMbHistory);
 	const HistoryStats cpuOtherStats = ComputeStats(m_cpuOtherMsHistory);
+	const HistoryStats cpuPhysicsStats = ComputeStats(m_cpuPhysicsMsHistory);
+	const HistoryStats cpuScriptsStats = ComputeStats(m_cpuScriptsMsHistory);
+	const HistoryStats cpuRenderingStats = ComputeStats(m_cpuRenderingMsHistory);
+	const HistoryStats cpuUiStats = ComputeStats(m_cpuUiMsHistory);
+
+	if (fpsStats.valid)
+	{
+		ImGui::Text("Live FPS: %.1f (%.2f ms)", fpsStats.current, frameStats.current);
+	}
 
 	std::array<HistoryStats, kCpuSampleCount> cpuSampleStats{};
 	for (size_t i = 0u; i < cpuSampleStats.size(); ++i)
@@ -324,6 +504,10 @@ void Profiler::RenderImGui(bool *open)
 				DrawStatsRow(GetCpuSampleLabel(CpuSample::Render2D), cpuSampleStats[CpuSampleIndex(CpuSample::Render2D)], "ms");
 				DrawStatsRow(GetCpuSampleLabel(CpuSample::ProfilerUi), cpuSampleStats[CpuSampleIndex(CpuSample::ProfilerUi)], "ms");
 				DrawStatsRow(GetCpuSampleLabel(CpuSample::ImGuiRender), cpuSampleStats[CpuSampleIndex(CpuSample::ImGuiRender)], "ms");
+				DrawStatsRow("Timeline Physics", cpuPhysicsStats, "ms");
+				DrawStatsRow("Timeline Scripts", cpuScriptsStats, "ms");
+				DrawStatsRow("Timeline Rendering", cpuRenderingStats, "ms");
+				DrawStatsRow("Timeline UI", cpuUiStats, "ms");
 				DrawStatsRow("CPU Other", cpuOtherStats, "ms");
 				DrawStatsRow("GC / Alloc Pressure", allocPressureStats, "MB");
 
@@ -341,6 +525,15 @@ void Profiler::RenderImGui(bool *open)
 			                0.0f,
 			                PlotUpperBound(cpuSampleStats[CpuSampleIndex(CpuSample::Update)], 2.0f),
 			                "last 512 samples");
+
+			ImGui::Separator();
+			ImGui::TextUnformatted("CPU Timeline (Physics / Scripts / Rendering / UI)");
+			DrawCpuTimeline(m_frameTimeMsHistory,
+			                m_cpuPhysicsMsHistory,
+			                m_cpuScriptsMsHistory,
+			                m_cpuRenderingMsHistory,
+			                m_cpuUiMsHistory,
+			                m_cpuOtherMsHistory);
 
 			if (m_deepProfilerEnabled)
 			{
@@ -681,9 +874,10 @@ void Profiler::EndGpuTiming()
 	m_gpuQueryActiveSlot = -1;
 }
 
-void Profiler::UpdateVramInfo(double nowSeconds)
+void Profiler::UpdateVramInfo(double nowSeconds, bool deepMode)
 {
-	if (m_lastVramPollSeconds >= 0.0 && (nowSeconds - m_lastVramPollSeconds) < kVramPollIntervalSeconds)
+	const double pollInterval = deepMode ? kVramPollIntervalDeepSeconds : kVramPollIntervalStandardSeconds;
+	if (m_lastVramPollSeconds >= 0.0 && (nowSeconds - m_lastVramPollSeconds) < pollInterval)
 		return;
 	m_lastVramPollSeconds = nowSeconds;
 
@@ -736,16 +930,17 @@ void Profiler::UpdateVramInfo(double nowSeconds)
 	m_vramUsedMb = -1.0f;
 }
 
-void Profiler::UpdatePlatformMetrics(double nowSeconds)
+void Profiler::UpdatePlatformMetrics(double nowSeconds, bool deepMode)
 {
+	const double pollInterval = deepMode ? kPlatformPollIntervalDeepSeconds : kPlatformPollIntervalStandardSeconds;
 	if (m_lastPlatformPollSeconds >= 0.0 &&
-	    (nowSeconds - m_lastPlatformPollSeconds) < kPlatformPollIntervalSeconds)
+	    (nowSeconds - m_lastPlatformPollSeconds) < pollInterval)
 	{
 		return;
 	}
 
 	m_lastPlatformPollSeconds = nowSeconds;
-	m_platformMetrics.Update(nowSeconds);
+	m_platformMetrics.Update(nowSeconds, deepMode);
 	m_platformSnapshot = m_platformMetrics.GetSnapshot();
 
 	if (m_platformSnapshot.cpu.processUsageAvailable)

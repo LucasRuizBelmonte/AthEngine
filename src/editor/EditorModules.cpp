@@ -2177,6 +2177,12 @@ namespace editorui
 				scenes.AddScene(SceneRequest::BasicScene);
 			}
 
+			if (ImGui::MenuItem("Add HUD Demo Scene"))
+			{
+				ui.selectedScene = scenes.GetLoadedSceneCount();
+				scenes.AddScene(SceneRequest::HudDemoScene);
+			}
+
 			ImGui::EndMenu();
 		}
 

@@ -48,6 +48,17 @@ namespace AthSceneIO
 		struct SpinCodec;
 		struct LightEmitterCodec;
 		struct SpriteCodec;
+		struct UITransformCodec;
+		struct UISpriteCodec;
+		struct UITextCodec;
+		struct UIHorizontalGroupCodec;
+		struct UIVerticalGroupCodec;
+		struct UIGridGroupCodec;
+		struct UILayoutElementCodec;
+		struct UISpacerCodec;
+		struct UIMaskCodec;
+		struct UIFillCodec;
+		struct HealthCodec;
 		struct SpriteAnimatorCodec;
 		struct Collider2DCodec;
 		struct RigidBody2DCodec;

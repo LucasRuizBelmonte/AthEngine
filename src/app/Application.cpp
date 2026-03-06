@@ -291,11 +291,6 @@ void Application::HandleSceneInput()
 {
 	const InputState &input = Input::GetState();
 
-#ifdef ENGINE_DEBUG
-	if (input.GetPressed(ProjectInput::Actions::Pause))
-		m_Window->Close();
-#endif
-
 	if (Input::GetMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT))
 	{
 		if (EditorUI::IsRenderWindowHovered() && !m_MouseCaptured)

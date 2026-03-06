@@ -20,7 +20,8 @@
 enum class SceneRequest
 {
     BasicScene,
-    PushScene
+    PushScene,
+	HudDemoScene
 };
 
 class SceneManager

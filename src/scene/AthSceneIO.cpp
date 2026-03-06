@@ -16,6 +16,7 @@
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
 #include "../material/MaterialMetadata.h"
+#include "../components/ui/UIComponents.h"
 #include "../utils/StrictParsing.h"
 
 #include <algorithm>
@@ -60,6 +61,28 @@ namespace AthSceneIO
 
 			bool hasSprite = false;
 			Sprite sprite;
+			bool hasUITransform = false;
+			UITransform uiTransform;
+			bool hasUISprite = false;
+			UISprite uiSprite;
+			bool hasUIText = false;
+			UIText uiText;
+			bool hasUIHorizontalGroup = false;
+			UIHorizontalGroup uiHorizontalGroup;
+			bool hasUIVerticalGroup = false;
+			UIVerticalGroup uiVerticalGroup;
+			bool hasUIGridGroup = false;
+			UIGridGroup uiGridGroup;
+			bool hasUILayoutElement = false;
+			UILayoutElement uiLayoutElement;
+			bool hasUISpacer = false;
+			UISpacer uiSpacer;
+			bool hasUIMask = false;
+			UIMask uiMask;
+			bool hasUIFill = false;
+			UIFill uiFill;
+			bool hasHealth = false;
+			Health health;
 			bool hasSpriteAnimator = false;
 			SpriteAnimator spriteAnimator;
 
@@ -123,6 +146,84 @@ namespace AthSceneIO
 			default:
 				return false;
 			}
+		}
+
+		static UITextAlignment UITextAlignmentFromStoredValue(int value)
+		{
+			switch (value)
+			{
+			case static_cast<int>(UITextAlignment::Center):
+				return UITextAlignment::Center;
+			case static_cast<int>(UITextAlignment::Right):
+				return UITextAlignment::Right;
+			case static_cast<int>(UITextAlignment::Left):
+			default:
+				return UITextAlignment::Left;
+			}
+		}
+
+		static bool IsValidUITextAlignmentValue(int value)
+		{
+			return value == static_cast<int>(UITextAlignment::Left) ||
+			       value == static_cast<int>(UITextAlignment::Center) ||
+			       value == static_cast<int>(UITextAlignment::Right);
+		}
+
+		static UIChildAlignment UIChildAlignmentFromStoredValue(int value)
+		{
+			switch (value)
+			{
+			case static_cast<int>(UIChildAlignment::Center):
+				return UIChildAlignment::Center;
+			case static_cast<int>(UIChildAlignment::End):
+				return UIChildAlignment::End;
+			case static_cast<int>(UIChildAlignment::Start):
+			default:
+				return UIChildAlignment::Start;
+			}
+		}
+
+		static bool IsValidUIChildAlignmentValue(int value)
+		{
+			return value == static_cast<int>(UIChildAlignment::Start) ||
+			       value == static_cast<int>(UIChildAlignment::Center) ||
+			       value == static_cast<int>(UIChildAlignment::End);
+		}
+
+		static UIGridConstraint UIGridConstraintFromStoredValue(int value)
+		{
+			switch (value)
+			{
+			case static_cast<int>(UIGridConstraint::FixedRows):
+				return UIGridConstraint::FixedRows;
+			case static_cast<int>(UIGridConstraint::FixedColumns):
+			default:
+				return UIGridConstraint::FixedColumns;
+			}
+		}
+
+		static bool IsValidUIGridConstraintValue(int value)
+		{
+			return value == static_cast<int>(UIGridConstraint::FixedColumns) ||
+			       value == static_cast<int>(UIGridConstraint::FixedRows);
+		}
+
+		static UIFillDirection UIFillDirectionFromStoredValue(int value)
+		{
+			switch (value)
+			{
+			case static_cast<int>(UIFillDirection::RightToLeft):
+				return UIFillDirection::RightToLeft;
+			case static_cast<int>(UIFillDirection::LeftToRight):
+			default:
+				return UIFillDirection::LeftToRight;
+			}
+		}
+
+		static bool IsValidUIFillDirectionValue(int value)
+		{
+			return value == static_cast<int>(UIFillDirection::LeftToRight) ||
+			       value == static_cast<int>(UIFillDirection::RightToLeft);
 		}
 
 		static bool ReadExpectedKeyword(std::istream &in, const char *expected, std::string &outError)
@@ -289,7 +390,7 @@ namespace AthSceneIO
 	{
 		static void Write(const Registry &registry, Entity e, std::ostream &out)
 		{
-			if (!registry.Has<Transform>(e))
+			if (!registry.Has<Transform>(e) || registry.Has<UITransform>(e))
 				return;
 			const Transform &c = registry.Get<Transform>(e);
 			out << "TRANSFORM "
@@ -577,6 +678,457 @@ namespace AthSceneIO
 				return false;
 			}
 			ent.sprite.pivot = SpritePivotFromStoredValue(pivot);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UITransformCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UITransform>(e))
+				return;
+			const UITransform &c = registry.Get<UITransform>(e);
+			out << "UITRANSFORM "
+			    << c.anchorMin.x << " " << c.anchorMin.y << " "
+			    << c.anchorMax.x << " " << c.anchorMax.y << " "
+			    << c.pivot.x << " " << c.pivot.y << " "
+			    << c.anchoredPosition.x << " " << c.anchoredPosition.y << " "
+			    << c.sizeDelta.x << " " << c.sizeDelta.y << " "
+			    << c.rotation << " "
+			    << c.scale.x << " " << c.scale.y << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUITransform = true;
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "UITransform", values, outError))
+				return false;
+			if (!StrictParsing::RequireTokenCount(values, 13u, "UITransform", outError))
+			{
+				outError = BuildSchemaError(
+					"UITransform",
+					"13 numeric values: anchorMin2 anchorMax2 pivot2 anchoredPosition2 sizeDelta2 rotation scale2",
+					payload);
+				return false;
+			}
+
+			ent.uiTransform.anchorMin = glm::vec2(values[0], values[1]);
+			ent.uiTransform.anchorMax = glm::vec2(values[2], values[3]);
+			ent.uiTransform.pivot = glm::vec2(values[4], values[5]);
+			ent.uiTransform.anchoredPosition = glm::vec2(values[6], values[7]);
+			ent.uiTransform.sizeDelta = glm::vec2(values[8], values[9]);
+			ent.uiTransform.rotation = values[10];
+			ent.uiTransform.scale = glm::vec2(values[11], values[12]);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UISpriteCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UISprite>(e))
+				return;
+			const UISprite &c = registry.Get<UISprite>(e);
+			out << "UISPRITE "
+			    << c.texture.id << " " << c.shader.id << " "
+			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
+			    << c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
+			    << c.layer << " " << c.orderInLayer << " "
+			    << (c.preserveAspect ? 1 : 0) << " "
+			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.texturePath)) << " "
+			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUISprite = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int preserveAspect = 0;
+			std::string extra;
+			if (!(ls >> ent.uiSprite.texture.id >> ent.uiSprite.shader.id >>
+			      ent.uiSprite.tint.x >> ent.uiSprite.tint.y >> ent.uiSprite.tint.z >> ent.uiSprite.tint.w >>
+			      ent.uiSprite.uv.x >> ent.uiSprite.uv.y >> ent.uiSprite.uv.z >> ent.uiSprite.uv.w >>
+			      ent.uiSprite.layer >> ent.uiSprite.orderInLayer >> preserveAspect >>
+			      std::quoted(ent.uiSprite.texturePath) >> std::quoted(ent.uiSprite.materialPath)) ||
+			    (ls >> extra))
+			{
+				outError = BuildSchemaError(
+					"UISprite",
+					"UISPRITE <texId> <shaderId> <tint4> <uv4> <layer> <orderInLayer> <preserveAspect> \"<texturePath>\" \"<materialPath>\"",
+					payload);
+				return false;
+			}
+
+			ent.uiSprite.preserveAspect = (preserveAspect != 0);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UITextCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UIText>(e))
+				return;
+			const UIText &c = registry.Get<UIText>(e);
+			out << "UITEXT "
+			    << std::quoted(c.text) << " "
+			    << c.color.x << " " << c.color.y << " " << c.color.z << " " << c.color.w << " "
+			    << std::quoted(c.fontId) << " "
+			    << c.fontSizePx << " "
+			    << static_cast<int>(c.alignment) << " "
+			    << (c.wrap ? 1 : 0) << " "
+			    << (c.outlineEnabled ? 1 : 0) << " "
+			    << c.outlineColor.x << " " << c.outlineColor.y << " " << c.outlineColor.z << " " << c.outlineColor.w << " "
+			    << c.outlineThicknessPx << " "
+			    << c.layer << " " << c.orderInLayer << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUIText = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int alignment = 0;
+			int wrap = 0;
+			int outlineEnabled = 0;
+			std::string extra;
+			if (!(ls >> std::quoted(ent.uiText.text) >>
+			      ent.uiText.color.x >> ent.uiText.color.y >> ent.uiText.color.z >> ent.uiText.color.w >>
+			      std::quoted(ent.uiText.fontId) >>
+			      ent.uiText.fontSizePx >>
+			      alignment >> wrap >> outlineEnabled >>
+			      ent.uiText.outlineColor.x >> ent.uiText.outlineColor.y >> ent.uiText.outlineColor.z >> ent.uiText.outlineColor.w >>
+			      ent.uiText.outlineThicknessPx >>
+			      ent.uiText.layer >> ent.uiText.orderInLayer) ||
+			    (ls >> extra))
+			{
+				outError = BuildSchemaError(
+					"UIText",
+					"UITEXT \"<text>\" <color4> \"<fontId>\" <fontSizePx> <alignment> <wrap> <outlineEnabled> <outlineColor4> <outlineThicknessPx> <layer> <orderInLayer>",
+					payload);
+				return false;
+			}
+
+			if (!IsValidUITextAlignmentValue(alignment))
+			{
+				outError = BuildSchemaError("UIText", "alignment enum value in [0..2]", payload);
+				return false;
+			}
+
+			ent.uiText.alignment = UITextAlignmentFromStoredValue(alignment);
+			ent.uiText.wrap = (wrap != 0);
+			ent.uiText.outlineEnabled = (outlineEnabled != 0);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UIHorizontalGroupCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UIHorizontalGroup>(e))
+				return;
+			const UIHorizontalGroup &c = registry.Get<UIHorizontalGroup>(e);
+			out << "UIHORIZONTALGROUP "
+			    << c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
+			    << c.spacing << " "
+			    << static_cast<int>(c.childAlignment) << " "
+			    << (c.expandWidth ? 1 : 0) << " "
+			    << (c.expandHeight ? 1 : 0) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUIHorizontalGroup = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int alignment = 0;
+			int expandWidth = 0;
+			int expandHeight = 0;
+			std::string extra;
+			if (!(ls >> ent.uiHorizontalGroup.padding.left >> ent.uiHorizontalGroup.padding.right >>
+			      ent.uiHorizontalGroup.padding.top >> ent.uiHorizontalGroup.padding.bottom >>
+			      ent.uiHorizontalGroup.spacing >>
+			      alignment >> expandWidth >> expandHeight) ||
+			    (ls >> extra))
+			{
+				outError = BuildSchemaError(
+					"UIHorizontalGroup",
+					"UIHORIZONTALGROUP <paddingL> <paddingR> <paddingT> <paddingB> <spacing> <alignment> <expandWidth> <expandHeight>",
+					payload);
+				return false;
+			}
+			if (!IsValidUIChildAlignmentValue(alignment))
+			{
+				outError = BuildSchemaError("UIHorizontalGroup", "alignment enum value in [0..2]", payload);
+				return false;
+			}
+			ent.uiHorizontalGroup.childAlignment = UIChildAlignmentFromStoredValue(alignment);
+			ent.uiHorizontalGroup.expandWidth = (expandWidth != 0);
+			ent.uiHorizontalGroup.expandHeight = (expandHeight != 0);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UIVerticalGroupCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UIVerticalGroup>(e))
+				return;
+			const UIVerticalGroup &c = registry.Get<UIVerticalGroup>(e);
+			out << "UIVERTICALGROUP "
+			    << c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
+			    << c.spacing << " "
+			    << static_cast<int>(c.childAlignment) << " "
+			    << (c.expandWidth ? 1 : 0) << " "
+			    << (c.expandHeight ? 1 : 0) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUIVerticalGroup = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int alignment = 0;
+			int expandWidth = 0;
+			int expandHeight = 0;
+			std::string extra;
+			if (!(ls >> ent.uiVerticalGroup.padding.left >> ent.uiVerticalGroup.padding.right >>
+			      ent.uiVerticalGroup.padding.top >> ent.uiVerticalGroup.padding.bottom >>
+			      ent.uiVerticalGroup.spacing >>
+			      alignment >> expandWidth >> expandHeight) ||
+			    (ls >> extra))
+			{
+				outError = BuildSchemaError(
+					"UIVerticalGroup",
+					"UIVERTICALGROUP <paddingL> <paddingR> <paddingT> <paddingB> <spacing> <alignment> <expandWidth> <expandHeight>",
+					payload);
+				return false;
+			}
+			if (!IsValidUIChildAlignmentValue(alignment))
+			{
+				outError = BuildSchemaError("UIVerticalGroup", "alignment enum value in [0..2]", payload);
+				return false;
+			}
+			ent.uiVerticalGroup.childAlignment = UIChildAlignmentFromStoredValue(alignment);
+			ent.uiVerticalGroup.expandWidth = (expandWidth != 0);
+			ent.uiVerticalGroup.expandHeight = (expandHeight != 0);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UIGridGroupCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UIGridGroup>(e))
+				return;
+			const UIGridGroup &c = registry.Get<UIGridGroup>(e);
+			out << "UIGRIDGROUP "
+			    << c.cellSize.x << " " << c.cellSize.y << " "
+			    << c.spacing.x << " " << c.spacing.y << " "
+			    << static_cast<int>(c.constraint) << " "
+			    << c.count << " "
+			    << c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
+			    << static_cast<int>(c.alignment) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUIGridGroup = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int constraint = 0;
+			int alignment = 0;
+			std::string extra;
+			if (!(ls >> ent.uiGridGroup.cellSize.x >> ent.uiGridGroup.cellSize.y >>
+			      ent.uiGridGroup.spacing.x >> ent.uiGridGroup.spacing.y >>
+			      constraint >>
+			      ent.uiGridGroup.count >>
+			      ent.uiGridGroup.padding.left >> ent.uiGridGroup.padding.right >>
+			      ent.uiGridGroup.padding.top >> ent.uiGridGroup.padding.bottom >>
+			      alignment) ||
+			    (ls >> extra))
+			{
+				outError = BuildSchemaError(
+					"UIGridGroup",
+					"UIGRIDGROUP <cellSize2> <spacing2> <constraint> <count> <padding4> <alignment>",
+					payload);
+				return false;
+			}
+			if (!IsValidUIGridConstraintValue(constraint))
+			{
+				outError = BuildSchemaError("UIGridGroup", "constraint enum value in [0..1]", payload);
+				return false;
+			}
+			if (!IsValidUIChildAlignmentValue(alignment))
+			{
+				outError = BuildSchemaError("UIGridGroup", "alignment enum value in [0..2]", payload);
+				return false;
+			}
+			ent.uiGridGroup.constraint = UIGridConstraintFromStoredValue(constraint);
+			ent.uiGridGroup.alignment = UIChildAlignmentFromStoredValue(alignment);
+			ent.uiGridGroup.count = std::max(1, ent.uiGridGroup.count);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UILayoutElementCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UILayoutElement>(e))
+				return;
+			const UILayoutElement &c = registry.Get<UILayoutElement>(e);
+			out << "UILAYOUTELEMENT "
+			    << c.minSize.x << " " << c.minSize.y << " "
+			    << c.preferredSize.x << " " << c.preferredSize.y << " "
+			    << c.flexibleSize.x << " " << c.flexibleSize.y << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUILayoutElement = true;
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "UILayoutElement", values, outError))
+				return false;
+			if (!StrictParsing::RequireTokenCount(values, 6u, "UILayoutElement", outError))
+			{
+				outError = BuildSchemaError("UILayoutElement", "UILAYOUTELEMENT <min2> <preferred2> <flexible2>", payload);
+				return false;
+			}
+			ent.uiLayoutElement.minSize = glm::vec2(values[0], values[1]);
+			ent.uiLayoutElement.preferredSize = glm::vec2(values[2], values[3]);
+			ent.uiLayoutElement.flexibleSize = glm::vec2(values[4], values[5]);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UISpacerCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UISpacer>(e))
+				return;
+			const UISpacer &c = registry.Get<UISpacer>(e);
+			out << "UISPACER "
+			    << c.preferredSize.x << " " << c.preferredSize.y << " "
+			    << c.flexibleSize.x << " " << c.flexibleSize.y << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUISpacer = true;
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "UISpacer", values, outError))
+				return false;
+			if (!StrictParsing::RequireTokenCount(values, 4u, "UISpacer", outError))
+			{
+				outError = BuildSchemaError("UISpacer", "UISPACER <preferred2> <flexible2>", payload);
+				return false;
+			}
+			ent.uiSpacer.preferredSize = glm::vec2(values[0], values[1]);
+			ent.uiSpacer.flexibleSize = glm::vec2(values[2], values[3]);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UIMaskCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UIMask>(e))
+				return;
+			const UIMask &c = registry.Get<UIMask>(e);
+			out << "UIMASK " << (c.enabled ? 1 : 0) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUIMask = true;
+			const std::string payload = ReadLinePayload(in);
+			std::vector<int> values;
+			std::string parseError;
+			if (!StrictParsing::ParseIntList(payload, values, parseError))
+			{
+				outError = BuildSchemaError("UIMask", "<0|1>", payload) + " " + parseError;
+				return false;
+			}
+			if (!StrictParsing::RequireTokenCount(values, 1u, "UIMask", outError))
+			{
+				outError = BuildSchemaError("UIMask", "UIMASK <0|1>", payload);
+				return false;
+			}
+			ent.uiMask.enabled = (values[0] != 0);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::UIFillCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<UIFill>(e))
+				return;
+			const UIFill &c = registry.Get<UIFill>(e);
+			out << "UIFILL " << c.value01 << " " << static_cast<int>(c.direction) << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasUIFill = true;
+			const std::string payload = ReadLinePayload(in);
+			std::istringstream ls(payload);
+			int direction = 0;
+			std::string extra;
+			if (!(ls >> ent.uiFill.value01 >> direction) || (ls >> extra))
+			{
+				outError = BuildSchemaError("UIFill", "UIFILL <value01> <direction>", payload);
+				return false;
+			}
+			if (!IsValidUIFillDirectionValue(direction))
+			{
+				outError = BuildSchemaError("UIFill", "direction enum value in [0..1]", payload);
+				return false;
+			}
+			ent.uiFill.direction = UIFillDirectionFromStoredValue(direction);
+			return true;
+		}
+	};
+
+	struct ComponentCodecs::HealthCodec
+	{
+		static void Write(const Registry &registry, Entity e, std::ostream &out)
+		{
+			if (!registry.Has<Health>(e))
+				return;
+			const Health &c = registry.Get<Health>(e);
+			out << "HEALTH " << c.current << " " << c.max << "\n";
+		}
+
+		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
+		{
+			ent.hasHealth = true;
+			const std::string payload = ReadLinePayload(in);
+			std::vector<float> values;
+			if (!ParseFloatPayload(payload, "Health", values, outError))
+				return false;
+			if (!StrictParsing::RequireTokenCount(values, 2u, "Health", outError))
+			{
+				outError = BuildSchemaError("Health", "HEALTH <current> <max>", payload);
+				return false;
+			}
+			ent.health.current = values[0];
+			ent.health.max = values[1];
 			return true;
 		}
 	};
@@ -1127,6 +1679,17 @@ namespace AthSceneIO
 			ComponentCodecs::SpinCodec::Write(registry, e, out);
 			ComponentCodecs::LightEmitterCodec::Write(registry, e, out);
 			ComponentCodecs::SpriteCodec::Write(registry, e, out);
+			ComponentCodecs::UITransformCodec::Write(registry, e, out);
+			ComponentCodecs::UISpriteCodec::Write(registry, e, out);
+			ComponentCodecs::UITextCodec::Write(registry, e, out);
+			ComponentCodecs::UIHorizontalGroupCodec::Write(registry, e, out);
+			ComponentCodecs::UIVerticalGroupCodec::Write(registry, e, out);
+			ComponentCodecs::UIGridGroupCodec::Write(registry, e, out);
+			ComponentCodecs::UILayoutElementCodec::Write(registry, e, out);
+			ComponentCodecs::UISpacerCodec::Write(registry, e, out);
+			ComponentCodecs::UIMaskCodec::Write(registry, e, out);
+			ComponentCodecs::UIFillCodec::Write(registry, e, out);
+			ComponentCodecs::HealthCodec::Write(registry, e, out);
 			ComponentCodecs::SpriteAnimatorCodec::Write(registry, e, out);
 			ComponentCodecs::Collider2DCodec::Write(registry, e, out);
 			ComponentCodecs::RigidBody2DCodec::Write(registry, e, out);
@@ -1380,6 +1943,83 @@ namespace AthSceneIO
 					continue;
 				}
 
+				if (key == "UITRANSFORM")
+				{
+					if (!ComponentCodecs::UITransformCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UISPRITE")
+				{
+					if (!ComponentCodecs::UISpriteCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UITEXT")
+				{
+					if (!ComponentCodecs::UITextCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UIHORIZONTALGROUP")
+				{
+					if (!ComponentCodecs::UIHorizontalGroupCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UIVERTICALGROUP")
+				{
+					if (!ComponentCodecs::UIVerticalGroupCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UIGRIDGROUP")
+				{
+					if (!ComponentCodecs::UIGridGroupCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UILAYOUTELEMENT")
+				{
+					if (!ComponentCodecs::UILayoutElementCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UISPACER")
+				{
+					if (!ComponentCodecs::UISpacerCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UIMASK")
+				{
+					if (!ComponentCodecs::UIMaskCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "UIFILL")
+				{
+					if (!ComponentCodecs::UIFillCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
+				if (key == "HEALTH")
+				{
+					if (!ComponentCodecs::HealthCodec::Read(in, ent, outError))
+						return false;
+					continue;
+				}
+
 				if (key == "SPRITE_ANIMATOR")
 				{
 					if (!ComponentCodecs::SpriteAnimatorCodec::Read(in, ent, outError))
@@ -1423,7 +2063,7 @@ namespace AthSceneIO
 				}
 
 				outError = "Unknown component token '" + key +
-				           "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,SPRITE_ANIMATOR,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
+				           "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,UITRANSFORM,UISPRITE,UITEXT,UIHORIZONTALGROUP,UIVERTICALGROUP,UIGRIDGROUP,UILAYOUTELEMENT,UISPACER,UIMASK,UIFILL,HEALTH,SPRITE_ANIMATOR,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
 				return false;
 			}
 
@@ -1470,7 +2110,7 @@ namespace AthSceneIO
 				registry.Emplace<Parent>(e, p);
 			}
 
-			if (ent.hasTransform)
+			if (ent.hasTransform && !ent.hasUITransform)
 				registry.Emplace<Transform>(e, ent.transform);
 			if (ent.hasCamera)
 				registry.Emplace<Camera>(e, ent.camera);
@@ -1482,6 +2122,28 @@ namespace AthSceneIO
 				registry.Emplace<LightEmitter>(e, ent.light);
 			if (ent.hasSprite)
 				registry.Emplace<Sprite>(e, ent.sprite);
+			if (ent.hasUITransform)
+				registry.Emplace<UITransform>(e, ent.uiTransform);
+			if (ent.hasUISprite)
+				registry.Emplace<UISprite>(e, ent.uiSprite);
+			if (ent.hasUIText)
+				registry.Emplace<UIText>(e, ent.uiText);
+			if (ent.hasUIHorizontalGroup)
+				registry.Emplace<UIHorizontalGroup>(e, ent.uiHorizontalGroup);
+			if (ent.hasUIVerticalGroup)
+				registry.Emplace<UIVerticalGroup>(e, ent.uiVerticalGroup);
+			if (ent.hasUIGridGroup)
+				registry.Emplace<UIGridGroup>(e, ent.uiGridGroup);
+			if (ent.hasUILayoutElement)
+				registry.Emplace<UILayoutElement>(e, ent.uiLayoutElement);
+			if (ent.hasUISpacer)
+				registry.Emplace<UISpacer>(e, ent.uiSpacer);
+			if (ent.hasUIMask)
+				registry.Emplace<UIMask>(e, ent.uiMask);
+			if (ent.hasUIFill)
+				registry.Emplace<UIFill>(e, ent.uiFill);
+			if (ent.hasHealth)
+				registry.Emplace<Health>(e, ent.health);
 			if (ent.hasSpriteAnimator)
 				registry.Emplace<SpriteAnimator>(e, ent.spriteAnimator);
 			if (ent.hasCollider2D)

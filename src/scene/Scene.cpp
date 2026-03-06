@@ -164,6 +164,35 @@ void Scene::Update(float dt, float now, const InputState &input)
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
 	if (m_sysSpriteAnimation)
 		m_spriteAnimationSystem.Update(m_registry, m_animation2DLibrary, m_textureManager, dt);
+
+	std::vector<Entity> uiSprites;
+	m_registry.ViewEntities<UISprite>(uiSprites);
+	for (Entity entity : uiSprites)
+	{
+		UISprite &sprite = m_registry.Get<UISprite>(entity);
+
+		if (!sprite.texturePath.empty() && !sprite.texture.IsValid())
+		{
+			const std::string resolvedPath = ResolveRuntimeAssetPath(sprite.texturePath);
+			auto handle = m_textureManager.Load(EditorAssetName("ui_tex_", sprite.texturePath), resolvedPath, true);
+			if (handle.IsValid())
+				sprite.texture = handle;
+		}
+
+		if (!sprite.materialPath.empty() && !sprite.shader.IsValid())
+		{
+			const std::string resolvedPath = ResolveRuntimeAssetPath(sprite.materialPath);
+			const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath);
+			if (!vsPath.empty())
+			{
+				auto handle = m_shaderManager.Load(EditorAssetName("ui_mat_", sprite.materialPath), vsPath, resolvedPath);
+				if (handle.IsValid())
+					sprite.shader = handle;
+			}
+		}
+	}
+
+	m_uiInputSystem.Update(m_registry, input, dt);
 }
 
 void Scene::FixedUpdate(float fixedDt)
@@ -196,15 +225,26 @@ void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHe
 
 void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	if (!m_loaded || !m_sysRender2D || m_dimension != EditorSceneDimension::Scene2D)
+	if (!m_loaded)
 		return;
 
-	const Entity camera = ResolvePrimaryCamera();
-	if (camera == kInvalidEntity)
-		return;
+	if (m_sysRender2D && m_dimension == EditorSceneDimension::Scene2D)
+	{
+		const Entity camera = ResolvePrimaryCamera();
+		if (camera != kInvalidEntity)
+		{
+			glDisable(GL_DEPTH_TEST);
+			m_render2DSystem.Render(m_registry, renderer, camera, framebufferWidth, framebufferHeight);
+		}
+	}
 
-	glDisable(GL_DEPTH_TEST);
-	m_render2DSystem.Render(m_registry, renderer, camera, framebufferWidth, framebufferHeight);
+	if (m_sysUIRender)
+	{
+		glDisable(GL_DEPTH_TEST);
+		m_uiLayoutSystem.Update(m_registry, framebufferWidth, framebufferHeight);
+		m_uiTransformSystem.Update(m_registry, framebufferWidth, framebufferHeight);
+		m_uiRenderSystem.Render(m_registry, renderer, m_shaderManager, m_textureManager, framebufferWidth, framebufferHeight);
+	}
 }
 
 const PhysicsEvents &Scene::GetPhysicsEvents() const
@@ -262,6 +302,7 @@ void Scene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 		out.push_back({"SpriteAnimationSystem", &m_sysSpriteAnimation});
 		out.push_back({"Render2DSystem", &m_sysRender2D});
 	}
+	out.push_back({"UIRenderSystem", &m_sysUIRender});
 }
 
 const char *Scene::GetEditorSceneType() const

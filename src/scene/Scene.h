@@ -23,6 +23,10 @@
 #include "../animation2d/Animation2DLibrary.h"
 #include "../animation2d/SpriteAnimationSystem.h"
 #include "../prefab/PrefabRegistry.h"
+#include "../systems/ui/UIInputSystem.h"
+#include "../systems/ui/UILayoutSystem.h"
+#include "../systems/ui/UITransformSystem.h"
+#include "../systems/ui/UIRenderSystem.h"
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -195,6 +199,10 @@ private:
 	Physics2DSystem m_physics2DSystem;
 	Animation2DLibrary m_animation2DLibrary;
 	SpriteAnimationSystem m_spriteAnimationSystem;
+	UIInputSystem m_uiInputSystem;
+	UILayoutSystem m_uiLayoutSystem;
+	UITransformSystem m_uiTransformSystem;
+	UIRenderSystem m_uiRenderSystem;
 	PhysicsEvents m_physicsEvents;
 
 	ShaderManager &m_shaderManager;
@@ -206,6 +214,7 @@ private:
 	bool m_sysRender = true;
 	bool m_sysRender2D = true;
 	bool m_sysSpriteAnimation = true;
+	bool m_sysUIRender = true;
 
 	Entity m_camera = kInvalidEntity;
 

@@ -30,6 +30,7 @@
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
 #include "../material/MaterialMetadata.h"
+#include "../components/ui/UIComponents.h"
 #pragma endregion
 
 #pragma region Function Definitions
@@ -784,7 +785,10 @@ namespace sceneeditor
 		r.Emplace<Parent>(dst, Parent{parentDst});
 		CopyTagRename(r, src, dst);
 
-		CopyIfPresent<Transform>(r, src, dst);
+		if (r.Has<UITransform>(src))
+			CopyIfPresent<UITransform>(r, src, dst);
+		else
+			CopyIfPresent<Transform>(r, src, dst);
 		CopyIfPresent<Camera>(r, src, dst);
 		CopyIfPresent<CameraController>(r, src, dst);
 		CopyIfPresent<Material>(r, src, dst);
@@ -795,6 +799,16 @@ namespace sceneeditor
 		CopyIfPresent<Collider2D>(r, src, dst);
 		CopyIfPresent<RigidBody2D>(r, src, dst);
 		CopyIfPresent<PhysicsBody2D>(r, src, dst);
+		CopyIfPresent<UISprite>(r, src, dst);
+		CopyIfPresent<UIText>(r, src, dst);
+		CopyIfPresent<UIHorizontalGroup>(r, src, dst);
+		CopyIfPresent<UIVerticalGroup>(r, src, dst);
+		CopyIfPresent<UIGridGroup>(r, src, dst);
+		CopyIfPresent<UILayoutElement>(r, src, dst);
+		CopyIfPresent<UISpacer>(r, src, dst);
+		CopyIfPresent<UIMask>(r, src, dst);
+		CopyIfPresent<UIFill>(r, src, dst);
+		CopyIfPresent<Health>(r, src, dst);
 
 		auto it = children.find(src);
 		if (it != children.end())
@@ -1178,6 +1192,72 @@ namespace sceneeditor
 		}
 	}
 
+	static int UITextAlignmentToIndex(UITextAlignment alignment)
+	{
+		switch (alignment)
+		{
+		case UITextAlignment::Center:
+			return 1;
+		case UITextAlignment::Right:
+			return 2;
+		case UITextAlignment::Left:
+		default:
+			return 0;
+		}
+	}
+
+	static UITextAlignment UITextAlignmentFromIndex(int idx)
+	{
+		switch (idx)
+		{
+		case 1:
+			return UITextAlignment::Center;
+		case 2:
+			return UITextAlignment::Right;
+		case 0:
+		default:
+			return UITextAlignment::Left;
+		}
+	}
+
+	static int UIChildAlignmentToIndex(UIChildAlignment alignment)
+	{
+		switch (alignment)
+		{
+		case UIChildAlignment::Center:
+			return 1;
+		case UIChildAlignment::End:
+			return 2;
+		case UIChildAlignment::Start:
+		default:
+			return 0;
+		}
+	}
+
+	static UIChildAlignment UIChildAlignmentFromIndex(int idx)
+	{
+		switch (idx)
+		{
+		case 1:
+			return UIChildAlignment::Center;
+		case 2:
+			return UIChildAlignment::End;
+		case 0:
+		default:
+			return UIChildAlignment::Start;
+		}
+	}
+
+	static int UIGridConstraintToIndex(UIGridConstraint constraint)
+	{
+		return (constraint == UIGridConstraint::FixedRows) ? 1 : 0;
+	}
+
+	static UIGridConstraint UIGridConstraintFromIndex(int idx)
+	{
+		return (idx == 1) ? UIGridConstraint::FixedRows : UIGridConstraint::FixedColumns;
+	}
+
 	template <typename T>
 	static bool AddComponentItem(Registry &r, Entity e, const char *name)
 	{
@@ -1210,8 +1290,15 @@ namespace sceneeditor
 		const bool allowSprite = is2DScene;
 		const bool allowMeshAndMaterial = !is2DScene;
 
-		if (pass("Transform"))
-			(void)AddComponentItem<Transform>(r, e, "Transform");
+		if (pass("Transform") && !r.Has<Transform>(e))
+		{
+			if (ImGui::MenuItem("Transform"))
+			{
+				if (r.Has<UITransform>(e))
+					r.Remove<UITransform>(e);
+				r.Emplace<Transform>(e);
+			}
+		}
 		if (pass("Camera"))
 			(void)AddComponentItem<Camera>(r, e, "Camera");
 		if (pass("CameraController"))
@@ -1234,6 +1321,35 @@ namespace sceneeditor
 			(void)AddComponentItem<Mesh>(r, e, "Mesh");
 		if (pass("LightEmitter"))
 			(void)AddComponentItem<LightEmitter>(r, e, "LightEmitter");
+		if (pass("UITransform") && !r.Has<UITransform>(e))
+		{
+			if (ImGui::MenuItem("UITransform"))
+			{
+				if (r.Has<Transform>(e))
+					r.Remove<Transform>(e);
+				r.Emplace<UITransform>(e);
+			}
+		}
+		if (pass("UISprite"))
+			(void)AddComponentItem<UISprite>(r, e, "UISprite");
+		if (pass("UIText"))
+			(void)AddComponentItem<UIText>(r, e, "UIText");
+		if (pass("UIHorizontalGroup"))
+			(void)AddComponentItem<UIHorizontalGroup>(r, e, "UIHorizontalGroup");
+		if (pass("UIVerticalGroup"))
+			(void)AddComponentItem<UIVerticalGroup>(r, e, "UIVerticalGroup");
+		if (pass("UIGridGroup"))
+			(void)AddComponentItem<UIGridGroup>(r, e, "UIGridGroup");
+		if (pass("UILayoutElement"))
+			(void)AddComponentItem<UILayoutElement>(r, e, "UILayoutElement");
+		if (pass("UISpacer"))
+			(void)AddComponentItem<UISpacer>(r, e, "UISpacer");
+		if (pass("UIMask"))
+			(void)AddComponentItem<UIMask>(r, e, "UIMask");
+		if (pass("UIFill"))
+			(void)AddComponentItem<UIFill>(r, e, "UIFill");
+		if (pass("Health"))
+			(void)AddComponentItem<Health>(r, e, "Health");
 
 		ImGui::EndPopup();
 	}
@@ -1274,6 +1390,9 @@ namespace sceneeditor
 
 		if (!r.Has<Parent>(e))
 			r.Emplace<Parent>(e, Parent{kInvalidEntity});
+
+		if (r.Has<UITransform>(e) && r.Has<Transform>(e))
+			r.Remove<Transform>(e);
 
 		if (ImGui::Button("Add Component"))
 			ImGui::OpenPopup("AddComponentPopup");
@@ -1333,6 +1452,166 @@ namespace sceneeditor
 			DrawRotationEulerDegrees(std::format("{} Rotation!", (absoluteRotation ? "Abs." : "Local")).c_str(), t.localRotation, 0.5f);
 			DrawVec3(std::format("{} Scale!", (absoluteScale ? "Abs." : "Local")).c_str(), &t.localScale.x, 0.05f);
 			DrawVec3("Pivot Anchor (-1..1)", &t.pivot.x, 0.05f);
+		}
+
+		if (r.Has<UITransform>(e) && ImGui::CollapsingHeader("UITransform", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UITransform>(r, e, "UITransformCtx");
+
+			auto &t = r.Get<UITransform>(e);
+			DrawVec2("Anchor Min", &t.anchorMin.x, 0.01f);
+			DrawVec2("Anchor Max", &t.anchorMax.x, 0.01f);
+			DrawVec2("Pivot", &t.pivot.x, 0.01f);
+			DrawVec2("Anchored Position (px)", &t.anchoredPosition.x, 0.25f);
+			DrawVec2("Size Delta (px)", &t.sizeDelta.x, 0.25f);
+			(void)DragFloatWithSnap("Rotation (rad)", &t.rotation, 0.01f);
+			DrawVec2("Scale", &t.scale.x, 0.01f);
+
+			t.anchorMin = glm::clamp(t.anchorMin, glm::vec2(0.0f), glm::vec2(1.0f));
+			t.anchorMax = glm::clamp(t.anchorMax, glm::vec2(0.0f), glm::vec2(1.0f));
+			t.pivot = glm::clamp(t.pivot, glm::vec2(0.0f), glm::vec2(1.0f));
+
+			ImGui::Text("World Rect Min: %.1f, %.1f", t.worldRect.min.x, t.worldRect.min.y);
+			ImGui::Text("World Rect Max: %.1f, %.1f", t.worldRect.max.x, t.worldRect.max.y);
+			ImGui::Text("Hierarchy Index: %d", t.hierarchyIndex);
+		}
+
+		if (r.Has<UISprite>(e) && ImGui::CollapsingHeader("UISprite", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UISprite>(r, e, "UISpriteCtx");
+
+			auto &s = r.Get<UISprite>(e);
+			const bool texturePathChanged = DrawPathFieldWithAssetPicker(s_assetPicker, e, "Texture Path", "UISprite.TexturePath", AssetPickerType::Texture, s.texturePath);
+			const bool materialPathChanged = DrawPathFieldWithAssetPicker(s_assetPicker, e, "Material Path", "UISprite.MaterialPath", AssetPickerType::Material, s.materialPath);
+			if (texturePathChanged)
+				s.texture = {};
+			if (materialPathChanged)
+				s.shader = {};
+			DrawColor4("Tint", &s.tint.x);
+			(void)DragFloat4WithSnap("UV", &s.uv.x, 0.01f);
+			ImGui::InputInt("Layer", &s.layer);
+			ImGui::InputInt("Order In Layer", &s.orderInLayer);
+			(void)DrawToggleButton("Preserve Aspect", s.preserveAspect);
+		}
+
+		if (r.Has<UIText>(e) && ImGui::CollapsingHeader("UIText", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UIText>(r, e, "UITextCtx");
+
+			auto &t = r.Get<UIText>(e);
+			(void)DrawBufferedStringInput(e, "UIText.Text", "Text", t.text, 512);
+			DrawColor4("Color", &t.color.x);
+			(void)DrawBufferedStringInput(e, "UIText.FontId", "Font Id", t.fontId, 256);
+			(void)DragFloatWithSnap("Font Size (px)", &t.fontSizePx, 0.1f, 1.0f, 256.0f);
+			int alignment = UITextAlignmentToIndex(t.alignment);
+			if (ImGui::Combo("Alignment", &alignment, "Left\0Center\0Right\0"))
+				t.alignment = UITextAlignmentFromIndex(alignment);
+			(void)DrawToggleButton("Wrap", t.wrap);
+
+			ImGui::Separator();
+			(void)DrawToggleButton("Outline Enabled", t.outlineEnabled);
+			DrawColor4("Outline Color", &t.outlineColor.x);
+			(void)DragFloatWithSnap("Outline Thickness (px)", &t.outlineThicknessPx, 0.1f, 0.0f, 16.0f);
+
+			ImGui::Separator();
+			ImGui::InputInt("Layer", &t.layer);
+			ImGui::InputInt("Order In Layer", &t.orderInLayer);
+		}
+
+		if (r.Has<UIHorizontalGroup>(e) && ImGui::CollapsingHeader("UIHorizontalGroup", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UIHorizontalGroup>(r, e, "UIHorizontalGroupCtx");
+			auto &g = r.Get<UIHorizontalGroup>(e);
+			(void)DragFloatWithSnap("Padding Left", &g.padding.left, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Right", &g.padding.right, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Top", &g.padding.top, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Bottom", &g.padding.bottom, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Spacing", &g.spacing, 0.1f, 0.0f, 10000.0f);
+			int childAlignment = UIChildAlignmentToIndex(g.childAlignment);
+			if (ImGui::Combo("Child Alignment", &childAlignment, "Start\0Center\0End\0"))
+				g.childAlignment = UIChildAlignmentFromIndex(childAlignment);
+			(void)DrawToggleButton("Expand Width", g.expandWidth);
+			(void)DrawToggleButton("Expand Height", g.expandHeight);
+		}
+
+		if (r.Has<UIVerticalGroup>(e) && ImGui::CollapsingHeader("UIVerticalGroup", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UIVerticalGroup>(r, e, "UIVerticalGroupCtx");
+			auto &g = r.Get<UIVerticalGroup>(e);
+			(void)DragFloatWithSnap("Padding Left", &g.padding.left, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Right", &g.padding.right, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Top", &g.padding.top, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Bottom", &g.padding.bottom, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Spacing", &g.spacing, 0.1f, 0.0f, 10000.0f);
+			int childAlignment = UIChildAlignmentToIndex(g.childAlignment);
+			if (ImGui::Combo("Child Alignment", &childAlignment, "Start\0Center\0End\0"))
+				g.childAlignment = UIChildAlignmentFromIndex(childAlignment);
+			(void)DrawToggleButton("Expand Width", g.expandWidth);
+			(void)DrawToggleButton("Expand Height", g.expandHeight);
+		}
+
+		if (r.Has<UIGridGroup>(e) && ImGui::CollapsingHeader("UIGridGroup", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UIGridGroup>(r, e, "UIGridGroupCtx");
+			auto &g = r.Get<UIGridGroup>(e);
+			DrawVec2("Cell Size", &g.cellSize.x, 0.1f);
+			DrawVec2("Spacing", &g.spacing.x, 0.1f);
+			int constraint = UIGridConstraintToIndex(g.constraint);
+			if (ImGui::Combo("Constraint", &constraint, "Fixed Columns\0Fixed Rows\0"))
+				g.constraint = UIGridConstraintFromIndex(constraint);
+			ImGui::InputInt("Constraint Count", &g.count);
+			g.count = std::max(1, g.count);
+			(void)DragFloatWithSnap("Padding Left", &g.padding.left, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Right", &g.padding.right, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Top", &g.padding.top, 0.1f, 0.0f, 10000.0f);
+			(void)DragFloatWithSnap("Padding Bottom", &g.padding.bottom, 0.1f, 0.0f, 10000.0f);
+			int align = UIChildAlignmentToIndex(g.alignment);
+			if (ImGui::Combo("Alignment", &align, "Start\0Center\0End\0"))
+				g.alignment = UIChildAlignmentFromIndex(align);
+		}
+
+		if (r.Has<UILayoutElement>(e) && ImGui::CollapsingHeader("UILayoutElement", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UILayoutElement>(r, e, "UILayoutElementCtx");
+			auto &layout = r.Get<UILayoutElement>(e);
+			DrawVec2("Min Size", &layout.minSize.x, 0.1f);
+			DrawVec2("Preferred Size", &layout.preferredSize.x, 0.1f);
+			DrawVec2("Flexible Size", &layout.flexibleSize.x, 0.1f);
+		}
+
+		if (r.Has<UISpacer>(e) && ImGui::CollapsingHeader("UISpacer", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UISpacer>(r, e, "UISpacerCtx");
+			auto &spacer = r.Get<UISpacer>(e);
+			DrawVec2("Preferred Size", &spacer.preferredSize.x, 0.1f);
+			DrawVec2("Flexible Size", &spacer.flexibleSize.x, 0.1f);
+		}
+
+		if (r.Has<UIMask>(e) && ImGui::CollapsingHeader("UIMask", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UIMask>(r, e, "UIMaskCtx");
+			auto &mask = r.Get<UIMask>(e);
+			(void)DrawToggleButton("Enabled", mask.enabled);
+		}
+
+		if (r.Has<UIFill>(e) && ImGui::CollapsingHeader("UIFill", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<UIFill>(r, e, "UIFillCtx");
+			auto &fill = r.Get<UIFill>(e);
+			(void)DragFloatWithSnap("Value 0..1", &fill.value01, 0.01f, 0.0f, 1.0f);
+			int direction = (fill.direction == UIFillDirection::RightToLeft) ? 1 : 0;
+			if (ImGui::Combo("Direction", &direction, "Left To Right\0Right To Left\0"))
+				fill.direction = (direction == 1) ? UIFillDirection::RightToLeft : UIFillDirection::LeftToRight;
+		}
+
+		if (r.Has<Health>(e) && ImGui::CollapsingHeader("Health", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			RemoveComponentMenu<Health>(r, e, "HealthCtx");
+			auto &health = r.Get<Health>(e);
+			(void)DragFloatWithSnap("Current", &health.current, 0.1f, 0.0f, 100000.0f);
+			(void)DragFloatWithSnap("Max", &health.max, 0.1f, 0.0f, 100000.0f);
+			if (health.current > health.max)
+				health.current = health.max;
 		}
 
 		if (r.Has<Camera>(e) && ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))

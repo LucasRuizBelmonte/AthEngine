@@ -7,6 +7,7 @@
 #include "EditorSceneIO.h"
 #include "Scene.h"
 #include "scenes/LoadingScene.h"
+#include "scenes/HudDemoScene.h"
 
 #include "../rendering/Renderer.h"
 
@@ -120,7 +121,7 @@ void SceneTransitionController::Start(
 	if (m_isTransitioning)
 		return;
 
-	m_isPush = (req == SceneRequest::PushScene);
+	m_isPush = (req == SceneRequest::PushScene || req == SceneRequest::HudDemoScene);
 
 	m_pending = createScene(req);
 	m_pending->RequestLoad(loader);
@@ -347,8 +348,15 @@ void SceneRuntime::Shutdown()
 
 std::shared_ptr<IScene> SceneRuntime::CreateScene(SceneRequest req)
 {
-	(void)req;
-	return std::make_shared<Scene>(m_shaders, m_textures);
+	switch (req)
+	{
+	case SceneRequest::HudDemoScene:
+		return std::make_shared<HudDemoScene>(m_shaders, m_textures);
+	case SceneRequest::BasicScene:
+	case SceneRequest::PushScene:
+	default:
+		return std::make_shared<Scene>(m_shaders, m_textures);
+	}
 }
 
 void SceneRuntime::Request(SceneRequest req)

@@ -20,6 +20,7 @@ struct EditorUIState
 	bool showSceneList = true;
 	bool showEntityHierarchy = true;
 	bool showSystems = true;
+	bool showConsole = true;
 	bool showInspector = true;
 	bool showRender = true;
 

@@ -18,6 +18,7 @@
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
 #include "../systems/CameraSyncSystem.h"
+#include "../systems/TriggerZoneConsoleSystem.h"
 #include "../events/SceneEventBus.h"
 #include "../physics2d/Physics2DSystem.h"
 #include "../animation2d/Animation2DLibrary.h"
@@ -202,6 +203,7 @@ private:
 	Render2DSystem m_render2DSystem;
 	CameraControllerSystem m_cameraControllerSystem;
 	CameraSyncSystem m_cameraSyncSystem;
+	TriggerZoneConsoleSystem m_triggerZoneConsoleSystem;
 	Physics2DSystem m_physics2DSystem;
 	Animation2DLibrary m_animation2DLibrary;
 	SpriteAnimationSystem m_spriteAnimationSystem;
@@ -220,6 +222,7 @@ private:
 	bool m_sysRender = true;
 	bool m_sysRender2D = true;
 	bool m_sysSpriteAnimation = true;
+	bool m_sysTriggerZoneConsole = true;
 	bool m_sysUIRender = true;
 
 	Entity m_camera = kInvalidEntity;

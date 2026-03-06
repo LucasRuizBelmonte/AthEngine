@@ -233,6 +233,8 @@ void Scene::FixedUpdate(float fixedDt)
 		m_spinSystem.Update(m_registry, m_fixedSimulationNow);
 
 	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, m_eventBus);
+	if (m_sysTriggerZoneConsole)
+		m_triggerZoneConsoleSystem.Update(m_registry, m_eventBus);
 	++m_fixedStepCounter;
 
 	m_transformSystem.Update(m_registry);
@@ -326,17 +328,15 @@ Entity Scene::SpawnPrefab(const std::string &name,
 void Scene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 {
 	out.clear();
-	out.push_back({"ClearColorSystem", &m_sysClearColor});
 	out.push_back({"CameraControllerSystem", &m_sysCameraController});
-	out.push_back({"SpinSystem", &m_sysSpin});
 	if (m_dimension == EditorSceneDimension::Scene3D)
 		out.push_back({"RenderSystem", &m_sysRender});
 	else
 	{
 		out.push_back({"SpriteAnimationSystem", &m_sysSpriteAnimation});
 		out.push_back({"Render2DSystem", &m_sysRender2D});
+		out.push_back({"TriggerZoneConsoleSystem", &m_sysTriggerZoneConsole});
 	}
-	out.push_back({"UIRenderSystem", &m_sysUIRender});
 }
 
 const char *Scene::GetEditorSceneType() const

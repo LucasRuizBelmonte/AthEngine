@@ -36,6 +36,7 @@
 #include "../physics2d/PhysicsBody2D.h"
 #include "../physics2d/RigidBody2D.h"
 #include "../prefab/PrefabRegistry.h"
+#include "../utils/Console.h"
 #include "../thirdparty/ImGuizmo.h"
 #include "../thirdparty/stb_image.h"
 #include "SceneEditor.h"
@@ -176,10 +177,12 @@ namespace editorui
 		ImGuiID dockRight = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.30f, nullptr, &dockMain);
 		ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.25f, nullptr, &dockMain);
 		ImGuiID dockLeftBottom = ImGui::DockBuilderSplitNode(dockLeft, ImGuiDir_Down, 0.40f, nullptr, &dockLeft);
+		ImGuiID dockBottomRight = ImGui::DockBuilderSplitNode(dockBottom, ImGuiDir_Right, 0.50f, nullptr, &dockBottom);
 
 		ImGui::DockBuilderDockWindow("SceneList", dockLeft);
 		ImGui::DockBuilderDockWindow("Entity Hierarchy", dockLeftBottom);
 		ImGui::DockBuilderDockWindow("Systems", dockBottom);
+		ImGui::DockBuilderDockWindow("Console", dockBottomRight);
 		ImGui::DockBuilderDockWindow("Inspector", dockRight);
 		ImGui::DockBuilderDockWindow("Render", dockMain);
 
@@ -1048,6 +1051,83 @@ namespace editorui
 		ImGui::Separator();
 		ImGui::TextUnformatted("Preset editable in: src/input/ProjectInputMap.cpp");
 		ImGui::End();
+	}
+
+	static bool IsConsoleEntryVisible(ConsoleLevel entryLevel, ConsoleLevel filterLevel)
+	{
+		return static_cast<int>(entryLevel) >= static_cast<int>(filterLevel);
+	}
+
+	static const char *ConsoleLevelLabel(ConsoleLevel level)
+	{
+		switch (level)
+		{
+		case ConsoleLevel::Debug:
+			return "Debug";
+		case ConsoleLevel::Info:
+			return "Info";
+		case ConsoleLevel::Warning:
+			return "Warning";
+		case ConsoleLevel::Error:
+			return "Error";
+		}
+		return "Debug";
+	}
+
+	static ImVec4 ConsoleLevelColor(ConsoleLevel level)
+	{
+		switch (level)
+		{
+		case ConsoleLevel::Warning:
+			return ImVec4(1.0f, 0.95f, 0.35f, 1.0f);
+		case ConsoleLevel::Error:
+			return ImVec4(1.0f, 0.35f, 0.35f, 1.0f);
+		case ConsoleLevel::Info:
+			return ImVec4(0.45f, 0.65f, 1.0f, 1.0f);
+		case ConsoleLevel::Debug:
+		default:
+			return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+	}
+
+	static void DrawConsolePanel()
+	{
+		if (ImGui::Button("Clear"))
+			Console::Clear();
+
+		ImGui::Separator();
+
+		const ConsoleLevel filterLevel = Console::GetLevel();
+		std::vector<ConsoleEntry> entries = Console::GetEntries();
+		std::vector<const ConsoleEntry *> visibleEntries;
+		visibleEntries.reserve(entries.size());
+		for (const ConsoleEntry &entry : entries)
+		{
+			if (IsConsoleEntryVisible(entry.level, filterLevel))
+				visibleEntries.push_back(&entry);
+		}
+
+		ImGui::BeginChild("ConsoleEntries", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
+		const bool autoScroll = ImGui::GetScrollY() >= ImGui::GetScrollMaxY();
+
+		ImGuiListClipper clipper;
+		clipper.Begin(static_cast<int>(visibleEntries.size()));
+		while (clipper.Step())
+		{
+			for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i)
+			{
+				const ConsoleEntry &entry = *visibleEntries[static_cast<size_t>(i)];
+				ImGui::TextColored(ConsoleLevelColor(entry.level),
+								   "[%s] %s",
+								   ConsoleLevelLabel(entry.level),
+								   entry.message.c_str());
+			}
+		}
+
+		if (autoScroll)
+			ImGui::SetScrollHereY(1.0f);
+
+		ImGui::EndChild();
 	}
 
 	static Entity GetAliveParent(Registry &r, Entity e)
@@ -2048,6 +2128,7 @@ namespace editorui
 			ImGui::MenuItem("SceneList", nullptr, &ui.showSceneList);
 			ImGui::MenuItem("Entity Hierarchy", nullptr, &ui.showEntityHierarchy);
 			ImGui::MenuItem("Systems", nullptr, &ui.showSystems);
+			ImGui::MenuItem("Console", nullptr, &ui.showConsole);
 			ImGui::MenuItem("Inspector", nullptr, &ui.showInspector);
 			ImGui::MenuItem("Render", nullptr, &ui.showRender);
 #ifdef IMGUI_HAS_DOCK
@@ -2061,6 +2142,11 @@ namespace editorui
 		{
 			ImGui::MenuItem("Debug Clicks", nullptr, &g_showGizmoDebug);
 			ImGui::MenuItem("Forward Arrow", nullptr, &g_showForwardArrow);
+			const char *consoleLevels[] = {"Debug", "Info", "Warning", "Error"};
+			int consoleLevelIndex = static_cast<int>(Console::GetLevel());
+			ImGui::SetNextItemWidth(160.0f);
+			if (ImGui::Combo("Console Level", &consoleLevelIndex, consoleLevels, IM_ARRAYSIZE(consoleLevels)))
+				Console::SetLevel(static_cast<ConsoleLevel>(consoleLevelIndex));
 			if (ImGui::BeginMenu("Physics2D"))
 			{
 				if (es)
@@ -2429,6 +2515,13 @@ namespace editorui
 				}
 			}
 
+			ImGui::End();
+		}
+
+		if (state.showConsole)
+		{
+			ImGui::Begin("Console");
+			DrawConsolePanel();
 			ImGui::End();
 		}
 

@@ -80,6 +80,8 @@ public:
      * @brief Executes Get Loaded Scene Name.
      */
     const char *GetLoadedSceneName(size_t index) const;
+    bool IsLoadedSceneEnabled(size_t index) const;
+    bool SetLoadedSceneEnabled(size_t index, bool enabled);
     /**
      * @brief Renames a loaded scene label in the editor.
      */

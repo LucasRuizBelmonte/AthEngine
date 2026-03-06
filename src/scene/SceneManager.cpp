@@ -72,6 +72,16 @@ const char *SceneManager::GetLoadedSceneName(size_t index) const
 	return m_runtime.GetLoadedSceneName(index);
 }
 
+bool SceneManager::IsLoadedSceneEnabled(size_t index) const
+{
+	return m_runtime.IsLoadedSceneEnabled(index);
+}
+
+bool SceneManager::SetLoadedSceneEnabled(size_t index, bool enabled)
+{
+	return m_runtime.SetLoadedSceneEnabled(index, enabled);
+}
+
 bool SceneManager::RenameLoadedScene(size_t index, const std::string &newName)
 {
 	return m_runtime.RenameLoadedScene(index, newName);

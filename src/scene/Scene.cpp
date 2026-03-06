@@ -707,7 +707,10 @@ void Scene::RefreshRuntimeReferences()
 
 Entity Scene::ResolvePrimaryCamera()
 {
-	if (m_camera != kInvalidEntity && m_registry.IsAlive(m_camera) && m_registry.Has<Camera>(m_camera))
+	if (m_camera != kInvalidEntity &&
+		m_registry.IsAlive(m_camera) &&
+		m_registry.Has<Camera>(m_camera) &&
+		m_registry.IsComponentEnabled<Camera>(m_camera))
 		return m_camera;
 
 	RefreshRuntimeReferences();

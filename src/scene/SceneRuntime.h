@@ -13,6 +13,7 @@
 #include "../resources/TextureManager.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -37,12 +38,15 @@ public:
 	size_t Count() const;
 	const char *Name(size_t index) const;
 	bool Rename(size_t index, const std::string &newName);
+	bool Enabled(size_t index) const;
+	bool SetEnabled(size_t index, bool enabled);
 	std::shared_ptr<IScene> Get(size_t index) const;
 
 	std::vector<std::shared_ptr<IScene>> &MutableScenes();
 private:
 	std::vector<std::shared_ptr<IScene>> m_scenes;
 	std::vector<std::string> m_sceneNames;
+	std::vector<uint8_t> m_sceneEnabled;
 };
 
 class SceneTransitionController
@@ -146,6 +150,8 @@ public:
 	size_t GetLoadedSceneCount() const;
 	const char *GetLoadedSceneName(size_t index) const;
 	bool RenameLoadedScene(size_t index, const std::string &newName);
+	bool IsLoadedSceneEnabled(size_t index) const;
+	bool SetLoadedSceneEnabled(size_t index, bool enabled);
 	bool IsTransitioning() const;
 	void SetEditorSelectedSceneIndex(size_t index);
 

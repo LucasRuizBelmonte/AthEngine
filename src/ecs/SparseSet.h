@@ -25,11 +25,29 @@ public:
 	 */
 	bool Has(Entity e) const
 	{
-		const uint32_t id = EntityIdOf(e);
-		if (id >= m_sparse.size())
+		return IndexOf(e) != npos;
+	}
+
+	/**
+	 * @brief Executes Is Enabled.
+	 */
+	bool IsEnabled(Entity e) const
+	{
+		const size_t idx = IndexOf(e);
+		if (idx == npos || idx >= m_denseEnabled.size())
 			return false;
-		size_t idx = m_sparse[id];
-		return idx != npos && idx < m_denseEntities.size() && m_denseEntities[idx] == e;
+		return m_denseEnabled[idx] != 0u;
+	}
+
+	/**
+	 * @brief Executes Set Enabled.
+	 */
+	void SetEnabled(Entity e, bool enabled)
+	{
+		const size_t idx = IndexOf(e);
+		if (idx == npos || idx >= m_denseEnabled.size())
+			return;
+		m_denseEnabled[idx] = enabled ? 1u : 0u;
 	}
 
 	/**
@@ -57,13 +75,18 @@ public:
 		EnsureSparse(e);
 		if (Has(e))
 		{
-			m_denseComponents[m_sparse[EntityIdOf(e)]] = T(std::forward<Args>(args)...);
-			return m_denseComponents[m_sparse[EntityIdOf(e)]];
+			const size_t idx = m_sparse[EntityIdOf(e)];
+			m_denseComponents[idx] = T(std::forward<Args>(args)...);
+			if (idx >= m_denseEnabled.size())
+				m_denseEnabled.resize(m_denseComponents.size(), 1u);
+			m_denseEnabled[idx] = 1u;
+			return m_denseComponents[idx];
 		}
 
 		size_t idx = m_denseEntities.size();
 		m_denseEntities.push_back(e);
 		m_denseComponents.emplace_back(std::forward<Args>(args)...);
+		m_denseEnabled.push_back(1u);
 		m_sparse[EntityIdOf(e)] = idx;
 		return m_denseComponents.back();
 	}
@@ -85,11 +108,13 @@ public:
 			Entity movedEntity = m_denseEntities[last];
 			m_denseEntities[idx] = movedEntity;
 			m_denseComponents[idx] = std::move(m_denseComponents[last]);
+			m_denseEnabled[idx] = m_denseEnabled[last];
 			m_sparse[EntityIdOf(movedEntity)] = idx;
 		}
 
 		m_denseEntities.pop_back();
 		m_denseComponents.pop_back();
+		m_denseEnabled.pop_back();
 		m_sparse[id] = npos;
 	}
 
@@ -111,6 +136,20 @@ public:
 private:
 #pragma region Private Implementation
 	/**
+	 * @brief Executes Index Of.
+	 */
+	size_t IndexOf(Entity e) const
+	{
+		const uint32_t id = EntityIdOf(e);
+		if (id >= m_sparse.size())
+			return npos;
+		const size_t idx = m_sparse[id];
+		if (idx == npos || idx >= m_denseEntities.size())
+			return npos;
+		return (m_denseEntities[idx] == e) ? idx : npos;
+	}
+
+	/**
 	 * @brief Executes Ensure Sparse.
 	 */
 	void EnsureSparse(Entity e)
@@ -125,6 +164,7 @@ private:
 	std::vector<size_t> m_sparse;
 	std::vector<Entity> m_denseEntities;
 	std::vector<T> m_denseComponents;
+	std::vector<uint8_t> m_denseEnabled;
 #pragma endregion
 };
 #pragma endregion

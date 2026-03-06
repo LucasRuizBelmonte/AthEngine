@@ -771,7 +771,10 @@ namespace sceneeditor
 	static void CopyIfPresent(Registry &r, Entity src, Entity dst)
 	{
 		if (r.Has<T>(src))
+		{
 			r.Emplace<T>(dst, r.Get<T>(src));
+			r.SetComponentEnabled<T>(dst, r.IsComponentEnabled<T>(src));
+		}
 	}
 
 	static Entity DuplicateRecurse(
@@ -1371,11 +1374,18 @@ namespace sceneeditor
 	template <typename T>
 	static bool BeginInspectorComponentSection(Registry &r, Entity e, const char *label, const char *popupId)
 	{
-		if (!r.Has<T>(e) || !ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen))
+		if (!r.Has<T>(e))
 			return false;
 
+		ImGui::PushID(popupId);
+		bool enabled = r.IsComponentEnabled<T>(e);
+		if (ImGui::Checkbox("##enabled", &enabled))
+			r.SetComponentEnabled<T>(e, enabled);
+		ImGui::SameLine();
+		const bool open = ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen);
 		RemoveComponentMenu<T>(r, e, popupId);
-		return r.Has<T>(e);
+		ImGui::PopID();
+		return open && r.Has<T>(e);
 	}
 
 	void EditorSceneTools::SetDragSnapStep(float snapStep)

@@ -136,6 +136,19 @@ public:
 	}
 
 	/**
+	 * @brief Check if an entity's component of type T is enabled.
+	 *
+	 * @tparam T Component type.
+	 * @param e Entity handle.
+	 * @return true if the entity owns T and it is enabled.
+	 */
+	template <typename T>
+	bool IsComponentEnabled(Entity e) const
+	{
+		return Pool<T>().IsEnabled(e);
+	}
+
+	/**
 	 * @brief Get a mutable reference to an entity's component.
 	 *
 	 * @tparam T Component type.
@@ -189,7 +202,7 @@ public:
 		out.reserve(smallest.size());
 		for (Entity e : smallest)
 		{
-			if ((Pool<Ts>().Has(e) && ...))
+			if (((Pool<Ts>().Has(e) && Pool<Ts>().IsEnabled(e)) && ...))
 				out.push_back(e);
 		}
 	}
@@ -227,6 +240,21 @@ public:
 		Pool<T>().set.Remove(e);
 	}
 
+	/**
+	 * @brief Enable or disable a component of type T on an entity.
+	 *
+	 * If the entity does not have the component, this is a no-op.
+	 *
+	 * @tparam T Component type.
+	 * @param e Entity handle.
+	 * @param enabled Desired enabled state.
+	 */
+	template <typename T>
+	void SetComponentEnabled(Entity e, bool enabled)
+	{
+		Pool<T>().SetEnabled(e, enabled);
+	}
+
 #pragma endregion
 private:
 #pragma region Private Implementation
@@ -259,9 +287,11 @@ private:
 		T &Emplace(Entity e, Args &&...args) { return set.Emplace(e, std::forward<Args>(args)...); }
 
 		bool Has(Entity e) const { return set.Has(e); }
+		bool IsEnabled(Entity e) const { return set.IsEnabled(e); }
 
 		T &Get(Entity e) { return set.Get(e); }
 		const T &Get(Entity e) const { return set.Get(e); }
+		void SetEnabled(Entity e, bool enabled) { set.SetEnabled(e, enabled); }
 
 		void RemoveEntity(Entity e) override { set.Remove(e); }
 		size_t Size() const override { return set.Size(); }

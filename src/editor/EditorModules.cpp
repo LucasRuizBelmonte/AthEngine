@@ -2386,10 +2386,12 @@ namespace editorui
 				const bool renaming = (state.renamingSceneIndex == i);
 				const bool canRename = true;
 				const bool canDelete = (i != 0);
+				bool sceneEnabled = scenes.IsLoadedSceneEnabled(i);
 				ImVec2 selectableSize(0.0f, 0.0f);
 				if (!renaming)
 				{
 					const ImGuiStyle &style = ImGui::GetStyle();
+					const float checkboxWidth = ImGui::GetFrameHeight() + style.ItemSpacing.x;
 					const float renameButtonWidth = canRename ? (ImGui::CalcTextSize("Rename").x + style.FramePadding.x * 2.0f) : 0.0f;
 					const float deleteButtonWidth = ImGui::CalcTextSize("Delete").x + style.FramePadding.x * 2.0f;
 					const float spacing = style.ItemSpacing.x * (canDelete ? 2.0f : 1.0f);
@@ -2397,8 +2399,20 @@ namespace editorui
 					float buttonWidth = renameButtonWidth;
 					if (canDelete)
 						buttonWidth += deleteButtonWidth;
-					selectableSize.x = ImMax(1.0f, availableWidth - buttonWidth - spacing);
+					selectableSize.x = ImMax(1.0f, availableWidth - buttonWidth - spacing - checkboxWidth);
 				}
+
+				if (i == 0)
+				{
+					ImGui::BeginDisabled();
+					ImGui::Checkbox("##scene_enabled", &sceneEnabled);
+					ImGui::EndDisabled();
+				}
+				else if (ImGui::Checkbox("##scene_enabled", &sceneEnabled))
+				{
+					(void)scenes.SetLoadedSceneEnabled(i, sceneEnabled);
+				}
+				ImGui::SameLine();
 
 				if (renaming)
 				{

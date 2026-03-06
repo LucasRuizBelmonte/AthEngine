@@ -22,18 +22,21 @@ void SceneStack::AddCore(const std::shared_ptr<IScene> &scene)
 {
 	m_scenes.push_back(scene);
 	m_sceneNames.push_back(scene ? scene->GetName() : "<null>");
+	m_sceneEnabled.push_back(1u);
 }
 
 void SceneStack::Push(const std::shared_ptr<IScene> &scene)
 {
 	m_scenes.push_back(scene);
 	m_sceneNames.push_back(scene ? scene->GetName() : "<null>");
+	m_sceneEnabled.push_back(1u);
 }
 
 void SceneStack::Clear()
 {
 	m_scenes.clear();
 	m_sceneNames.clear();
+	m_sceneEnabled.clear();
 }
 
 void SceneStack::DetachAll(GLFWwindow &window)
@@ -58,6 +61,8 @@ void SceneStack::DetachAndClearNonCore(GLFWwindow &window)
 		m_scenes.erase(m_scenes.begin() + 1, m_scenes.end());
 		if (m_sceneNames.size() > 1)
 			m_sceneNames.erase(m_sceneNames.begin() + 1, m_sceneNames.end());
+		if (m_sceneEnabled.size() > 1)
+			m_sceneEnabled.erase(m_sceneEnabled.begin() + 1, m_sceneEnabled.end());
 	}
 }
 
@@ -72,6 +77,8 @@ void SceneStack::RemoveAt(size_t index, GLFWwindow &window)
 	m_scenes.erase(m_scenes.begin() + static_cast<std::ptrdiff_t>(index));
 	if (index < m_sceneNames.size())
 		m_sceneNames.erase(m_sceneNames.begin() + static_cast<std::ptrdiff_t>(index));
+	if (index < m_sceneEnabled.size())
+		m_sceneEnabled.erase(m_sceneEnabled.begin() + static_cast<std::ptrdiff_t>(index));
 }
 
 size_t SceneStack::Count() const
@@ -97,6 +104,29 @@ bool SceneStack::Rename(size_t index, const std::string &newName)
 		m_sceneNames.resize(m_scenes.size());
 
 	m_sceneNames[index] = newName;
+	return true;
+}
+
+bool SceneStack::Enabled(size_t index) const
+{
+	if (index >= m_scenes.size())
+		return false;
+	if (index >= m_sceneEnabled.size())
+		return true;
+	return m_sceneEnabled[index] != 0u;
+}
+
+bool SceneStack::SetEnabled(size_t index, bool enabled)
+{
+	if (index >= m_scenes.size())
+		return false;
+	if (index == 0)
+		return false;
+
+	if (m_sceneEnabled.size() < m_scenes.size())
+		m_sceneEnabled.resize(m_scenes.size(), 1u);
+
+	m_sceneEnabled[index] = enabled ? 1u : 0u;
 	return true;
 }
 
@@ -398,7 +428,7 @@ void SceneRuntime::Update(float dt, float now, const InputState &input)
 	if (m_editorSelectedSceneIndex < m_sceneStack.Count())
 	{
 		auto selectedEditor = std::dynamic_pointer_cast<IEditorScene>(m_sceneStack.Get(m_editorSelectedSceneIndex));
-		if (selectedEditor)
+		if (selectedEditor && m_sceneStack.Enabled(m_editorSelectedSceneIndex))
 			inputSceneIndex = m_editorSelectedSceneIndex;
 	}
 
@@ -407,11 +437,16 @@ void SceneRuntime::Update(float dt, float now, const InputState &input)
 	{
 		auto editorScene = std::dynamic_pointer_cast<IEditorScene>(scenes[i]);
 		if (editorScene)
-			editorScene->SetEditorInputEnabled(i == inputSceneIndex);
+			editorScene->SetEditorInputEnabled(i == inputSceneIndex && m_sceneStack.Enabled(i));
 	}
 
-	for (auto &scene : scenes)
-		scene->Update(dt, now, input);
+	for (size_t i = 0; i < scenes.size(); ++i)
+	{
+		if (i != 0 && !m_sceneStack.Enabled(i))
+			continue;
+		if (scenes[i])
+			scenes[i]->Update(dt, now, input);
+	}
 
 	m_transitionController.UpdateLoading(dt, now, input);
 }
@@ -419,8 +454,13 @@ void SceneRuntime::Update(float dt, float now, const InputState &input)
 void SceneRuntime::FixedUpdate(float fixedDt)
 {
 	auto &scenes = m_sceneStack.MutableScenes();
-	for (auto &scene : scenes)
-		scene->FixedUpdate(fixedDt);
+	for (size_t i = 0; i < scenes.size(); ++i)
+	{
+		if (i != 0 && !m_sceneStack.Enabled(i))
+			continue;
+		if (scenes[i])
+			scenes[i]->FixedUpdate(fixedDt);
+	}
 
 	m_transitionController.UpdateLoadingFixed(fixedDt);
 }
@@ -440,6 +480,8 @@ void SceneRuntime::RenderGame3D(Renderer &renderer, int framebufferWidth, int fr
 {
 	for (size_t i = 1; i < m_sceneStack.Count(); ++i)
 	{
+		if (!m_sceneStack.Enabled(i))
+			continue;
 		const auto scene = m_sceneStack.Get(i);
 		if (scene)
 			scene->Render3D(renderer, framebufferWidth, framebufferHeight);
@@ -452,6 +494,8 @@ void SceneRuntime::RenderGame2D(Renderer &renderer, int framebufferWidth, int fr
 {
 	for (size_t i = 1; i < m_sceneStack.Count(); ++i)
 	{
+		if (!m_sceneStack.Enabled(i))
+			continue;
 		const auto scene = m_sceneStack.Get(i);
 		if (scene)
 			scene->Render2D(renderer, framebufferWidth, framebufferHeight);
@@ -482,6 +526,16 @@ const char *SceneRuntime::GetLoadedSceneName(size_t index) const
 bool SceneRuntime::RenameLoadedScene(size_t index, const std::string &newName)
 {
 	return m_sceneStack.Rename(index, newName);
+}
+
+bool SceneRuntime::IsLoadedSceneEnabled(size_t index) const
+{
+	return m_sceneStack.Enabled(index);
+}
+
+bool SceneRuntime::SetLoadedSceneEnabled(size_t index, bool enabled)
+{
+	return m_sceneStack.SetEnabled(index, enabled);
 }
 
 bool SceneRuntime::IsTransitioning() const

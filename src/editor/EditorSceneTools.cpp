@@ -1368,6 +1368,16 @@ namespace sceneeditor
 		}
 	}
 
+	template <typename T>
+	static bool BeginInspectorComponentSection(Registry &r, Entity e, const char *label, const char *popupId)
+	{
+		if (!r.Has<T>(e) || !ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen))
+			return false;
+
+		RemoveComponentMenu<T>(r, e, popupId);
+		return r.Has<T>(e);
+	}
+
 	void EditorSceneTools::SetDragSnapStep(float snapStep)
 	{
 		s_dragSnapStep = std::max(0.0001f, snapStep);
@@ -1425,9 +1435,8 @@ namespace sceneeditor
 
 		ImGui::Separator();
 
-		if (r.Has<Transform>(e) && ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Transform>(r, e, "Transform", "TransformCtx"))
 		{
-			RemoveComponentMenu<Transform>(r, e, "TransformCtx");
 
 			auto &t = r.Get<Transform>(e);
 			bool absolutePosition = t.absolutePosition;
@@ -1454,9 +1463,8 @@ namespace sceneeditor
 			DrawVec3("Pivot Anchor (-1..1)", &t.pivot.x, 0.05f);
 		}
 
-		if (r.Has<UITransform>(e) && ImGui::CollapsingHeader("UITransform", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UITransform>(r, e, "UITransform", "UITransformCtx"))
 		{
-			RemoveComponentMenu<UITransform>(r, e, "UITransformCtx");
 
 			auto &t = r.Get<UITransform>(e);
 			DrawVec2("Anchor Min", &t.anchorMin.x, 0.01f);
@@ -1476,9 +1484,8 @@ namespace sceneeditor
 			ImGui::Text("Hierarchy Index: %d", t.hierarchyIndex);
 		}
 
-		if (r.Has<UISprite>(e) && ImGui::CollapsingHeader("UISprite", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UISprite>(r, e, "UISprite", "UISpriteCtx"))
 		{
-			RemoveComponentMenu<UISprite>(r, e, "UISpriteCtx");
 
 			auto &s = r.Get<UISprite>(e);
 			const bool texturePathChanged = DrawPathFieldWithAssetPicker(s_assetPicker, e, "Texture Path", "UISprite.TexturePath", AssetPickerType::Texture, s.texturePath);
@@ -1494,9 +1501,8 @@ namespace sceneeditor
 			(void)DrawToggleButton("Preserve Aspect", s.preserveAspect);
 		}
 
-		if (r.Has<UIText>(e) && ImGui::CollapsingHeader("UIText", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UIText>(r, e, "UIText", "UITextCtx"))
 		{
-			RemoveComponentMenu<UIText>(r, e, "UITextCtx");
 
 			auto &t = r.Get<UIText>(e);
 			(void)DrawBufferedStringInput(e, "UIText.Text", "Text", t.text, 512);
@@ -1518,9 +1524,8 @@ namespace sceneeditor
 			ImGui::InputInt("Order In Layer", &t.orderInLayer);
 		}
 
-		if (r.Has<UIHorizontalGroup>(e) && ImGui::CollapsingHeader("UIHorizontalGroup", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UIHorizontalGroup>(r, e, "UIHorizontalGroup", "UIHorizontalGroupCtx"))
 		{
-			RemoveComponentMenu<UIHorizontalGroup>(r, e, "UIHorizontalGroupCtx");
 			auto &g = r.Get<UIHorizontalGroup>(e);
 			(void)DragFloatWithSnap("Padding Left", &g.padding.left, 0.1f, 0.0f, 10000.0f);
 			(void)DragFloatWithSnap("Padding Right", &g.padding.right, 0.1f, 0.0f, 10000.0f);
@@ -1534,9 +1539,8 @@ namespace sceneeditor
 			(void)DrawToggleButton("Expand Height", g.expandHeight);
 		}
 
-		if (r.Has<UIVerticalGroup>(e) && ImGui::CollapsingHeader("UIVerticalGroup", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UIVerticalGroup>(r, e, "UIVerticalGroup", "UIVerticalGroupCtx"))
 		{
-			RemoveComponentMenu<UIVerticalGroup>(r, e, "UIVerticalGroupCtx");
 			auto &g = r.Get<UIVerticalGroup>(e);
 			(void)DragFloatWithSnap("Padding Left", &g.padding.left, 0.1f, 0.0f, 10000.0f);
 			(void)DragFloatWithSnap("Padding Right", &g.padding.right, 0.1f, 0.0f, 10000.0f);
@@ -1550,9 +1554,8 @@ namespace sceneeditor
 			(void)DrawToggleButton("Expand Height", g.expandHeight);
 		}
 
-		if (r.Has<UIGridGroup>(e) && ImGui::CollapsingHeader("UIGridGroup", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UIGridGroup>(r, e, "UIGridGroup", "UIGridGroupCtx"))
 		{
-			RemoveComponentMenu<UIGridGroup>(r, e, "UIGridGroupCtx");
 			auto &g = r.Get<UIGridGroup>(e);
 			DrawVec2("Cell Size", &g.cellSize.x, 0.1f);
 			DrawVec2("Spacing", &g.spacing.x, 0.1f);
@@ -1570,33 +1573,29 @@ namespace sceneeditor
 				g.alignment = UIChildAlignmentFromIndex(align);
 		}
 
-		if (r.Has<UILayoutElement>(e) && ImGui::CollapsingHeader("UILayoutElement", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UILayoutElement>(r, e, "UILayoutElement", "UILayoutElementCtx"))
 		{
-			RemoveComponentMenu<UILayoutElement>(r, e, "UILayoutElementCtx");
 			auto &layout = r.Get<UILayoutElement>(e);
 			DrawVec2("Min Size", &layout.minSize.x, 0.1f);
 			DrawVec2("Preferred Size", &layout.preferredSize.x, 0.1f);
 			DrawVec2("Flexible Size", &layout.flexibleSize.x, 0.1f);
 		}
 
-		if (r.Has<UISpacer>(e) && ImGui::CollapsingHeader("UISpacer", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UISpacer>(r, e, "UISpacer", "UISpacerCtx"))
 		{
-			RemoveComponentMenu<UISpacer>(r, e, "UISpacerCtx");
 			auto &spacer = r.Get<UISpacer>(e);
 			DrawVec2("Preferred Size", &spacer.preferredSize.x, 0.1f);
 			DrawVec2("Flexible Size", &spacer.flexibleSize.x, 0.1f);
 		}
 
-		if (r.Has<UIMask>(e) && ImGui::CollapsingHeader("UIMask", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UIMask>(r, e, "UIMask", "UIMaskCtx"))
 		{
-			RemoveComponentMenu<UIMask>(r, e, "UIMaskCtx");
 			auto &mask = r.Get<UIMask>(e);
 			(void)DrawToggleButton("Enabled", mask.enabled);
 		}
 
-		if (r.Has<UIFill>(e) && ImGui::CollapsingHeader("UIFill", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<UIFill>(r, e, "UIFill", "UIFillCtx"))
 		{
-			RemoveComponentMenu<UIFill>(r, e, "UIFillCtx");
 			auto &fill = r.Get<UIFill>(e);
 			(void)DragFloatWithSnap("Value 0..1", &fill.value01, 0.01f, 0.0f, 1.0f);
 			int direction = (fill.direction == UIFillDirection::RightToLeft) ? 1 : 0;
@@ -1604,9 +1603,8 @@ namespace sceneeditor
 				fill.direction = (direction == 1) ? UIFillDirection::RightToLeft : UIFillDirection::LeftToRight;
 		}
 
-		if (r.Has<Health>(e) && ImGui::CollapsingHeader("Health", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Health>(r, e, "Health", "HealthCtx"))
 		{
-			RemoveComponentMenu<Health>(r, e, "HealthCtx");
 			auto &health = r.Get<Health>(e);
 			(void)DragFloatWithSnap("Current", &health.current, 0.1f, 0.0f, 100000.0f);
 			(void)DragFloatWithSnap("Max", &health.max, 0.1f, 0.0f, 100000.0f);
@@ -1614,9 +1612,8 @@ namespace sceneeditor
 				health.current = health.max;
 		}
 
-		if (r.Has<Camera>(e) && ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Camera>(r, e, "Camera", "CameraCtx"))
 		{
-			RemoveComponentMenu<Camera>(r, e, "CameraCtx");
 
 			auto &c = r.Get<Camera>(e);
 
@@ -1633,9 +1630,8 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Ortho Height", &c.orthoHeight, 0.05f, 0.01f, 10000.f);
 		}
 
-		if (r.Has<CameraController>(e) && ImGui::CollapsingHeader("CameraController", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<CameraController>(r, e, "CameraController", "CameraControllerCtx"))
 		{
-			RemoveComponentMenu<CameraController>(r, e, "CameraControllerCtx");
 
 			auto &cc = r.Get<CameraController>(e);
 			(void)DragFloatWithSnap("Yaw (deg)", &cc.yawDeg, 0.1f);
@@ -1647,9 +1643,8 @@ namespace sceneeditor
 			(void)DrawToggleButton("Has Last Mouse Pos", cc.hasLastMousePos);
 		}
 
-		if (r.Has<Spin>(e) && ImGui::CollapsingHeader("Spin", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Spin>(r, e, "Spin", "SpinCtx"))
 		{
-			RemoveComponentMenu<Spin>(r, e, "SpinCtx");
 
 			auto &s = r.Get<Spin>(e);
 			DrawVec3("Axis", &s.axis.x, 0.05f);
@@ -1657,9 +1652,8 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Amplitude", &s.amplitude, 0.01f, 0.f, 1000.f);
 		}
 
-		if (r.Has<LightEmitter>(e) && ImGui::CollapsingHeader("LightEmitter", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<LightEmitter>(r, e, "LightEmitter", "LightEmitterCtx"))
 		{
-			RemoveComponentMenu<LightEmitter>(r, e, "LightEmitterCtx");
 
 			auto &l = r.Get<LightEmitter>(e);
 			int type = static_cast<int>(l.type);
@@ -1695,9 +1689,8 @@ namespace sceneeditor
 			(void)DrawToggleButton("Cast Shadows", l.castShadows);
 		}
 
-		if (r.Has<Sprite>(e) && ImGui::CollapsingHeader("Sprite", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Sprite>(r, e, "Sprite", "SpriteCtx"))
 		{
-			RemoveComponentMenu<Sprite>(r, e, "SpriteCtx");
 
 			auto &s = r.Get<Sprite>(e);
 			if (DrawPathFieldWithAssetPicker(s_assetPicker, e, "Texture Path", "Sprite.TexturePath", AssetPickerType::Texture, s.texturePath))
@@ -1737,9 +1730,8 @@ namespace sceneeditor
 			ImGui::InputInt("Order In Layer", &s.orderInLayer);
 		}
 
-		if (r.Has<SpriteAnimator>(e) && ImGui::CollapsingHeader("SpriteAnimator", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<SpriteAnimator>(r, e, "SpriteAnimator", "SpriteAnimatorCtx"))
 		{
-			RemoveComponentMenu<SpriteAnimator>(r, e, "SpriteAnimatorCtx");
 
 			auto &a = r.Get<SpriteAnimator>(e);
 			(void)DrawBufferedStringInput(e, "SpriteAnimator.ClipId", "Clip Id", a.clipId, 256);
@@ -1779,9 +1771,8 @@ namespace sceneeditor
 			a.cellHeight = std::max(0, a.cellHeight);
 		}
 
-		if (r.Has<Collider2D>(e) && ImGui::CollapsingHeader("Collider2D", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Collider2D>(r, e, "Collider2D", "Collider2DCtx"))
 		{
-			RemoveComponentMenu<Collider2D>(r, e, "Collider2DCtx");
 
 			auto &c = r.Get<Collider2D>(e);
 			int shapeIndex = (c.shape == Collider2D::Shape::Circle) ? 1 : 0;
@@ -1805,9 +1796,8 @@ namespace sceneeditor
 			}
 		}
 
-		if (r.Has<RigidBody2D>(e) && ImGui::CollapsingHeader("RigidBody2D", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<RigidBody2D>(r, e, "RigidBody2D", "RigidBody2DCtx"))
 		{
-			RemoveComponentMenu<RigidBody2D>(r, e, "RigidBody2DCtx");
 
 			auto &rb = r.Get<RigidBody2D>(e);
 			DrawVec3("Velocity", &rb.velocity.x, 0.05f);
@@ -1840,16 +1830,14 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Angular Damping", &rb.angularDamping, 0.001f, 0.0f, 1000.0f);
 		}
 
-		if (r.Has<PhysicsBody2D>(e) && ImGui::CollapsingHeader("PhysicsBody2D", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<PhysicsBody2D>(r, e, "PhysicsBody2D", "PhysicsBody2DCtx"))
 		{
-			RemoveComponentMenu<PhysicsBody2D>(r, e, "PhysicsBody2DCtx");
 			auto &pb = r.Get<PhysicsBody2D>(e);
 			(void)DrawToggleButton("Enabled", pb.enabled);
 		}
 
-		if (r.Has<Material>(e) && ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Material>(r, e, "Material", "MaterialCtx"))
 		{
-			RemoveComponentMenu<Material>(r, e, "MaterialCtx");
 
 			auto &m = r.Get<Material>(e);
 			std::string shaderPath = m.shaderPath;
@@ -1941,9 +1929,8 @@ namespace sceneeditor
 			}
 		}
 
-		if (r.Has<Mesh>(e) && ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+		if (BeginInspectorComponentSection<Mesh>(r, e, "Mesh", "MeshCtx"))
 		{
-			RemoveComponentMenu<Mesh>(r, e, "MeshCtx");
 
 			auto &m = r.Get<Mesh>(e);
 			if (DrawPathFieldWithAssetPicker(s_assetPicker, e, "Mesh Path", "Mesh.MeshPath", AssetPickerType::Mesh, m.meshPath))

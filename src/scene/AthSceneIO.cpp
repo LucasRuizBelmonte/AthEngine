@@ -165,8 +165,8 @@ namespace AthSceneIO
 		static bool IsValidUITextAlignmentValue(int value)
 		{
 			return value == static_cast<int>(UITextAlignment::Left) ||
-			       value == static_cast<int>(UITextAlignment::Center) ||
-			       value == static_cast<int>(UITextAlignment::Right);
+				   value == static_cast<int>(UITextAlignment::Center) ||
+				   value == static_cast<int>(UITextAlignment::Right);
 		}
 
 		static UIChildAlignment UIChildAlignmentFromStoredValue(int value)
@@ -186,8 +186,8 @@ namespace AthSceneIO
 		static bool IsValidUIChildAlignmentValue(int value)
 		{
 			return value == static_cast<int>(UIChildAlignment::Start) ||
-			       value == static_cast<int>(UIChildAlignment::Center) ||
-			       value == static_cast<int>(UIChildAlignment::End);
+				   value == static_cast<int>(UIChildAlignment::Center) ||
+				   value == static_cast<int>(UIChildAlignment::End);
 		}
 
 		static UIGridConstraint UIGridConstraintFromStoredValue(int value)
@@ -205,7 +205,7 @@ namespace AthSceneIO
 		static bool IsValidUIGridConstraintValue(int value)
 		{
 			return value == static_cast<int>(UIGridConstraint::FixedColumns) ||
-			       value == static_cast<int>(UIGridConstraint::FixedRows);
+				   value == static_cast<int>(UIGridConstraint::FixedRows);
 		}
 
 		static UIFillDirection UIFillDirectionFromStoredValue(int value)
@@ -223,7 +223,7 @@ namespace AthSceneIO
 		static bool IsValidUIFillDirectionValue(int value)
 		{
 			return value == static_cast<int>(UIFillDirection::LeftToRight) ||
-			       value == static_cast<int>(UIFillDirection::RightToLeft);
+				   value == static_cast<int>(UIFillDirection::RightToLeft);
 		}
 
 		static bool ReadExpectedKeyword(std::istream &in, const char *expected, std::string &outError)
@@ -254,19 +254,19 @@ namespace AthSceneIO
 		}
 
 		static std::string BuildSchemaError(const std::string &componentName,
-		                                    const std::string &expectedSchema,
-		                                    const std::string &actualData)
+											const std::string &expectedSchema,
+											const std::string &actualData)
 		{
 			std::ostringstream oss;
 			oss << componentName << " schema mismatch. Expected " << expectedSchema
-			    << ", actual '" << actualData << "'.";
+				<< ", actual '" << actualData << "'.";
 			return oss.str();
 		}
 
 		static bool ParseFloatPayload(const std::string &payload,
-		                              const std::string &context,
-		                              std::vector<float> &outValues,
-		                              std::string &outError)
+									  const std::string &context,
+									  std::vector<float> &outValues,
+									  std::string &outError)
 		{
 			std::string parseError;
 			if (!StrictParsing::ParseFloatList(payload, outValues, parseError))
@@ -658,12 +658,12 @@ namespace AthSceneIO
 			int pivot = static_cast<int>(SpritePivot::Center);
 			std::string extra;
 			if (!(ls >> ent.sprite.texture.id >> ent.sprite.shader.id >>
-			      ent.sprite.size.x >> ent.sprite.size.y >>
-			      ent.sprite.uv.x >> ent.sprite.uv.y >> ent.sprite.uv.z >> ent.sprite.uv.w >>
-			      ent.sprite.tint.x >> ent.sprite.tint.y >> ent.sprite.tint.z >> ent.sprite.tint.w >>
-			      ent.sprite.layer >> ent.sprite.orderInLayer >>
-			      std::quoted(ent.sprite.texturePath) >> std::quoted(ent.sprite.materialPath) >> pivot) ||
-			    (ls >> extra))
+				  ent.sprite.size.x >> ent.sprite.size.y >>
+				  ent.sprite.uv.x >> ent.sprite.uv.y >> ent.sprite.uv.z >> ent.sprite.uv.w >>
+				  ent.sprite.tint.x >> ent.sprite.tint.y >> ent.sprite.tint.z >> ent.sprite.tint.w >>
+				  ent.sprite.layer >> ent.sprite.orderInLayer >>
+				  std::quoted(ent.sprite.texturePath) >> std::quoted(ent.sprite.materialPath) >> pivot) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"Sprite",
@@ -690,13 +690,13 @@ namespace AthSceneIO
 				return;
 			const UITransform &c = registry.Get<UITransform>(e);
 			out << "UITRANSFORM "
-			    << c.anchorMin.x << " " << c.anchorMin.y << " "
-			    << c.anchorMax.x << " " << c.anchorMax.y << " "
-			    << c.pivot.x << " " << c.pivot.y << " "
-			    << c.anchoredPosition.x << " " << c.anchoredPosition.y << " "
-			    << c.sizeDelta.x << " " << c.sizeDelta.y << " "
-			    << c.rotation << " "
-			    << c.scale.x << " " << c.scale.y << "\n";
+				<< c.anchorMin.x << " " << c.anchorMin.y << " "
+				<< c.anchorMax.x << " " << c.anchorMax.y << " "
+				<< c.pivot.x << " " << c.pivot.y << " "
+				<< c.anchoredPosition.x << " " << c.anchoredPosition.y << " "
+				<< c.sizeDelta.x << " " << c.sizeDelta.y << " "
+				<< c.rotation << " "
+				<< c.scale.x << " " << c.scale.y << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -734,13 +734,13 @@ namespace AthSceneIO
 				return;
 			const UISprite &c = registry.Get<UISprite>(e);
 			out << "UISPRITE "
-			    << c.texture.id << " " << c.shader.id << " "
-			    << c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
-			    << c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
-			    << c.layer << " " << c.orderInLayer << " "
-			    << (c.preserveAspect ? 1 : 0) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.texturePath)) << " "
-			    << std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << "\n";
+				<< c.texture.id << " " << c.shader.id << " "
+				<< c.tint.x << " " << c.tint.y << " " << c.tint.z << " " << c.tint.w << " "
+				<< c.uv.x << " " << c.uv.y << " " << c.uv.z << " " << c.uv.w << " "
+				<< c.layer << " " << c.orderInLayer << " "
+				<< (c.preserveAspect ? 1 : 0) << " "
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(c.texturePath)) << " "
+				<< std::quoted(ScenePathResolver::ToRelativePathForSave(c.materialPath)) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -751,11 +751,11 @@ namespace AthSceneIO
 			int preserveAspect = 0;
 			std::string extra;
 			if (!(ls >> ent.uiSprite.texture.id >> ent.uiSprite.shader.id >>
-			      ent.uiSprite.tint.x >> ent.uiSprite.tint.y >> ent.uiSprite.tint.z >> ent.uiSprite.tint.w >>
-			      ent.uiSprite.uv.x >> ent.uiSprite.uv.y >> ent.uiSprite.uv.z >> ent.uiSprite.uv.w >>
-			      ent.uiSprite.layer >> ent.uiSprite.orderInLayer >> preserveAspect >>
-			      std::quoted(ent.uiSprite.texturePath) >> std::quoted(ent.uiSprite.materialPath)) ||
-			    (ls >> extra))
+				  ent.uiSprite.tint.x >> ent.uiSprite.tint.y >> ent.uiSprite.tint.z >> ent.uiSprite.tint.w >>
+				  ent.uiSprite.uv.x >> ent.uiSprite.uv.y >> ent.uiSprite.uv.z >> ent.uiSprite.uv.w >>
+				  ent.uiSprite.layer >> ent.uiSprite.orderInLayer >> preserveAspect >>
+				  std::quoted(ent.uiSprite.texturePath) >> std::quoted(ent.uiSprite.materialPath)) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"UISprite",
@@ -777,16 +777,16 @@ namespace AthSceneIO
 				return;
 			const UIText &c = registry.Get<UIText>(e);
 			out << "UITEXT "
-			    << std::quoted(c.text) << " "
-			    << c.color.x << " " << c.color.y << " " << c.color.z << " " << c.color.w << " "
-			    << std::quoted(c.fontId) << " "
-			    << c.fontSizePx << " "
-			    << static_cast<int>(c.alignment) << " "
-			    << (c.wrap ? 1 : 0) << " "
-			    << (c.outlineEnabled ? 1 : 0) << " "
-			    << c.outlineColor.x << " " << c.outlineColor.y << " " << c.outlineColor.z << " " << c.outlineColor.w << " "
-			    << c.outlineThicknessPx << " "
-			    << c.layer << " " << c.orderInLayer << "\n";
+				<< std::quoted(c.text) << " "
+				<< c.color.x << " " << c.color.y << " " << c.color.z << " " << c.color.w << " "
+				<< std::quoted(c.fontId) << " "
+				<< c.fontSizePx << " "
+				<< static_cast<int>(c.alignment) << " "
+				<< (c.wrap ? 1 : 0) << " "
+				<< (c.outlineEnabled ? 1 : 0) << " "
+				<< c.outlineColor.x << " " << c.outlineColor.y << " " << c.outlineColor.z << " " << c.outlineColor.w << " "
+				<< c.outlineThicknessPx << " "
+				<< c.layer << " " << c.orderInLayer << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -799,14 +799,14 @@ namespace AthSceneIO
 			int outlineEnabled = 0;
 			std::string extra;
 			if (!(ls >> std::quoted(ent.uiText.text) >>
-			      ent.uiText.color.x >> ent.uiText.color.y >> ent.uiText.color.z >> ent.uiText.color.w >>
-			      std::quoted(ent.uiText.fontId) >>
-			      ent.uiText.fontSizePx >>
-			      alignment >> wrap >> outlineEnabled >>
-			      ent.uiText.outlineColor.x >> ent.uiText.outlineColor.y >> ent.uiText.outlineColor.z >> ent.uiText.outlineColor.w >>
-			      ent.uiText.outlineThicknessPx >>
-			      ent.uiText.layer >> ent.uiText.orderInLayer) ||
-			    (ls >> extra))
+				  ent.uiText.color.x >> ent.uiText.color.y >> ent.uiText.color.z >> ent.uiText.color.w >>
+				  std::quoted(ent.uiText.fontId) >>
+				  ent.uiText.fontSizePx >>
+				  alignment >> wrap >> outlineEnabled >>
+				  ent.uiText.outlineColor.x >> ent.uiText.outlineColor.y >> ent.uiText.outlineColor.z >> ent.uiText.outlineColor.w >>
+				  ent.uiText.outlineThicknessPx >>
+				  ent.uiText.layer >> ent.uiText.orderInLayer) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"UIText",
@@ -836,11 +836,11 @@ namespace AthSceneIO
 				return;
 			const UIHorizontalGroup &c = registry.Get<UIHorizontalGroup>(e);
 			out << "UIHORIZONTALGROUP "
-			    << c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
-			    << c.spacing << " "
-			    << static_cast<int>(c.childAlignment) << " "
-			    << (c.expandWidth ? 1 : 0) << " "
-			    << (c.expandHeight ? 1 : 0) << "\n";
+				<< c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
+				<< c.spacing << " "
+				<< static_cast<int>(c.childAlignment) << " "
+				<< (c.expandWidth ? 1 : 0) << " "
+				<< (c.expandHeight ? 1 : 0) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -853,10 +853,10 @@ namespace AthSceneIO
 			int expandHeight = 0;
 			std::string extra;
 			if (!(ls >> ent.uiHorizontalGroup.padding.left >> ent.uiHorizontalGroup.padding.right >>
-			      ent.uiHorizontalGroup.padding.top >> ent.uiHorizontalGroup.padding.bottom >>
-			      ent.uiHorizontalGroup.spacing >>
-			      alignment >> expandWidth >> expandHeight) ||
-			    (ls >> extra))
+				  ent.uiHorizontalGroup.padding.top >> ent.uiHorizontalGroup.padding.bottom >>
+				  ent.uiHorizontalGroup.spacing >>
+				  alignment >> expandWidth >> expandHeight) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"UIHorizontalGroup",
@@ -884,11 +884,11 @@ namespace AthSceneIO
 				return;
 			const UIVerticalGroup &c = registry.Get<UIVerticalGroup>(e);
 			out << "UIVERTICALGROUP "
-			    << c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
-			    << c.spacing << " "
-			    << static_cast<int>(c.childAlignment) << " "
-			    << (c.expandWidth ? 1 : 0) << " "
-			    << (c.expandHeight ? 1 : 0) << "\n";
+				<< c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
+				<< c.spacing << " "
+				<< static_cast<int>(c.childAlignment) << " "
+				<< (c.expandWidth ? 1 : 0) << " "
+				<< (c.expandHeight ? 1 : 0) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -901,10 +901,10 @@ namespace AthSceneIO
 			int expandHeight = 0;
 			std::string extra;
 			if (!(ls >> ent.uiVerticalGroup.padding.left >> ent.uiVerticalGroup.padding.right >>
-			      ent.uiVerticalGroup.padding.top >> ent.uiVerticalGroup.padding.bottom >>
-			      ent.uiVerticalGroup.spacing >>
-			      alignment >> expandWidth >> expandHeight) ||
-			    (ls >> extra))
+				  ent.uiVerticalGroup.padding.top >> ent.uiVerticalGroup.padding.bottom >>
+				  ent.uiVerticalGroup.spacing >>
+				  alignment >> expandWidth >> expandHeight) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"UIVerticalGroup",
@@ -932,12 +932,12 @@ namespace AthSceneIO
 				return;
 			const UIGridGroup &c = registry.Get<UIGridGroup>(e);
 			out << "UIGRIDGROUP "
-			    << c.cellSize.x << " " << c.cellSize.y << " "
-			    << c.spacing.x << " " << c.spacing.y << " "
-			    << static_cast<int>(c.constraint) << " "
-			    << c.count << " "
-			    << c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
-			    << static_cast<int>(c.alignment) << "\n";
+				<< c.cellSize.x << " " << c.cellSize.y << " "
+				<< c.spacing.x << " " << c.spacing.y << " "
+				<< static_cast<int>(c.constraint) << " "
+				<< c.count << " "
+				<< c.padding.left << " " << c.padding.right << " " << c.padding.top << " " << c.padding.bottom << " "
+				<< static_cast<int>(c.alignment) << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -949,13 +949,13 @@ namespace AthSceneIO
 			int alignment = 0;
 			std::string extra;
 			if (!(ls >> ent.uiGridGroup.cellSize.x >> ent.uiGridGroup.cellSize.y >>
-			      ent.uiGridGroup.spacing.x >> ent.uiGridGroup.spacing.y >>
-			      constraint >>
-			      ent.uiGridGroup.count >>
-			      ent.uiGridGroup.padding.left >> ent.uiGridGroup.padding.right >>
-			      ent.uiGridGroup.padding.top >> ent.uiGridGroup.padding.bottom >>
-			      alignment) ||
-			    (ls >> extra))
+				  ent.uiGridGroup.spacing.x >> ent.uiGridGroup.spacing.y >>
+				  constraint >>
+				  ent.uiGridGroup.count >>
+				  ent.uiGridGroup.padding.left >> ent.uiGridGroup.padding.right >>
+				  ent.uiGridGroup.padding.top >> ent.uiGridGroup.padding.bottom >>
+				  alignment) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"UIGridGroup",
@@ -988,9 +988,9 @@ namespace AthSceneIO
 				return;
 			const UILayoutElement &c = registry.Get<UILayoutElement>(e);
 			out << "UILAYOUTELEMENT "
-			    << c.minSize.x << " " << c.minSize.y << " "
-			    << c.preferredSize.x << " " << c.preferredSize.y << " "
-			    << c.flexibleSize.x << " " << c.flexibleSize.y << "\n";
+				<< c.minSize.x << " " << c.minSize.y << " "
+				<< c.preferredSize.x << " " << c.preferredSize.y << " "
+				<< c.flexibleSize.x << " " << c.flexibleSize.y << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -1020,8 +1020,8 @@ namespace AthSceneIO
 				return;
 			const UISpacer &c = registry.Get<UISpacer>(e);
 			out << "UISPACER "
-			    << c.preferredSize.x << " " << c.preferredSize.y << " "
-			    << c.flexibleSize.x << " " << c.flexibleSize.y << "\n";
+				<< c.preferredSize.x << " " << c.preferredSize.y << " "
+				<< c.flexibleSize.x << " " << c.flexibleSize.y << "\n";
 		}
 
 		static bool Read(std::istream &in, SavedEntity &ent, std::string &outError)
@@ -1169,7 +1169,7 @@ namespace AthSceneIO
 			int loop = 0;
 			int playing = 0;
 			if (!(ls >> std::quoted(ent.spriteAnimator.clipId) >>
-			      ent.spriteAnimator.time))
+				  ent.spriteAnimator.time))
 			{
 				outError = BuildSchemaError(
 					"SpriteAnimator",
@@ -1178,8 +1178,6 @@ namespace AthSceneIO
 				return false;
 			}
 
-			// Current parse:
-			// <fps> <speed> <loop> <playing> <currentFrame> [grid params...]
 			std::vector<float> numericTail;
 			float token = 0.f;
 			while (ls >> token)
@@ -1271,10 +1269,10 @@ namespace AthSceneIO
 			uint64_t mask = 0u;
 			std::string extra;
 			if (!(ls >> shape >> isTrigger >> layer >> mask >>
-			      ent.collider2D.halfExtents.x >> ent.collider2D.halfExtents.y >>
-			      ent.collider2D.radius >>
-			      ent.collider2D.offset.x >> ent.collider2D.offset.y) ||
-			    (ls >> extra))
+				  ent.collider2D.halfExtents.x >> ent.collider2D.halfExtents.y >>
+				  ent.collider2D.radius >>
+				  ent.collider2D.offset.x >> ent.collider2D.offset.y) ||
+				(ls >> extra))
 			{
 				outError = BuildSchemaError(
 					"Collider2D",
@@ -1284,14 +1282,14 @@ namespace AthSceneIO
 			}
 
 			if (!StrictParsing::ValidateFinite(ent.collider2D.halfExtents.x, "halfExtents.x", "Collider2D", outError) ||
-			    !StrictParsing::ValidateFinite(ent.collider2D.halfExtents.y, "halfExtents.y", "Collider2D", outError) ||
-			    !StrictParsing::ValidateFinite(ent.collider2D.radius, "radius", "Collider2D", outError) ||
-			    !StrictParsing::ValidateFinite(ent.collider2D.offset.x, "offset.x", "Collider2D", outError) ||
-			    !StrictParsing::ValidateFinite(ent.collider2D.offset.y, "offset.y", "Collider2D", outError))
+				!StrictParsing::ValidateFinite(ent.collider2D.halfExtents.y, "halfExtents.y", "Collider2D", outError) ||
+				!StrictParsing::ValidateFinite(ent.collider2D.radius, "radius", "Collider2D", outError) ||
+				!StrictParsing::ValidateFinite(ent.collider2D.offset.x, "offset.x", "Collider2D", outError) ||
+				!StrictParsing::ValidateFinite(ent.collider2D.offset.y, "offset.y", "Collider2D", outError))
 				return false;
 
 			if (layer > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) ||
-			    mask > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+				mask > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
 			{
 				outError = BuildSchemaError(
 					"Collider2D",
@@ -1477,7 +1475,7 @@ namespace AthSceneIO
 			size_t parameterCount = 0u;
 			std::string extraToken;
 			if (!(headerStream >> ent.material.shader.id >> std::quoted(ent.material.shaderPath) >> parameterCount) ||
-			    (headerStream >> extraToken))
+				(headerStream >> extraToken))
 			{
 				outError = BuildSchemaError(
 					"Material_V2",
@@ -1499,15 +1497,15 @@ namespace AthSceneIO
 			if (metadata.Empty())
 			{
 				outError = "Material_V2 schema mismatch. Material metadata is required for shader '" +
-				           ent.material.shaderPath + "' and must define all parameters.";
+						   ent.material.shaderPath + "' and must define all parameters.";
 				return false;
 			}
 
 			if (parameterCount != metadata.parameters.size())
 			{
 				outError = "Material_V2 schema mismatch. Shader '" + ent.material.shaderPath +
-				           "' expects " + std::to_string(metadata.parameters.size()) +
-				           " parameter(s), found " + std::to_string(parameterCount) + ".";
+						   "' expects " + std::to_string(metadata.parameters.size()) +
+						   " parameter(s), found " + std::to_string(parameterCount) + ".";
 				return false;
 			}
 
@@ -1548,13 +1546,13 @@ namespace AthSceneIO
 				if (name != expected.name)
 				{
 					outError = "Material_V2 schema mismatch. Parameter #" + std::to_string(i) +
-					           " expected name '" + expected.name + "', found '" + name + "'.";
+							   " expected name '" + expected.name + "', found '" + name + "'.";
 					return false;
 				}
 				if (typeInt != static_cast<int>(expected.type))
 				{
 					outError = "Material_V2 schema mismatch. Parameter '" + name + "' expected type " +
-					           std::to_string(static_cast<int>(expected.type)) + ", found " + std::to_string(typeInt) + ".";
+							   std::to_string(static_cast<int>(expected.type)) + ", found " + std::to_string(typeInt) + ".";
 					return false;
 				}
 
@@ -2063,7 +2061,7 @@ namespace AthSceneIO
 				}
 
 				outError = "Unknown component token '" + key +
-				           "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,UITRANSFORM,UISPRITE,UITEXT,UIHORIZONTALGROUP,UIVERTICALGROUP,UIGRIDGROUP,UILAYOUTELEMENT,UISPACER,UIMASK,UIFILL,HEALTH,SPRITE_ANIMATOR,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
+						   "' in scene file. Expected one of TAG,PARENT,TRANSFORM,CAMERA,CAMERA_CONTROLLER,SPIN,LIGHT,SPRITE,UITRANSFORM,UISPRITE,UITEXT,UIHORIZONTALGROUP,UIVERTICALGROUP,UIGRIDGROUP,UILAYOUTELEMENT,UISPACER,UIMASK,UIFILL,HEALTH,SPRITE_ANIMATOR,COLLIDER2D,RIGIDBODY2D,PHYSICSBODY2D,MATERIAL_V2,MESH,END_ENTITY.";
 				return false;
 			}
 

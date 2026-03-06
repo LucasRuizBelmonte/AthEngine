@@ -20,6 +20,26 @@ namespace
 	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
 	constexpr float kMaxFrameTimeSeconds = 0.10f;
 
+	struct ScopedCpuProfilerSample
+	{
+		Profiler &profiler;
+		Profiler::CpuSample sample;
+
+		ScopedCpuProfilerSample(Profiler &inProfiler, Profiler::CpuSample inSample)
+			: profiler(inProfiler), sample(inSample)
+		{
+			profiler.BeginCpuSample(sample);
+		}
+
+		~ScopedCpuProfilerSample()
+		{
+			profiler.EndCpuSample(sample);
+		}
+
+		ScopedCpuProfilerSample(const ScopedCpuProfilerSample &) = delete;
+		ScopedCpuProfilerSample &operator=(const ScopedCpuProfilerSample &) = delete;
+	};
+
 	void ApplyDarkLilacImGuiTheme()
 	{
 		ImGui::StyleColorsDark();
@@ -211,6 +231,9 @@ void Application::Run()
 		if (dt > kMaxFrameTimeSeconds)
 			dt = kMaxFrameTimeSeconds;
 
+		m_profiler.BeginFrame();
+		m_Renderer->ResetFrameStats();
+
 		fixedAccumulator += dt;
 
 		int width, height;
@@ -220,21 +243,27 @@ void Application::Run()
 		if (m_Window->ShouldClose())
 			break;
 
-		if (kUseFixedTimestep)
 		{
-			while (fixedAccumulator >= kFixedDeltaSeconds)
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::FixedUpdate);
+			if (kUseFixedTimestep)
 			{
-				m_Scenes->FixedUpdate(kFixedDeltaSeconds);
-				fixedAccumulator -= kFixedDeltaSeconds;
+				while (fixedAccumulator >= kFixedDeltaSeconds)
+				{
+					m_Scenes->FixedUpdate(kFixedDeltaSeconds);
+					fixedAccumulator -= kFixedDeltaSeconds;
+				}
+			}
+			else
+			{
+				m_Scenes->FixedUpdate(dt);
+				fixedAccumulator = 0.0f;
 			}
 		}
-		else
-		{
-			m_Scenes->FixedUpdate(dt);
-			fixedAccumulator = 0.0f;
-		}
 
-		m_Scenes->Update(dt, now, Input::GetState());
+		{
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::Update);
+			m_Scenes->Update(dt, now, Input::GetState());
+		}
 		if (m_Window->ShouldClose())
 			break;
 
@@ -251,7 +280,10 @@ void Application::Run()
 		}
 
 		EditorUI::SetRenderTexture(reinterpret_cast<ImTextureID>(static_cast<intptr_t>(m_SceneColorTexture)));
-		m_Scenes->RenderEditorUI(*m_Renderer, width, height);
+		{
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::EditorUi);
+			m_Scenes->RenderEditorUI(*m_Renderer, width, height);
+		}
 
 		ImVec2 renderSize = EditorUI::GetRenderTargetSize();
 		int targetWidth = (int)renderSize.x;
@@ -265,14 +297,38 @@ void Application::Run()
 
 		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
 		m_Renderer->BeginFrame(targetWidth, targetHeight);
-		m_Scenes->RenderGame3D(*m_Renderer, targetWidth, targetHeight);
-		m_Scenes->RenderGame2D(*m_Renderer, targetWidth, targetHeight);
+		{
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::Render3D);
+			m_Scenes->RenderGame3D(*m_Renderer, targetWidth, targetHeight);
+		}
+		{
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::Render2D);
+			m_Scenes->RenderGame2D(*m_Renderer, targetWidth, targetHeight);
+		}
+
+		const Renderer::FrameStats &rendererStats = m_Renderer->GetFrameStats();
+		Profiler::RenderCounters renderCounters;
+		renderCounters.drawCalls = rendererStats.drawCalls;
+		renderCounters.triangles = rendererStats.triangles;
+		renderCounters.indices = rendererStats.indices;
+		m_profiler.SetRenderCounters(renderCounters);
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		EndImGuiFrame();
+		bool profilerWindowOpen = EditorUI::IsProfilerWindowOpen();
+		if (profilerWindowOpen)
+		{
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::ProfilerUi);
+			m_profiler.RenderImGui(&profilerWindowOpen);
+			EditorUI::SetProfilerWindowOpen(profilerWindowOpen);
+		}
+		{
+			ScopedCpuProfilerSample cpuSample(m_profiler, Profiler::CpuSample::ImGuiRender);
+			EndImGuiFrame();
+		}
+		m_profiler.EndFrame();
 
 		if (m_Window->ShouldClose())
 			break;

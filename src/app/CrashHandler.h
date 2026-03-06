@@ -15,4 +15,3 @@ namespace CrashHandler
 	 */
 	void Install();
 }
-

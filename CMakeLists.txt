@@ -31,7 +31,7 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 if (WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp psapi)
 endif()
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

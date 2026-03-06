@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -22,7 +23,11 @@ namespace
 		std::filesystem::file_time_type writeTime{};
 		bool hasWriteTime = false;
 		ShaderMaterialMetadata metadata;
+		std::chrono::steady_clock::time_point nextValidationCheck{};
+		bool hasNextValidationCheck = false;
 	};
+
+	static constexpr auto kMetadataValidationInterval = std::chrono::milliseconds(500);
 
 	static std::string StripOptionalQuotes(std::string text)
 	{
@@ -359,25 +364,33 @@ const ShaderMaterialMetadata &GetShaderMaterialMetadata(const std::string &shade
 	if (resolvedShaderPath.empty())
 		return kEmptyMetadata;
 
+	MetadataCacheEntry &entry = s_cache[resolvedShaderPath];
+	const auto now = std::chrono::steady_clock::now();
+	if (entry.hasNextValidationCheck && now < entry.nextValidationCheck)
+		return entry.metadata;
+
+	entry.nextValidationCheck = now + kMetadataValidationInterval;
+	entry.hasNextValidationCheck = true;
+
 	const std::string metadataPath = ResolveMetadataPath(resolvedShaderPath);
 	if (metadataPath.empty())
-		return kEmptyMetadata;
+	{
+		entry.metadataPath.clear();
+		entry.hasWriteTime = false;
+		entry.metadata.parameters.clear();
+		return entry.metadata;
+	}
 
 	std::error_code ec;
 	const auto writeTime = std::filesystem::last_write_time(metadataPath, ec);
 	const bool hasWriteTime = !ec;
 
-	auto it = s_cache.find(resolvedShaderPath);
-	if (it != s_cache.end())
-	{
-		const bool samePath = (it->second.metadataPath == metadataPath);
-		const bool sameTime = (it->second.hasWriteTime == hasWriteTime) &&
-		                      (!hasWriteTime || it->second.writeTime == writeTime);
-		if (samePath && sameTime)
-			return it->second.metadata;
-	}
+	const bool samePath = (entry.metadataPath == metadataPath);
+	const bool sameTime = (entry.hasWriteTime == hasWriteTime) &&
+	                      (!hasWriteTime || entry.writeTime == writeTime);
+	if (samePath && sameTime)
+		return entry.metadata;
 
-	MetadataCacheEntry &entry = s_cache[resolvedShaderPath];
 	entry.metadataPath = metadataPath;
 	entry.writeTime = writeTime;
 	entry.hasWriteTime = hasWriteTime;

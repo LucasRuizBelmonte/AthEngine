@@ -16,13 +16,13 @@
 class Animation2DLibrary
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
 	void RegisterClip(const std::string &id, const SpriteAnimationClip &clip);
 	void RegisterClip(const std::string &id, SpriteAnimationClip &&clip);
 	bool RemoveClip(const std::string &id);
 	void Clear();
 	const SpriteAnimationClip *FindClip(const std::string &id) const;
-	#pragma endregion
+#pragma endregion
 private:
 	std::unordered_map<std::string, SpriteAnimationClip> m_clipsById;
 };

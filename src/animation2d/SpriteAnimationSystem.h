@@ -26,11 +26,11 @@ public:
 		int frame = 0;
 	};
 
-	#pragma region Public Interface
+#pragma region Public Interface
 	void Update(Registry &registry, const Animation2DLibrary &library, TextureManager &textureManager, float dt);
 	const std::vector<FrameEvent> &GetFrameEvents() const;
 	void ClearFrameEvents();
-	#pragma endregion
+#pragma endregion
 private:
 	std::vector<Entity> m_items;
 	std::vector<FrameEvent> m_frameEvents;

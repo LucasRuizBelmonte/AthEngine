@@ -26,10 +26,10 @@ namespace
 	}
 
 	static bool BuildGridFrameUV(const Texture &texture,
-	                             const SpriteAnimator &animator,
-	                             int frameIndex,
-	                             int &outFrameCount,
-	                             glm::vec4 &outUv)
+								 const SpriteAnimator &animator,
+								 int frameIndex,
+								 int &outFrameCount,
+								 glm::vec4 &outUv)
 	{
 		const int textureWidth = texture.GetWidth();
 		const int textureHeight = texture.GetHeight();
@@ -59,8 +59,8 @@ namespace
 			return false;
 
 		outFrameCount = (animator.frameCount > 0)
-		                    ? std::min(animator.frameCount, remainingCells)
-		                    : remainingCells;
+							? std::min(animator.frameCount, remainingCells)
+							: remainingCells;
 		if (outFrameCount <= 0)
 			return false;
 

@@ -17,7 +17,7 @@ template <typename T>
 class SparseSet
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
 	static constexpr size_t npos = static_cast<size_t>(-1);
 
 	/**
@@ -107,9 +107,9 @@ public:
 	 */
 	size_t Size() const { return m_denseEntities.size(); }
 
-	#pragma endregion
+#pragma endregion
 private:
-	#pragma region Private Implementation
+#pragma region Private Implementation
 	/**
 	 * @brief Executes Ensure Sparse.
 	 */
@@ -125,6 +125,6 @@ private:
 	std::vector<size_t> m_sparse;
 	std::vector<Entity> m_denseEntities;
 	std::vector<T> m_denseComponents;
-	#pragma endregion
+#pragma endregion
 };
 #pragma endregion

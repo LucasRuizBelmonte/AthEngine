@@ -75,6 +75,7 @@ Renderer::Renderer(ShaderManager &shaderManager, TextureManager &textureManager)
 
 Renderer::~Renderer()
 {
+	DestroyUiBatchBuffers();
 	DestroyAllGpuMeshes();
 }
 
@@ -82,6 +83,16 @@ void Renderer::BeginFrame(int width, int height)
 {
 	glViewport(0, 0, width, height);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Renderer::ResetFrameStats()
+{
+	m_frameStats = {};
+}
+
+const Renderer::FrameStats &Renderer::GetFrameStats() const
+{
+	return m_frameStats;
 }
 
 void Renderer::SetCamera(const glm::mat4 &view, const glm::mat4 &proj)
@@ -369,12 +380,217 @@ void Renderer::SubmitMesh(uint32_t meshId,
 	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.indexCount), GL_UNSIGNED_INT, nullptr);
 	glBindVertexArray(0);
 
+	++m_frameStats.drawCalls;
+	m_frameStats.indices += static_cast<uint64_t>(mesh.indexCount);
+	m_frameStats.triangles += static_cast<uint64_t>(mesh.indexCount / 3u);
+
 	for (auto it = usedTextureUnits.rbegin(); it != usedTextureUnits.rend(); ++it)
 	{
 		glActiveTexture(*it);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	glActiveTexture(GL_TEXTURE0);
+}
+
+void Renderer::SubmitUnlitQuad(uint32_t meshId,
+                               const ResourceHandle<Shader> &shaderHandle,
+                               const ResourceHandle<Texture> &textureHandle,
+                               const glm::mat4 &model,
+                               const glm::vec4 &tint,
+                               const glm::vec4 &uvRect)
+{
+	if (meshId == 0 || meshId > m_gpuMeshes.size())
+		return;
+
+	const GpuMesh &mesh = m_gpuMeshes[meshId - 1];
+	if (mesh.vao == 0 || mesh.indexCount == 0)
+		return;
+
+	Shader *shader = m_shaderManager.Get(shaderHandle);
+	if (!shader)
+		return;
+
+	shader->Use();
+	shader->SetUniform("u_model", model);
+	shader->SetUniform("u_view", m_view);
+	shader->SetUniform("u_proj", m_proj);
+	shader->SetUniform("u_tint", tint);
+	shader->SetUniform("u_uvRect", uvRect);
+
+	bool bound = false;
+	if (textureHandle.IsValid())
+	{
+		Texture *texture = m_textureManager.Get(textureHandle);
+		if (texture && texture->GetId() != 0u)
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture->GetId());
+			bound = true;
+		}
+	}
+
+	shader->SetUniform("u_texBaseColor", 0);
+	shader->SetUniform("u_hasBaseColorTex", bound);
+
+	glBindVertexArray(static_cast<GLuint>(mesh.vao));
+	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(mesh.indexCount), GL_UNSIGNED_INT, nullptr);
+	glBindVertexArray(0);
+
+	++m_frameStats.drawCalls;
+	m_frameStats.indices += static_cast<uint64_t>(mesh.indexCount);
+	m_frameStats.triangles += static_cast<uint64_t>(mesh.indexCount / 3u);
+
+	if (bound)
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+}
+
+void Renderer::SubmitUnlitQuadBatch(const ResourceHandle<Shader> &shaderHandle,
+                                    const ResourceHandle<Texture> &textureHandle,
+                                    const std::vector<UnlitBatchVertex> &vertices,
+                                    const std::vector<uint32_t> &indices,
+                                    const glm::mat4 &view,
+                                    const glm::mat4 &proj)
+{
+	if (vertices.empty() || indices.empty())
+		return;
+
+	EnsureUiBatchBuffers();
+	if (m_uiBatchVao == 0u || m_uiBatchVbo == 0u || m_uiBatchEbo == 0u)
+		return;
+
+	Shader *shader = m_shaderManager.Get(shaderHandle);
+	if (!shader)
+		return;
+
+	shader->Use();
+	shader->SetUniform("u_view", view);
+	shader->SetUniform("u_proj", proj);
+
+	bool bound = false;
+	if (textureHandle.IsValid())
+	{
+		Texture *texture = m_textureManager.Get(textureHandle);
+		if (texture && texture->GetId() != 0u)
+		{
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture->GetId());
+			bound = true;
+		}
+	}
+
+	shader->SetUniform("u_texBaseColor", 0);
+	shader->SetUniform("u_hasBaseColorTex", bound);
+
+	glBindVertexArray(static_cast<GLuint>(m_uiBatchVao));
+	glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(m_uiBatchVbo));
+	glBufferData(GL_ARRAY_BUFFER,
+	             static_cast<GLsizeiptr>(vertices.size() * sizeof(UnlitBatchVertex)),
+	             vertices.data(),
+	             GL_DYNAMIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLuint>(m_uiBatchEbo));
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+	             static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+	             indices.data(),
+	             GL_DYNAMIC_DRAW);
+
+	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, nullptr);
+	glBindVertexArray(0);
+
+	++m_frameStats.drawCalls;
+	m_frameStats.indices += static_cast<uint64_t>(indices.size());
+	m_frameStats.triangles += static_cast<uint64_t>(indices.size() / 3u);
+
+	if (bound)
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+}
+
+void Renderer::EnsureUiBatchBuffers()
+{
+	if (m_uiBatchVao != 0u && m_uiBatchVbo != 0u && m_uiBatchEbo != 0u)
+		return;
+
+	GLuint vao = 0u;
+	GLuint vbo = 0u;
+	GLuint ebo = 0u;
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &vbo);
+	glGenBuffers(1, &ebo);
+
+	if (vao == 0u || vbo == 0u || ebo == 0u)
+	{
+		if (vao != 0u)
+			glDeleteVertexArrays(1, &vao);
+		if (vbo != 0u)
+			glDeleteBuffers(1, &vbo);
+		if (ebo != 0u)
+			glDeleteBuffers(1, &ebo);
+		return;
+	}
+
+	m_uiBatchVao = static_cast<uint32_t>(vao);
+	m_uiBatchVbo = static_cast<uint32_t>(vbo);
+	m_uiBatchEbo = static_cast<uint32_t>(ebo);
+
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+
+	glVertexAttribPointer(0,
+	                      2,
+	                      GL_FLOAT,
+	                      GL_FALSE,
+	                      static_cast<GLsizei>(sizeof(UnlitBatchVertex)),
+	                      reinterpret_cast<void *>(offsetof(UnlitBatchVertex, position)));
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1,
+	                      2,
+	                      GL_FLOAT,
+	                      GL_FALSE,
+	                      static_cast<GLsizei>(sizeof(UnlitBatchVertex)),
+	                      reinterpret_cast<void *>(offsetof(UnlitBatchVertex, uv)));
+	glEnableVertexAttribArray(1);
+
+	glVertexAttribPointer(2,
+	                      4,
+	                      GL_FLOAT,
+	                      GL_FALSE,
+	                      static_cast<GLsizei>(sizeof(UnlitBatchVertex)),
+	                      reinterpret_cast<void *>(offsetof(UnlitBatchVertex, color)));
+	glEnableVertexAttribArray(2);
+
+	glBindVertexArray(0);
+}
+
+void Renderer::DestroyUiBatchBuffers()
+{
+	if (m_uiBatchVao != 0u)
+	{
+		const GLuint vao = static_cast<GLuint>(m_uiBatchVao);
+		glDeleteVertexArrays(1, &vao);
+		m_uiBatchVao = 0u;
+	}
+
+	if (m_uiBatchVbo != 0u)
+	{
+		const GLuint vbo = static_cast<GLuint>(m_uiBatchVbo);
+		glDeleteBuffers(1, &vbo);
+		m_uiBatchVbo = 0u;
+	}
+
+	if (m_uiBatchEbo != 0u)
+	{
+		const GLuint ebo = static_cast<GLuint>(m_uiBatchEbo);
+		glDeleteBuffers(1, &ebo);
+		m_uiBatchEbo = 0u;
+	}
 }
 
 void Renderer::DestroyGpuMesh(GpuMesh &mesh)

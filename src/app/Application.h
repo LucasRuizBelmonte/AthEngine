@@ -11,6 +11,7 @@
 #include "../resources/TextureManager.h"
 #include "../rendering/Renderer.h"
 #include "../scene/SceneManager.h"
+#include "../profiler/Profiler.h"
 
 #include <memory>
 
@@ -115,6 +116,7 @@ private:
 	TextureManager m_TextureManager;
 	std::unique_ptr<Renderer> m_Renderer;
 	std::unique_ptr<SceneManager> m_Scenes;
+	Profiler m_profiler;
 
 #pragma endregion
 

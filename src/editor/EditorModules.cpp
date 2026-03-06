@@ -455,8 +455,8 @@ namespace editorui
 	}
 
 	static bool TryAddSourceToSpriteSheetGenerator(SpriteSheetGeneratorState &state,
-	                                               const std::string &rawPath,
-	                                               std::string &outMessage)
+												   const std::string &rawPath,
+												   std::string &outMessage)
 	{
 		const std::string path = TrimCopy(rawPath);
 		if (path.empty())
@@ -817,8 +817,8 @@ namespace editorui
 		}
 
 		if ((ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) ||
-		     ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) &&
-		    Input::HasDroppedFiles())
+			 ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) &&
+			Input::HasDroppedFiles())
 		{
 			std::vector<std::string> droppedFiles = Input::ConsumeDroppedFiles();
 			for (const std::string &droppedPath : droppedFiles)
@@ -1723,8 +1723,8 @@ namespace editorui
 
 		Registry &registry = editorScene->GetEditorRegistry();
 		if (se.selectedEntity != kInvalidEntity &&
-		    registry.IsAlive(se.selectedEntity) &&
-		    registry.Has<Transform>(se.selectedEntity))
+			registry.IsAlive(se.selectedEntity) &&
+			registry.Has<Transform>(se.selectedEntity))
 		{
 			at = registry.Get<Transform>(se.selectedEntity);
 		}
@@ -1733,17 +1733,17 @@ namespace editorui
 	}
 
 	static Entity AddPrefab(IEditorScene *editorScene,
-	                        SceneEditorState &se,
-	                        const std::string &prefabName,
-	                        const prefab::PrefabSpawnOverrides *overrides = nullptr)
+							SceneEditorState &se,
+							const std::string &prefabName,
+							const prefab::PrefabSpawnOverrides *overrides = nullptr)
 	{
 		if (!editorScene)
 			return kInvalidEntity;
 
 		const Transform at = BuildPrefabSpawnTransform(editorScene, se);
 		const Entity entity = overrides
-		                          ? editorScene->SpawnPrefab(prefabName, at, *overrides)
-		                          : editorScene->SpawnPrefab(prefabName, at);
+								  ? editorScene->SpawnPrefab(prefabName, at, *overrides)
+								  : editorScene->SpawnPrefab(prefabName, at);
 
 		if (entity == kInvalidEntity)
 			se.inspectorStatus = "Prefab spawn failed: " + prefabName;
@@ -2188,6 +2188,10 @@ namespace editorui
 
 		if (ImGui::BeginMenu("Tools"))
 		{
+			bool profilerWindowOpen = EditorUI::IsProfilerWindowOpen();
+			if (ImGui::MenuItem("Profiler", nullptr, profilerWindowOpen))
+				EditorUI::SetProfilerWindowOpen(!profilerWindowOpen);
+
 			if (ImGui::MenuItem("SpriteSheet Generator"))
 				g_spriteSheetGenerator.open = true;
 			ImGui::EndMenu();

@@ -21,7 +21,7 @@ namespace FMOD
 class AudioEngine
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
 	/**
 	 * @brief Constructs a new AudioEngine instance.
 	 */
@@ -62,11 +62,11 @@ public:
 	 */
 	FMOD::Channel *Play(const std::string &id, float volume = 1.0f);
 
-	#pragma endregion
+#pragma endregion
 private:
-	#pragma region Private Implementation
+#pragma region Private Implementation
 	FMOD::System *m_system = nullptr;
 	std::unordered_map<std::string, FMOD::Sound *> m_sounds;
-	#pragma endregion
+#pragma endregion
 };
 #pragma endregion

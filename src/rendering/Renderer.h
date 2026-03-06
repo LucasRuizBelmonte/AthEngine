@@ -11,10 +11,14 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "../resources/ResourceHandle.h"
 #pragma endregion
 
 #pragma region Declarations
 struct Material;
+class Shader;
+class Texture;
 
 class ShaderManager;
 class TextureManager;
@@ -23,6 +27,20 @@ class Renderer
 {
 public:
 	static constexpr int MAX_LIGHTS = 10;
+
+	struct FrameStats
+	{
+		uint32_t drawCalls = 0u;
+		uint64_t triangles = 0u;
+		uint64_t indices = 0u;
+	};
+
+	struct UnlitBatchVertex
+	{
+		glm::vec2 position{0.0f, 0.0f};
+		glm::vec2 uv{0.0f, 0.0f};
+		glm::vec4 color{1.0f, 1.0f, 1.0f, 1.0f};
+	};
 
 	struct LightData
 	{
@@ -47,6 +65,14 @@ public:
 	 * @brief Executes Begin Frame.
 	 */
 	void BeginFrame(int width, int height);
+	/**
+	 * @brief Resets per-frame render counters.
+	 */
+	void ResetFrameStats();
+	/**
+	 * @brief Returns per-frame render counters.
+	 */
+	const FrameStats &GetFrameStats() const;
 	/**
 	 * @brief Executes Set Camera.
 	 */
@@ -78,6 +104,26 @@ public:
 	                const Material &material,
 	                const glm::mat4 &model);
 
+	/**
+	 * @brief Executes a lightweight unlit quad submission path used by runtime UI.
+	 */
+	void SubmitUnlitQuad(uint32_t meshId,
+	                     const ResourceHandle<Shader> &shaderHandle,
+	                     const ResourceHandle<Texture> &textureHandle,
+	                     const glm::mat4 &model,
+	                     const glm::vec4 &tint,
+	                     const glm::vec4 &uvRect);
+
+	/**
+	 * @brief Executes a dynamic batched unlit draw used by UI.
+	 */
+	void SubmitUnlitQuadBatch(const ResourceHandle<Shader> &shaderHandle,
+	                          const ResourceHandle<Texture> &textureHandle,
+	                          const std::vector<UnlitBatchVertex> &vertices,
+	                          const std::vector<uint32_t> &indices,
+	                          const glm::mat4 &view,
+	                          const glm::mat4 &proj);
+
 	#pragma endregion
 private:
 	#pragma region Private Implementation
@@ -95,6 +141,8 @@ private:
 	uint32_t AcquireOrCreateMesh(const std::string &cacheKey, const std::string &resolvedPath);
 	void DestroyGpuMesh(GpuMesh &mesh);
 	void DestroyAllGpuMeshes();
+	void EnsureUiBatchBuffers();
+	void DestroyUiBatchBuffers();
 
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
@@ -103,6 +151,10 @@ private:
 	std::vector<LightData> m_lights;
 	std::vector<GpuMesh> m_gpuMeshes;
 	std::unordered_map<std::string, uint32_t> m_meshCacheByKey;
+	FrameStats m_frameStats;
+	uint32_t m_uiBatchVao = 0u;
+	uint32_t m_uiBatchVbo = 0u;
+	uint32_t m_uiBatchEbo = 0u;
 	#pragma endregion
 };
 #pragma endregion

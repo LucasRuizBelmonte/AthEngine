@@ -59,6 +59,14 @@ public:
 	 * @brief Executes Draw.
 	 */
 	static void Draw(SceneManager &scenes, EditorUIState &state);
+	/**
+	 * @brief Sets whether the Profiler window should be visible.
+	 */
+	static void SetProfilerWindowOpen(bool open);
+	/**
+	 * @brief Returns whether the Profiler window should be visible.
+	 */
+	static bool IsProfilerWindowOpen();
 	#pragma endregion
 };
 #pragma endregion

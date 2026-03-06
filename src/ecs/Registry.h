@@ -34,7 +34,7 @@
 class Registry
 {
 public:
-	#pragma region Public Interface
+#pragma region Public Interface
 	/**
 	 * @brief Create a new entity handle.
 	 *
@@ -210,7 +210,7 @@ public:
 			return false;
 
 		return m_aliveFlags[id] != 0u &&
-		       m_generations[id] == EntityGenerationOf(e);
+			   m_generations[id] == EntityGenerationOf(e);
 	}
 
 	/**
@@ -227,9 +227,9 @@ public:
 		Pool<T>().set.Remove(e);
 	}
 
-	#pragma endregion
+#pragma endregion
 private:
-	#pragma region Private Implementation
+#pragma region Private Implementation
 	/**
 	 * @brief Abstract interface for component pools.
 	 *
@@ -349,6 +349,6 @@ private:
 
 	// Map of component pools keyed by type_index
 	std::unordered_map<std::type_index, std::unique_ptr<IPool>> m_pools;
-	#pragma endregion
+#pragma endregion
 };
 #pragma endregion

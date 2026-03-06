@@ -4,7 +4,6 @@
 
 #include "../../components/Parent.h"
 #include "../../components/Material.h"
-#include "../../material/MaterialMetadata.h"
 
 #include <algorithm>
 #include <cctype>
@@ -68,11 +67,11 @@ namespace
 
 #pragma region Function Definitions
 void UIRenderSystem::Render(Registry &registry,
-                            Renderer &renderer,
-                            ShaderManager &shaderManager,
-                            TextureManager &textureManager,
-                            int framebufferWidth,
-                            int framebufferHeight)
+							Renderer &renderer,
+							ShaderManager &shaderManager,
+							TextureManager &textureManager,
+							int framebufferWidth,
+							int framebufferHeight)
 {
 	if (framebufferWidth <= 0 || framebufferHeight <= 0)
 		return;
@@ -87,11 +86,16 @@ void UIRenderSystem::Render(Registry &registry,
 
 	const glm::mat4 view(1.0f);
 	const glm::mat4 proj = glm::ortho(0.0f,
-	                                  static_cast<float>(framebufferWidth),
-	                                  static_cast<float>(framebufferHeight),
-	                                  0.0f,
-	                                  -10.0f,
-	                                  10.0f);
+									  static_cast<float>(framebufferWidth),
+									  static_cast<float>(framebufferHeight),
+									  0.0f,
+									  -10.0f,
+									  10.0f);
+	m_batchView = view;
+	m_batchProj = proj;
+	m_pendingBatchVertices.clear();
+	m_pendingBatchIndices.clear();
+	m_hasPendingBatch = false;
 	renderer.SetCamera(view, proj);
 
 	const uint32_t quadMeshId = renderer.AcquireBuiltinQuad();
@@ -110,6 +114,8 @@ void UIRenderSystem::Render(Registry &registry,
 			RenderSpriteEntity(registry, renderer, textureManager, quadMeshId, item.entity, framebufferHeight);
 	}
 
+	FlushPendingBatch(renderer);
+
 	glDisable(GL_SCISSOR_TEST);
 	glDisable(GL_BLEND);
 }
@@ -119,8 +125,15 @@ void UIRenderSystem::EnsureResources(ShaderManager &shaderManager, TextureManage
 	if (!m_defaultShader.IsValid())
 	{
 		m_defaultShader = shaderManager.Load("ui_default_unlit2d",
-		                                     ResolveRuntimeAssetPath("res/shaders/unlit2D.vs"),
-		                                     ResolveRuntimeAssetPath("res/shaders/unlit2D.fs"));
+											 ResolveRuntimeAssetPath("res/shaders/unlit2D.vs"),
+											 ResolveRuntimeAssetPath("res/shaders/unlit2D.fs"));
+	}
+
+	if (!m_batchShader.IsValid())
+	{
+		m_batchShader = shaderManager.Load("ui_batch_unlit",
+										   ResolveRuntimeAssetPath("res/shaders/ui_batch.vs"),
+										   ResolveRuntimeAssetPath("res/shaders/ui_batch.fs"));
 	}
 
 	if (!m_whiteTexture.IsValid())
@@ -270,7 +283,7 @@ void UIRenderSystem::BuildRenderList(Registry &registry)
 	}
 
 	std::sort(m_items.begin(), m_items.end(), [](const RenderItem &a, const RenderItem &b)
-	          {
+			  {
 		          if (a.layer != b.layer)
 			          return a.layer < b.layer;
 		          if (a.orderInLayer != b.orderInLayer)
@@ -283,11 +296,11 @@ void UIRenderSystem::BuildRenderList(Registry &registry)
 }
 
 void UIRenderSystem::RenderSpriteEntity(Registry &registry,
-                                        Renderer &renderer,
-                                        TextureManager &textureManager,
-                                        uint32_t quadMeshId,
-                                        Entity entity,
-                                        int framebufferHeight)
+										Renderer &renderer,
+										TextureManager &textureManager,
+										uint32_t quadMeshId,
+										Entity entity,
+										int framebufferHeight)
 {
 	if (!registry.IsAlive(entity) || !registry.Has<UITransform>(entity) || !registry.Has<UISprite>(entity))
 		return;
@@ -356,18 +369,19 @@ void UIRenderSystem::RenderSpriteEntity(Registry &registry,
 		return;
 
 	const std::optional<UIRect> clipRect = CollectMaskClipRect(registry, entity, m_screenRect);
-	if (!ApplyScissor(clipRect, framebufferHeight))
+	ScissorState scissor;
+	if (!ResolveScissorState(clipRect, framebufferHeight, scissor))
 		return;
 
 	const glm::mat4 model = BuildModelFromAdjustedRect(transform, drawRect);
-	SubmitQuad(renderer, quadMeshId, model, sprite.tint, uv, texture, shader, materialPath);
+	SubmitQuad(renderer, quadMeshId, model, sprite.tint, uv, texture, shader, materialPath, scissor);
 }
 
 void UIRenderSystem::RenderTextEntity(Registry &registry,
-                                      Renderer &renderer,
-                                      uint32_t quadMeshId,
-                                      Entity entity,
-                                      int framebufferHeight)
+									  Renderer &renderer,
+									  uint32_t quadMeshId,
+									  Entity entity,
+									  int framebufferHeight)
 {
 	if (!registry.IsAlive(entity) || !registry.Has<UITransform>(entity) || !registry.Has<UIText>(entity))
 		return;
@@ -382,7 +396,8 @@ void UIRenderSystem::RenderTextEntity(Registry &registry,
 		return;
 
 	const std::optional<UIRect> clipRect = CollectMaskClipRect(registry, entity, m_screenRect);
-	if (!ApplyScissor(clipRect, framebufferHeight))
+	ScissorState scissor;
+	if (!ResolveScissorState(clipRect, framebufferHeight, scissor))
 		return;
 
 	const float pixelSize = std::max(0.1f, text.fontSizePx / static_cast<float>(font->glyphHeight));
@@ -462,7 +477,7 @@ void UIRenderSystem::RenderTextEntity(Registry &registry,
 		}
 
 		const float y = transform.worldRect.min.y + static_cast<float>(i) * lineHeight;
-		DrawTextLineGlyphs(renderer, quadMeshId, transform, text, *font, line, x, y);
+		DrawTextLineGlyphs(renderer, quadMeshId, transform, text, *font, line, x, y, scissor);
 	}
 }
 
@@ -500,11 +515,13 @@ std::optional<UIRect> UIRenderSystem::CollectMaskClipRect(Registry &registry, En
 	return clip;
 }
 
-bool UIRenderSystem::ApplyScissor(const std::optional<UIRect> &clipRect, int framebufferHeight) const
+bool UIRenderSystem::ResolveScissorState(const std::optional<UIRect> &clipRect,
+										 int framebufferHeight,
+										 ScissorState &outScissor) const
 {
 	if (!clipRect.has_value())
 	{
-		glDisable(GL_SCISSOR_TEST);
+		outScissor = ScissorState{};
 		return true;
 	}
 
@@ -520,9 +537,106 @@ bool UIRenderSystem::ApplyScissor(const std::optional<UIRect> &clipRect, int fra
 	if (width <= 0 || height <= 0)
 		return false;
 
-	glEnable(GL_SCISSOR_TEST);
-	glScissor(x, y, width, height);
+	outScissor.enabled = true;
+	outScissor.x = x;
+	outScissor.y = y;
+	outScissor.width = width;
+	outScissor.height = height;
 	return true;
+}
+
+void UIRenderSystem::ApplyScissorState(const ScissorState &scissor) const
+{
+	if (!scissor.enabled)
+	{
+		glDisable(GL_SCISSOR_TEST);
+		return;
+	}
+
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(scissor.x, scissor.y, scissor.width, scissor.height);
+}
+
+bool UIRenderSystem::ScissorEquals(const ScissorState &a, const ScissorState &b) const
+{
+	return a.enabled == b.enabled &&
+		   a.x == b.x &&
+		   a.y == b.y &&
+		   a.width == b.width &&
+		   a.height == b.height;
+}
+
+void UIRenderSystem::FlushPendingBatch(Renderer &renderer)
+{
+	if (!m_hasPendingBatch || m_pendingBatchVertices.empty() || m_pendingBatchIndices.empty())
+		return;
+
+	ApplyScissorState(m_pendingBatchKey.scissor);
+	renderer.SubmitUnlitQuadBatch(m_batchShader,
+								  m_pendingBatchKey.texture,
+								  m_pendingBatchVertices,
+								  m_pendingBatchIndices,
+								  m_batchView,
+								  m_batchProj);
+
+	m_pendingBatchVertices.clear();
+	m_pendingBatchIndices.clear();
+	m_hasPendingBatch = false;
+}
+
+void UIRenderSystem::AppendQuadToBatch(Renderer &renderer,
+									   const glm::mat4 &model,
+									   const glm::vec4 &tint,
+									   const glm::vec4 &uv,
+									   const ResourceHandle<Texture> &texture,
+									   const ScissorState &scissor)
+{
+	const bool textureChanged = !m_hasPendingBatch || (m_pendingBatchKey.texture.id != texture.id);
+	const bool scissorChanged = !m_hasPendingBatch || !ScissorEquals(m_pendingBatchKey.scissor, scissor);
+	const bool overflow = m_pendingBatchVertices.size() + 4u > 65536u;
+	if (textureChanged || scissorChanged || overflow)
+	{
+		FlushPendingBatch(renderer);
+		m_pendingBatchKey.texture = texture;
+		m_pendingBatchKey.scissor = scissor;
+		m_hasPendingBatch = true;
+	}
+
+	const uint32_t base = static_cast<uint32_t>(m_pendingBatchVertices.size());
+
+	const glm::vec4 p0 = model * glm::vec4(-0.5f, -0.5f, 0.0f, 1.0f);
+	const glm::vec4 p1 = model * glm::vec4(0.5f, -0.5f, 0.0f, 1.0f);
+	const glm::vec4 p2 = model * glm::vec4(0.5f, 0.5f, 0.0f, 1.0f);
+	const glm::vec4 p3 = model * glm::vec4(-0.5f, 0.5f, 0.0f, 1.0f);
+	const glm::vec2 positions[4] = {
+		glm::vec2(p0.x, p0.y),
+		glm::vec2(p1.x, p1.y),
+		glm::vec2(p2.x, p2.y),
+		glm::vec2(p3.x, p3.y),
+	};
+
+	const glm::vec2 uvs[4] = {
+		glm::vec2(uv.x, uv.y),
+		glm::vec2(uv.z, uv.y),
+		glm::vec2(uv.z, uv.w),
+		glm::vec2(uv.x, uv.w),
+	};
+
+	for (int i = 0; i < 4; ++i)
+	{
+		Renderer::UnlitBatchVertex vertex;
+		vertex.position = positions[i];
+		vertex.uv = uvs[i];
+		vertex.color = tint;
+		m_pendingBatchVertices.push_back(vertex);
+	}
+
+	m_pendingBatchIndices.push_back(base + 0u);
+	m_pendingBatchIndices.push_back(base + 1u);
+	m_pendingBatchIndices.push_back(base + 2u);
+	m_pendingBatchIndices.push_back(base + 2u);
+	m_pendingBatchIndices.push_back(base + 3u);
+	m_pendingBatchIndices.push_back(base + 0u);
 }
 
 glm::mat4 UIRenderSystem::BuildModelFromAdjustedRect(const UITransform &transform, const UIRect &adjustedRect) const
@@ -543,42 +657,65 @@ glm::mat4 UIRenderSystem::BuildModelFromAdjustedRect(const UITransform &transfor
 }
 
 void UIRenderSystem::SubmitQuad(Renderer &renderer,
-                                uint32_t quadMeshId,
-                                const glm::mat4 &model,
-                                const glm::vec4 &tint,
-                                const glm::vec4 &uv,
-                                const ResourceHandle<Texture> &texture,
-                                const ResourceHandle<Shader> &shader,
-                                const std::string &materialPath) const
+								uint32_t quadMeshId,
+								const glm::mat4 &model,
+								const glm::vec4 &tint,
+								const glm::vec4 &uv,
+								const ResourceHandle<Texture> &texture,
+								const ResourceHandle<Shader> &shader,
+								const std::string &materialPath,
+								const ScissorState &scissor)
 {
+	const bool useFastUnlitPath =
+		shader.id == m_defaultShader.id &&
+		materialPath == m_defaultMaterialPath;
+	if (useFastUnlitPath && m_batchShader.IsValid())
+	{
+		AppendQuadToBatch(renderer, model, tint, uv, texture, scissor);
+		return;
+	}
+
+	FlushPendingBatch(renderer);
+	ApplyScissorState(scissor);
+
+	if (useFastUnlitPath)
+	{
+		renderer.SubmitUnlitQuad(quadMeshId, shader, texture, model, tint, uv);
+		return;
+	}
+
 	Material material;
 	material.shader = shader;
 	material.shaderPath = materialPath;
-	SyncMaterialParametersWithMetadata(material, GetShaderMaterialMetadata(material.shaderPath));
+	material.parameters.reserve(3u);
 
-	auto tintIt = material.parameters.find("u_tint");
-	if (tintIt != material.parameters.end())
-		tintIt->second.numericValue = tint;
+	MaterialParameter tintParam;
+	tintParam.type = MaterialParameterType::Vec4;
+	tintParam.numericValue = tint;
+	material.parameters.emplace("u_tint", std::move(tintParam));
 
-	auto uvIt = material.parameters.find("u_uvRect");
-	if (uvIt != material.parameters.end())
-		uvIt->second.numericValue = uv;
+	MaterialParameter uvParam;
+	uvParam.type = MaterialParameterType::Vec4;
+	uvParam.numericValue = uv;
+	material.parameters.emplace("u_uvRect", std::move(uvParam));
 
-	auto texIt = material.parameters.find("u_texBaseColor");
-	if (texIt != material.parameters.end())
-		texIt->second.texture = texture;
+	MaterialParameter texParam;
+	texParam.type = MaterialParameterType::Texture2D;
+	texParam.texture = texture;
+	material.parameters.emplace("u_texBaseColor", std::move(texParam));
 
 	renderer.SubmitMesh(quadMeshId, material, model);
 }
 
 void UIRenderSystem::DrawTextLineGlyphs(Renderer &renderer,
-                                        uint32_t quadMeshId,
-                                        const UITransform &,
-                                        const UIText &text,
-                                        const ui::BitmapFont &font,
-                                        const std::string &line,
-                                        float originX,
-                                        float originY) const
+										uint32_t quadMeshId,
+										const UITransform &,
+										const UIText &text,
+										const ui::BitmapFont &font,
+										const std::string &line,
+										float originX,
+										float originY,
+										const ScissorState &scissor)
 {
 	const bool useAtlasPath =
 		m_builtinFontTexture.IsValid() &&
@@ -603,18 +740,19 @@ void UIRenderSystem::DrawTextLineGlyphs(Renderer &renderer,
 						UIRect glyphRect;
 						glyphRect.min = glm::round(glm::vec2(penX + offset.x, originY + offset.y));
 						glyphRect.max = glyphRect.min + glm::vec2(
-							                               static_cast<float>(font.glyphWidth) * pixelSize,
-							                               static_cast<float>(font.glyphHeight) * pixelSize);
+															static_cast<float>(font.glyphWidth) * pixelSize,
+															static_cast<float>(font.glyphHeight) * pixelSize);
 
 						const glm::mat4 model = BuildAxisRectModel(glyphRect);
 						SubmitQuad(renderer,
-						           quadMeshId,
-						           model,
-						           color,
-						           uv,
-						           m_builtinFontTexture,
-						           m_defaultShader,
-						           m_defaultMaterialPath);
+								   quadMeshId,
+								   model,
+								   color,
+								   uv,
+								   m_builtinFontTexture,
+								   m_defaultShader,
+								   m_defaultMaterialPath,
+								   scissor);
 					}
 				}
 			}
@@ -640,13 +778,14 @@ void UIRenderSystem::DrawTextLineGlyphs(Renderer &renderer,
 
 							const glm::mat4 model = BuildAxisRectModel(pixelRect);
 							SubmitQuad(renderer,
-							           quadMeshId,
-							           model,
-							           color,
-							           glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
-							           m_whiteTexture,
-							           m_defaultShader,
-							           m_defaultMaterialPath);
+									   quadMeshId,
+									   model,
+									   color,
+									   glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+									   m_whiteTexture,
+									   m_defaultShader,
+									   m_defaultMaterialPath,
+									   scissor);
 						}
 					}
 				}

@@ -124,7 +124,7 @@ void UITransformSystem::ResolveRecursive(Registry &registry,
 	if (t.hierarchyIndex >= 0)
 		return;
 
-	const glm::vec2 parentSize = parentRect.Size();
+	const glm::vec2 parentSize = UIRectSize(parentRect);
 	const glm::vec2 anchorMinPx = parentRect.min + t.anchorMin * parentSize;
 	const glm::vec2 anchorMaxPx = parentRect.min + t.anchorMax * parentSize;
 	const glm::vec2 size = ClampNonNegative((anchorMaxPx - anchorMinPx) + t.sizeDelta);

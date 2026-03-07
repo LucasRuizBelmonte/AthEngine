@@ -18,6 +18,7 @@
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
 #include "../systems/CameraSyncSystem.h"
+#include "../systems/GameplayEventProjectionSystem.h"
 #include "../systems/TriggerZoneConsoleSystem.h"
 #include "../events/SceneEventBus.h"
 #include "../physics2d/Physics2DSystem.h"
@@ -26,6 +27,7 @@
 #include "../prefab/PrefabRegistry.h"
 #include "../systems/ui/UIInputSystem.h"
 #include "../systems/ui/UILayoutSystem.h"
+#include "../systems/ui/UISpriteAssetSyncSystem.h"
 #include "../systems/ui/UITransformSystem.h"
 #include "../systems/ui/UIRenderSystem.h"
 
@@ -209,8 +211,10 @@ private:
 	SpriteAnimationSystem m_spriteAnimationSystem;
 	UIInputSystem m_uiInputSystem;
 	UILayoutSystem m_uiLayoutSystem;
+	UISpriteAssetSyncSystem m_uiSpriteAssetSyncSystem;
 	UITransformSystem m_uiTransformSystem;
 	UIRenderSystem m_uiRenderSystem;
+	GameplayEventProjectionSystem m_gameplayEventProjectionSystem;
 	events::SceneEventBus m_eventBus;
 
 	ShaderManager &m_shaderManager;
@@ -233,8 +237,6 @@ private:
 	bool m_editorInputEnabled = false;
 	float m_fixedSimulationNow = 0.0f;
 	uint64_t m_fixedStepCounter = 0u;
-	uint64_t m_lastGameplayProjectionStep = 0u;
-	bool m_hasProjectedFixedEvents = false;
 #pragma endregion
 };
 #pragma endregion

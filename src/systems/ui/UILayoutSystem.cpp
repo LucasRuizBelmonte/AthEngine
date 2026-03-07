@@ -104,7 +104,7 @@ UIRect UILayoutSystem::ResolveRectRecursive(Registry &registry,
 		                        : UIRect{glm::vec2(0.0f, 0.0f), screenSize};
 
 	const UITransform &t = registry.Get<UITransform>(entity);
-	const glm::vec2 parentSize = parentRect.Size();
+	const glm::vec2 parentSize = UIRectSize(parentRect);
 	const glm::vec2 anchorMinPx = parentRect.min + t.anchorMin * parentSize;
 	const glm::vec2 anchorMaxPx = parentRect.min + t.anchorMax * parentSize;
 	const glm::vec2 size = ClampNonNegative((anchorMaxPx - anchorMinPx) + t.sizeDelta);
@@ -205,7 +205,7 @@ void UILayoutSystem::ApplyHorizontalGroup(Registry &registry,
 	if (children.empty())
 		return;
 
-	const glm::vec2 groupSize = groupRect.Size();
+	const glm::vec2 groupSize = UIRectSize(groupRect);
 	const glm::vec2 innerMin = groupRect.min + glm::vec2(group.padding.left, group.padding.top);
 	const glm::vec2 innerSize = ClampNonNegative(groupSize - glm::vec2(group.padding.left + group.padding.right,
 	                                                                    group.padding.top + group.padding.bottom));
@@ -268,7 +268,7 @@ void UILayoutSystem::ApplyVerticalGroup(Registry &registry,
 	if (children.empty())
 		return;
 
-	const glm::vec2 groupSize = groupRect.Size();
+	const glm::vec2 groupSize = UIRectSize(groupRect);
 	const glm::vec2 innerMin = groupRect.min + glm::vec2(group.padding.left, group.padding.top);
 	const glm::vec2 innerSize = ClampNonNegative(groupSize - glm::vec2(group.padding.left + group.padding.right,
 	                                                                    group.padding.top + group.padding.bottom));
@@ -348,7 +348,7 @@ void UILayoutSystem::ApplyGridGroup(Registry &registry,
 
 	const glm::vec2 cell = ClampNonNegative(group.cellSize);
 	const glm::vec2 spacing = ClampNonNegative(group.spacing);
-	const glm::vec2 groupSize = groupRect.Size();
+	const glm::vec2 groupSize = UIRectSize(groupRect);
 	const glm::vec2 innerMin = groupRect.min + glm::vec2(group.padding.left, group.padding.top);
 	const glm::vec2 innerSize = ClampNonNegative(groupSize - glm::vec2(group.padding.left + group.padding.right,
 	                                                                    group.padding.top + group.padding.bottom));

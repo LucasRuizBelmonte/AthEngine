@@ -4,8 +4,6 @@
 
 #include "../../components/Parent.h"
 
-#include <algorithm>
-#include <cmath>
 #include <filesystem>
 #include <string>
 #pragma endregion
@@ -56,7 +54,6 @@ const char *HudDemoScene::GetName() const
 
 void HudDemoScene::RequestLoad(AsyncLoader &)
 {
-	m_demoTime = 0.0f;
 	BuildHud();
 	m_loaded = true;
 }
@@ -79,9 +76,10 @@ void HudDemoScene::Update(float dt, float, const InputState &input)
 	if (!m_loaded)
 		return;
 
-	m_demoTime += dt;
 	m_uiInputSystem.Update(m_registry, input, dt);
-	UpdateHealthBindings();
+	m_healthOscillationSystem.Update(m_registry, dt);
+	m_healthUISyncSystem.Update(m_registry);
+	m_uiSpriteAssetSyncSystem.Update(m_registry, m_textureManager, m_shaderManager);
 }
 
 void HudDemoScene::FixedUpdate(float)
@@ -106,10 +104,6 @@ void HudDemoScene::Render2D(Renderer &renderer, int framebufferWidth, int frameb
 void HudDemoScene::BuildHud()
 {
 	ClearRegistry(m_registry);
-
-	m_healthEntity = kInvalidEntity;
-	m_healthFillEntity = kInvalidEntity;
-	m_healthLabelEntity = kInvalidEntity;
 
 	const auto iconTexture = m_textureManager.Load("hud_demo_icon", ResolveRuntimeAssetPath("res/textures/sprite_4.png"), true);
 
@@ -213,16 +207,16 @@ void HudDemoScene::BuildHud()
 		0,
 		false});
 
-	m_healthFillEntity = m_registry.Create();
-	m_registry.Emplace<Parent>(m_healthFillEntity, Parent{healthBarMask});
+	const Entity healthFillEntity = m_registry.Create();
+	m_registry.Emplace<Parent>(healthFillEntity, Parent{healthBarMask});
 	{
 		UITransform t;
 		t.anchorMin = glm::vec2(0.0f, 0.0f);
 		t.anchorMax = glm::vec2(1.0f, 1.0f);
 		t.sizeDelta = glm::vec2(0.0f, 0.0f);
-		m_registry.Emplace<UITransform>(m_healthFillEntity, t);
+		m_registry.Emplace<UITransform>(healthFillEntity, t);
 	}
-	m_registry.Emplace<UISprite>(m_healthFillEntity, UISprite{
+	m_registry.Emplace<UISprite>(healthFillEntity, UISprite{
 		{},
 		{},
 		"",
@@ -232,16 +226,16 @@ void HudDemoScene::BuildHud()
 		10,
 		1,
 		false});
-	m_registry.Emplace<UIFill>(m_healthFillEntity, UIFill{1.0f, UIFillDirection::LeftToRight});
+	m_registry.Emplace<UIFill>(healthFillEntity, UIFill{1.0f, UIFillDirection::LeftToRight});
 
-	m_healthLabelEntity = m_registry.Create();
-	m_registry.Emplace<Parent>(m_healthLabelEntity, Parent{rightColumn});
-	m_registry.Emplace<UITransform>(m_healthLabelEntity, UITransform{});
-	m_registry.Emplace<UILayoutElement>(m_healthLabelEntity, UILayoutElement{
+	const Entity healthLabelEntity = m_registry.Create();
+	m_registry.Emplace<Parent>(healthLabelEntity, Parent{rightColumn});
+	m_registry.Emplace<UITransform>(healthLabelEntity, UITransform{});
+	m_registry.Emplace<UILayoutElement>(healthLabelEntity, UILayoutElement{
 		glm::vec2(280.0f, 24.0f),
 		glm::vec2(280.0f, 24.0f),
 		glm::vec2(1.0f, 0.0f)});
-	m_registry.Emplace<UIText>(m_healthLabelEntity, UIText{
+	m_registry.Emplace<UIText>(healthLabelEntity, UIText{
 		"HP 100%",
 		glm::vec4(0.97f, 0.97f, 0.97f, 1.0f),
 		"builtin_mono_5x7",
@@ -254,38 +248,15 @@ void HudDemoScene::BuildHud()
 		11,
 		0});
 
-	m_healthEntity = m_registry.Create();
-	m_registry.Emplace<Health>(m_healthEntity, Health{100.0f, 100.0f});
+	const Entity healthEntity = m_registry.Create();
+	m_registry.Emplace<Health>(healthEntity, Health{100.0f, 100.0f});
+	m_registry.Emplace<HealthOscillator>(healthEntity, HealthOscillator{});
+	HealthUIBinding binding;
+	binding.fillEntity = healthFillEntity;
+	binding.labelEntity = healthLabelEntity;
+	binding.labelPrefix = "HP ";
+	m_registry.Emplace<HealthUIBinding>(healthEntity, binding);
 
-	UpdateHealthBindings();
-}
-
-void HudDemoScene::UpdateHealthBindings()
-{
-	if (m_healthEntity == kInvalidEntity ||
-	    !m_registry.IsAlive(m_healthEntity) ||
-	    !m_registry.Has<Health>(m_healthEntity))
-		return;
-
-	Health &health = m_registry.Get<Health>(m_healthEntity);
-	health.current = (0.5f + 0.5f * std::sin(m_demoTime * 1.2f)) * health.max;
-	health.current = std::clamp(health.current, 0.0f, health.max);
-
-	const float normalized = (health.max > 0.0f) ? (health.current / health.max) : 0.0f;
-	const int percentage = static_cast<int>(std::round(std::clamp(normalized, 0.0f, 1.0f) * 100.0f));
-
-	if (m_healthFillEntity != kInvalidEntity &&
-	    m_registry.IsAlive(m_healthFillEntity) &&
-	    m_registry.Has<UIFill>(m_healthFillEntity))
-	{
-		m_registry.Get<UIFill>(m_healthFillEntity).value01 = std::clamp(normalized, 0.0f, 1.0f);
-	}
-
-	if (m_healthLabelEntity != kInvalidEntity &&
-	    m_registry.IsAlive(m_healthLabelEntity) &&
-	    m_registry.Has<UIText>(m_healthLabelEntity))
-	{
-		m_registry.Get<UIText>(m_healthLabelEntity).text = "HP " + std::to_string(percentage) + "%";
-	}
+	m_healthUISyncSystem.Update(m_registry);
 }
 #pragma endregion

@@ -13,7 +13,10 @@
 #include "../../resources/TextureManager.h"
 #include "../../components/ui/UIComponents.h"
 #include "../../systems/ui/UIInputSystem.h"
+#include "../../systems/ui/HealthOscillationSystem.h"
+#include "../../systems/ui/HealthUISyncSystem.h"
 #include "../../systems/ui/UILayoutSystem.h"
+#include "../../systems/ui/UISpriteAssetSyncSystem.h"
 #include "../../systems/ui/UITransformSystem.h"
 #include "../../systems/ui/UIRenderSystem.h"
 #pragma endregion
@@ -39,7 +42,6 @@ public:
 
 private:
 	void BuildHud();
-	void UpdateHealthBindings();
 
 private:
 	Registry m_registry;
@@ -47,15 +49,13 @@ private:
 	TextureManager &m_textureManager;
 
 	UIInputSystem m_uiInputSystem;
+	HealthOscillationSystem m_healthOscillationSystem;
+	HealthUISyncSystem m_healthUISyncSystem;
 	UILayoutSystem m_uiLayoutSystem;
+	UISpriteAssetSyncSystem m_uiSpriteAssetSyncSystem;
 	UITransformSystem m_uiTransformSystem;
 	UIRenderSystem m_uiRenderSystem;
 
 	bool m_loaded = false;
-	float m_demoTime = 0.0f;
-
-	Entity m_healthEntity = kInvalidEntity;
-	Entity m_healthFillEntity = kInvalidEntity;
-	Entity m_healthLabelEntity = kInvalidEntity;
 };
 #pragma endregion

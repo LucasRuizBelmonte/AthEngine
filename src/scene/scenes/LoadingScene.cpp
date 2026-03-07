@@ -1,7 +1,5 @@
 #pragma region Includes
-#include "../../platform/GL.h"
 #include "LoadingScene.h"
-#include <cmath>
 #pragma endregion
 
 #pragma region Function Definitions
@@ -24,8 +22,7 @@ void LoadingScene::OnDetach(GLFWwindow &)
 
 void LoadingScene::Update(float, float now, const InputState &)
 {
-	float t = 0.5f + 0.5f * std::sin(now * 2.0f);
-	glClearColor(0.05f, 0.05f + 0.15f * t, 0.08f, 1.0f);
+	m_clearColorSystem.Update(now);
 }
 
 void LoadingScene::FixedUpdate(float)

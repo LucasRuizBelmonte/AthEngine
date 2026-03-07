@@ -25,13 +25,13 @@ namespace
 
 	static bool RectHasArea(const UIRect &r)
 	{
-		const glm::vec2 size = r.Size();
+		const glm::vec2 size = UIRectSize(r);
 		return size.x > 0.0f && size.y > 0.0f;
 	}
 
 	static glm::mat4 BuildAxisRectModel(const UIRect &rect)
 	{
-		const glm::vec2 size = rect.Size();
+		const glm::vec2 size = UIRectSize(rect);
 		const glm::vec2 center = (rect.min + rect.max) * 0.5f;
 		const glm::mat4 t = glm::translate(glm::mat4(1.0f), glm::vec3(center, 0.0f));
 		const glm::mat4 s = glm::scale(glm::mat4(1.0f), glm::vec3(size, 1.0f));
@@ -320,7 +320,7 @@ void UIRenderSystem::RenderSpriteEntity(Registry &registry,
 		Texture *tex = textureManager.Get(texture);
 		if (tex && tex->GetWidth() > 0 && tex->GetHeight() > 0)
 		{
-			const glm::vec2 rectSize = drawRect.Size();
+			const glm::vec2 rectSize = UIRectSize(drawRect);
 			const float rectAspect = rectSize.x / std::max(rectSize.y, 0.0001f);
 			const float texAspect = static_cast<float>(tex->GetWidth()) / std::max(static_cast<float>(tex->GetHeight()), 0.0001f);
 
@@ -349,7 +349,7 @@ void UIRenderSystem::RenderSpriteEntity(Registry &registry,
 		if (value <= 0.0f)
 			return;
 
-		const float width = drawRect.Size().x;
+		const float width = UIRectSize(drawRect).x;
 		if (width <= 0.0f)
 			return;
 
@@ -403,7 +403,7 @@ void UIRenderSystem::RenderTextEntity(Registry &registry,
 	const float pixelSize = std::max(0.1f, text.fontSizePx / static_cast<float>(font->glyphHeight));
 	const float advancePx = static_cast<float>(font->advance) * pixelSize;
 	const float lineHeight = static_cast<float>(font->glyphHeight + 1) * pixelSize;
-	const float rectWidth = transform.worldRect.Size().x;
+	const float rectWidth = UIRectSize(transform.worldRect).x;
 
 	std::vector<std::string> inputLines;
 	{
@@ -641,8 +641,8 @@ void UIRenderSystem::AppendQuadToBatch(Renderer &renderer,
 
 glm::mat4 UIRenderSystem::BuildModelFromAdjustedRect(const UITransform &transform, const UIRect &adjustedRect) const
 {
-	const glm::vec2 originalSize = transform.worldRect.Size();
-	const glm::vec2 newSize = adjustedRect.Size();
+	const glm::vec2 originalSize = UIRectSize(transform.worldRect);
+	const glm::vec2 newSize = UIRectSize(adjustedRect);
 	if (originalSize.x <= 0.0001f || originalSize.y <= 0.0001f)
 		return transform.worldMatrix;
 

@@ -7,6 +7,8 @@
 
 #pragma region Includes
 #include "Health.h"
+#include "HealthOscillator.h"
+#include "HealthUIBinding.h"
 #include "UIChildAlignment.h"
 #include "UIFill.h"
 #include "UIGridConstraint.h"

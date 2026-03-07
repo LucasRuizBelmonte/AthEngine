@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include "../IScene.h"
+#include "../../systems/ClearColorSystem.h"
 #pragma endregion
 
 #pragma region Declarations
@@ -64,6 +65,7 @@ public:
 private:
 	#pragma region Private Implementation
 	bool m_loaded = true;
+	ClearColorSystem m_clearColorSystem;
 	#pragma endregion
 };
 #pragma endregion

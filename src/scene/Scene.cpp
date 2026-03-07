@@ -120,8 +120,7 @@ void Scene::RequestLoad(AsyncLoader &)
 	m_loaded = false;
 	m_fixedSimulationNow = 0.0f;
 	m_fixedStepCounter = 0u;
-	m_lastGameplayProjectionStep = 0u;
-	m_hasProjectedFixedEvents = false;
+	m_gameplayEventProjectionSystem.Reset();
 	m_eventBus.ClearAll();
 	BuildBaseTemplate();
 	RefreshRuntimeReferences();
@@ -151,29 +150,7 @@ void Scene::Update(float dt, float now, const InputState &input)
 	if (!m_loaded)
 		return;
 
-	// Gameplay events are frame-scoped in this scene.
-	m_eventBus.Clear<events::GameplayEvent>();
-
-	// Minimal wiring example: read fixed-step trigger events once and project gameplay events.
-	if (!m_hasProjectedFixedEvents || m_lastGameplayProjectionStep != m_fixedStepCounter)
-	{
-		m_hasProjectedFixedEvents = true;
-		m_lastGameplayProjectionStep = m_fixedStepCounter;
-
-		const std::vector<events::PhysicsTriggerEvent2D> &triggerEvents = m_eventBus.Get<events::PhysicsTriggerEvent2D>();
-		for (const events::PhysicsTriggerEvent2D &triggerEvent : triggerEvents)
-		{
-			if (triggerEvent.phase != events::PhysicsEventPhase2D::Enter)
-				continue;
-
-			events::GameplayEvent gameplayEvent{};
-			gameplayEvent.type = events::GameplayEventType::TriggerEnter2D;
-			gameplayEvent.source = triggerEvent.a;
-			gameplayEvent.target = triggerEvent.b;
-			gameplayEvent.value = triggerEvent.penetration;
-			m_eventBus.Push(gameplayEvent);
-		}
-	}
+	m_gameplayEventProjectionSystem.Update(m_eventBus, m_fixedStepCounter);
 
 	if (m_sysClearColor)
 		m_clearColorSystem.Update(now);
@@ -192,33 +169,7 @@ void Scene::Update(float dt, float now, const InputState &input)
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
 	if (m_sysSpriteAnimation)
 		m_spriteAnimationSystem.Update(m_registry, m_animation2DLibrary, m_textureManager, dt);
-
-	std::vector<Entity> uiSprites;
-	m_registry.ViewEntities<UISprite>(uiSprites);
-	for (Entity entity : uiSprites)
-	{
-		UISprite &sprite = m_registry.Get<UISprite>(entity);
-
-		if (!sprite.texturePath.empty() && !sprite.texture.IsValid())
-		{
-			const std::string resolvedPath = ResolveRuntimeAssetPath(sprite.texturePath);
-			auto handle = m_textureManager.Load(EditorAssetName("ui_tex_", sprite.texturePath), resolvedPath, true);
-			if (handle.IsValid())
-				sprite.texture = handle;
-		}
-
-		if (!sprite.materialPath.empty() && !sprite.shader.IsValid())
-		{
-			const std::string resolvedPath = ResolveRuntimeAssetPath(sprite.materialPath);
-			const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath);
-			if (!vsPath.empty())
-			{
-				auto handle = m_shaderManager.Load(EditorAssetName("ui_mat_", sprite.materialPath), vsPath, resolvedPath);
-				if (handle.IsValid())
-					sprite.shader = handle;
-			}
-		}
-	}
+	m_uiSpriteAssetSyncSystem.Update(m_registry, m_textureManager, m_shaderManager);
 
 	m_uiInputSystem.Update(m_registry, input, dt);
 }
@@ -452,8 +403,7 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	RefreshRuntimeReferences();
 	m_fixedSimulationNow = 0.0f;
 	m_fixedStepCounter = 0u;
-	m_lastGameplayProjectionStep = 0u;
-	m_hasProjectedFixedEvents = false;
+	m_gameplayEventProjectionSystem.Reset();
 	m_eventBus.ClearAll();
 	m_loaded = true;
 	return true;

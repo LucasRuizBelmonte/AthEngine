@@ -14,10 +14,10 @@ struct UIRect
 {
 	glm::vec2 min{0.0f, 0.0f};
 	glm::vec2 max{0.0f, 0.0f};
-
-	glm::vec2 Size() const
-	{
-		return glm::max(max - min, glm::vec2(0.0f, 0.0f));
-	}
 };
+
+inline glm::vec2 UIRectSize(const UIRect &rect)
+{
+	return glm::max(rect.max - rect.min, glm::vec2(0.0f, 0.0f));
+}
 #pragma endregion

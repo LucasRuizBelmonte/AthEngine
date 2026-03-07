@@ -1,5 +1,5 @@
 {
   "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
-  "cmake.generator": "Ninja",
+  "cmake.generator": "NMake Makefiles",
   "cmake.buildDirectory": "${workspaceFolder}/build"
 }

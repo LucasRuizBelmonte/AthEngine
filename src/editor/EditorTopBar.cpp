@@ -14,6 +14,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -108,33 +109,156 @@ namespace editorui::internal
 			static char filter[128] = {};
 			ImGui::InputText("Search", filter, sizeof(filter));
 
-			auto pass = [&](const char *name)
+			const bool hasFilter = (filter[0] != 0);
+			auto toLowerCopy = [](std::string value)
 			{
-				if (filter[0] == 0)
+				std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c)
+							   { return static_cast<char>(std::tolower(c)); });
+				return value;
+			};
+			const std::string filterLower = toLowerCopy(filter);
+			auto folderPathForSystem = [&](const char *name)
+			{
+				const std::string lower = toLowerCopy(name ? name : "");
+				if (lower.find("camera") != std::string::npos)
+					return "Camera/Control";
+				if (lower.find("render") != std::string::npos)
+					return (lower.find("2d") != std::string::npos) ? "Rendering/2D" : "Rendering/3D";
+				if (lower.find("animation") != std::string::npos || lower.find("sprite") != std::string::npos)
+					return "Animation/2D";
+				if (lower.find("physics") != std::string::npos || lower.find("trigger") != std::string::npos)
+					return "Physics/2D";
+				if (lower.find("ui") != std::string::npos)
+					return "UI/Core";
+				return "Gameplay/Core";
+			};
+			auto pass = [&](const std::string &path)
+			{
+				if (!hasFilter)
 					return true;
-				return std::string(name).find(filter) != std::string::npos;
+				return toLowerCopy(path).find(filterLower) != std::string::npos;
 			};
 
 			std::vector<EditorSystemToggle> systems;
 			editorScene->GetEditorSystems(systems);
 			auto &removedSystems = RemovedSystemsByScene()[editorScene];
-
-			bool anyAddable = false;
-			for (auto &sys : systems)
+			auto addSystem = [&](EditorSystemToggle &sys, const char *label)
 			{
-				const bool isRemoved = removedSystems.find(sys.name) != removedSystems.end();
-				const bool isEnabled = (sys.enabled && *sys.enabled);
-				if (!isRemoved && isEnabled)
-					continue;
-				if (!pass(sys.name))
-					continue;
-
-				anyAddable = true;
-				if (ImGui::MenuItem(sys.name))
+				if (ImGui::MenuItem(label))
 				{
 					if (sys.enabled)
 						*sys.enabled = true;
 					removedSystems.erase(sys.name);
+				}
+			};
+
+			bool anyAddable = false;
+			if (hasFilter)
+			{
+				for (auto &sys : systems)
+				{
+					const bool isRemoved = removedSystems.find(sys.name) != removedSystems.end();
+					const bool isEnabled = (sys.enabled && *sys.enabled);
+					if (!isRemoved && isEnabled)
+						continue;
+
+					const std::string path = std::string(folderPathForSystem(sys.name)) + "/" + sys.name;
+					if (!pass(path))
+						continue;
+
+					anyAddable = true;
+					addSystem(sys, path.c_str());
+				}
+			}
+			else
+			{
+				const char *categories[] = {"Camera", "Rendering", "Animation", "Physics", "UI", "Gameplay"};
+				for (const char *category : categories)
+				{
+					if (!ImGui::BeginMenu(category))
+						continue;
+
+					const char *subfolders[4] = {};
+					int subfolderCount = 0;
+					if (std::string(category) == "Camera")
+					{
+						subfolders[0] = "Control";
+						subfolderCount = 1;
+					}
+					else if (std::string(category) == "Rendering")
+					{
+						subfolders[0] = "2D";
+						subfolders[1] = "3D";
+						subfolderCount = 2;
+					}
+					else if (std::string(category) == "Animation")
+					{
+						subfolders[0] = "2D";
+						subfolderCount = 1;
+					}
+					else if (std::string(category) == "Physics")
+					{
+						subfolders[0] = "2D";
+						subfolderCount = 1;
+					}
+					else if (std::string(category) == "UI")
+					{
+						subfolders[0] = "Core";
+						subfolderCount = 1;
+					}
+					else
+					{
+						subfolders[0] = "Core";
+						subfolderCount = 1;
+					}
+
+					bool hasAnyInCategory = false;
+					for (auto &sys : systems)
+					{
+						const bool isRemoved = removedSystems.find(sys.name) != removedSystems.end();
+						const bool isEnabled = (sys.enabled && *sys.enabled);
+						if (!isRemoved && isEnabled)
+							continue;
+
+						const std::string folderPath = folderPathForSystem(sys.name);
+						if (folderPath.rfind(std::string(category) + "/", 0) == 0)
+						{
+							hasAnyInCategory = true;
+							break;
+						}
+					}
+
+					for (int subfolderIndex = 0; subfolderIndex < subfolderCount; ++subfolderIndex)
+					{
+						const char *subfolder = subfolders[subfolderIndex];
+						if (!ImGui::BeginMenu(subfolder))
+							continue;
+
+						bool hasAnyInSubfolder = false;
+						const std::string expectedPrefix = std::string(category) + "/" + subfolder;
+						for (auto &sys : systems)
+						{
+							const bool isRemoved = removedSystems.find(sys.name) != removedSystems.end();
+							const bool isEnabled = (sys.enabled && *sys.enabled);
+							if (!isRemoved && isEnabled)
+								continue;
+
+							if (std::string(folderPathForSystem(sys.name)) != expectedPrefix)
+								continue;
+
+							hasAnyInSubfolder = true;
+							addSystem(sys, sys.name);
+						}
+
+						if (!hasAnyInSubfolder)
+							ImGui::MenuItem("No systems", nullptr, false, false);
+						ImGui::EndMenu();
+					}
+
+					if (!hasAnyInCategory)
+						ImGui::MenuItem("No systems", nullptr, false, false);
+					anyAddable |= hasAnyInCategory;
+					ImGui::EndMenu();
 				}
 			}
 

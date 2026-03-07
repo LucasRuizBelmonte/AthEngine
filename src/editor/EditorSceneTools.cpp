@@ -1267,11 +1267,8 @@ namespace sceneeditor
 		if (r.Has<T>(e))
 			return false;
 		if (ImGui::MenuItem(name))
-		{
 			r.Emplace<T>(e);
-			return true;
-		}
-		return false;
+		return true;
 	}
 
 	static void AddComponentPopup(Registry &r, Entity e, IEditorScene *editorScene)
@@ -1282,77 +1279,267 @@ namespace sceneeditor
 		static char filter[128] = {};
 		ImGui::InputText("Search", filter, sizeof(filter));
 
-		auto pass = [&](const char *n)
+		const bool hasFilter = (filter[0] != 0);
+		auto toLowerCopy = [](std::string value)
 		{
-			if (filter[0] == 0)
+			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c)
+						   { return static_cast<char>(std::tolower(c)); });
+			return value;
+		};
+		const std::string filterLower = toLowerCopy(filter);
+		auto pass = [&](const char *path)
+		{
+			if (!hasFilter)
 				return true;
-			return std::string(n).find(filter) != std::string::npos;
+			return toLowerCopy(path).find(filterLower) != std::string::npos;
 		};
 
 		const bool is2DScene = editorScene && editorScene->GetEditorSceneDimension() == EditorSceneDimension::Scene2D;
 		const bool allowSprite = is2DScene;
 		const bool allowMeshAndMaterial = !is2DScene;
-
-		if (pass("Transform") && !r.Has<Transform>(e))
+		auto addTransform = [&](const char *label)
 		{
-			if (ImGui::MenuItem("Transform"))
+			if (r.Has<Transform>(e))
+				return false;
+			if (ImGui::MenuItem(label))
 			{
 				if (r.Has<UITransform>(e))
 					r.Remove<UITransform>(e);
 				r.Emplace<Transform>(e);
 			}
-		}
-		if (pass("Camera"))
-			(void)AddComponentItem<Camera>(r, e, "Camera");
-		if (pass("CameraController"))
-			(void)AddComponentItem<CameraController>(r, e, "CameraController");
-		if (pass("Spin"))
-			(void)AddComponentItem<Spin>(r, e, "Spin");
-		if (allowSprite && pass("Sprite"))
-			(void)AddComponentItem<Sprite>(r, e, "Sprite");
-		if (allowSprite && pass("SpriteAnimator"))
-			(void)AddComponentItem<SpriteAnimator>(r, e, "SpriteAnimator");
-		if (pass("Collider2D"))
-			(void)AddComponentItem<Collider2D>(r, e, "Collider2D");
-		if (pass("RigidBody2D"))
-			(void)AddComponentItem<RigidBody2D>(r, e, "RigidBody2D");
-		if (pass("PhysicsBody2D"))
-			(void)AddComponentItem<PhysicsBody2D>(r, e, "PhysicsBody2D");
-		if (allowMeshAndMaterial && pass("Material"))
-			(void)AddComponentItem<Material>(r, e, "Material");
-		if (allowMeshAndMaterial && pass("Mesh"))
-			(void)AddComponentItem<Mesh>(r, e, "Mesh");
-		if (pass("LightEmitter"))
-			(void)AddComponentItem<LightEmitter>(r, e, "LightEmitter");
-		if (pass("UITransform") && !r.Has<UITransform>(e))
+			return true;
+		};
+		auto addUITransform = [&](const char *label)
 		{
-			if (ImGui::MenuItem("UITransform"))
+			if (r.Has<UITransform>(e))
+				return false;
+			if (ImGui::MenuItem(label))
 			{
 				if (r.Has<Transform>(e))
 					r.Remove<Transform>(e);
 				r.Emplace<UITransform>(e);
 			}
+			return true;
+		};
+
+		bool anyAddable = false;
+		auto drawFilteredItem = [&](const char *path, auto &&drawer)
+		{
+			if (!pass(path))
+				return false;
+			return drawer(path);
+		};
+
+		if (hasFilter)
+		{
+			anyAddable |= drawFilteredItem("Core/Transform", addTransform);
+			anyAddable |= drawFilteredItem("Camera/Camera", [&](const char *label)
+										   { return AddComponentItem<Camera>(r, e, label); });
+			anyAddable |= drawFilteredItem("Camera/CameraController", [&](const char *label)
+										   { return AddComponentItem<CameraController>(r, e, label); });
+			anyAddable |= drawFilteredItem("Gameplay/Spin", [&](const char *label)
+										   { return AddComponentItem<Spin>(r, e, label); });
+			if (allowSprite)
+			{
+				anyAddable |= drawFilteredItem("Rendering 2D/Sprite", [&](const char *label)
+											   { return AddComponentItem<Sprite>(r, e, label); });
+				anyAddable |= drawFilteredItem("Rendering 2D/SpriteAnimator", [&](const char *label)
+											   { return AddComponentItem<SpriteAnimator>(r, e, label); });
+			}
+			if (allowMeshAndMaterial)
+			{
+				anyAddable |= drawFilteredItem("Rendering 3D/Mesh", [&](const char *label)
+											   { return AddComponentItem<Mesh>(r, e, label); });
+				anyAddable |= drawFilteredItem("Rendering 3D/Material", [&](const char *label)
+											   { return AddComponentItem<Material>(r, e, label); });
+			}
+			anyAddable |= drawFilteredItem("Rendering/LightEmitter", [&](const char *label)
+										   { return AddComponentItem<LightEmitter>(r, e, label); });
+			anyAddable |= drawFilteredItem("Physics2D/Collider2D", [&](const char *label)
+										   { return AddComponentItem<Collider2D>(r, e, label); });
+			anyAddable |= drawFilteredItem("Physics2D/RigidBody2D", [&](const char *label)
+										   { return AddComponentItem<RigidBody2D>(r, e, label); });
+			anyAddable |= drawFilteredItem("Physics2D/PhysicsBody2D", [&](const char *label)
+										   { return AddComponentItem<PhysicsBody2D>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Core/UITransform", addUITransform);
+			anyAddable |= drawFilteredItem("UI/Core/UISprite", [&](const char *label)
+										   { return AddComponentItem<UISprite>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Core/UIText", [&](const char *label)
+										   { return AddComponentItem<UIText>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Layout/UIHorizontalGroup", [&](const char *label)
+										   { return AddComponentItem<UIHorizontalGroup>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Layout/UIVerticalGroup", [&](const char *label)
+										   { return AddComponentItem<UIVerticalGroup>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Layout/UIGridGroup", [&](const char *label)
+										   { return AddComponentItem<UIGridGroup>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Layout/UILayoutElement", [&](const char *label)
+										   { return AddComponentItem<UILayoutElement>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Layout/UISpacer", [&](const char *label)
+										   { return AddComponentItem<UISpacer>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Masking/UIMask", [&](const char *label)
+										   { return AddComponentItem<UIMask>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Masking/UIFill", [&](const char *label)
+										   { return AddComponentItem<UIFill>(r, e, label); });
+			anyAddable |= drawFilteredItem("UI/Gameplay/Health", [&](const char *label)
+										   { return AddComponentItem<Health>(r, e, label); });
 		}
-		if (pass("UISprite"))
-			(void)AddComponentItem<UISprite>(r, e, "UISprite");
-		if (pass("UIText"))
-			(void)AddComponentItem<UIText>(r, e, "UIText");
-		if (pass("UIHorizontalGroup"))
-			(void)AddComponentItem<UIHorizontalGroup>(r, e, "UIHorizontalGroup");
-		if (pass("UIVerticalGroup"))
-			(void)AddComponentItem<UIVerticalGroup>(r, e, "UIVerticalGroup");
-		if (pass("UIGridGroup"))
-			(void)AddComponentItem<UIGridGroup>(r, e, "UIGridGroup");
-		if (pass("UILayoutElement"))
-			(void)AddComponentItem<UILayoutElement>(r, e, "UILayoutElement");
-		if (pass("UISpacer"))
-			(void)AddComponentItem<UISpacer>(r, e, "UISpacer");
-		if (pass("UIMask"))
-			(void)AddComponentItem<UIMask>(r, e, "UIMask");
-		if (pass("UIFill"))
-			(void)AddComponentItem<UIFill>(r, e, "UIFill");
-		if (pass("Health"))
-			(void)AddComponentItem<Health>(r, e, "Health");
+		else
+		{
+			const bool hasCore = !r.Has<Transform>(e);
+			const bool hasCamera = !r.Has<Camera>(e) || !r.Has<CameraController>(e);
+			const bool hasGameplay = !r.Has<Spin>(e);
+			const bool hasRendering2D = allowSprite && (!r.Has<Sprite>(e) || !r.Has<SpriteAnimator>(e));
+			const bool hasRendering3D = allowMeshAndMaterial && (!r.Has<Mesh>(e) || !r.Has<Material>(e));
+			const bool hasRenderingLighting = !r.Has<LightEmitter>(e);
+			const bool hasRendering = hasRendering2D || hasRendering3D || hasRenderingLighting;
+			const bool hasPhysics2D = !r.Has<Collider2D>(e) || !r.Has<RigidBody2D>(e) || !r.Has<PhysicsBody2D>(e);
+			const bool hasUICore = !r.Has<UITransform>(e) || !r.Has<UISprite>(e) || !r.Has<UIText>(e);
+			const bool hasUILayout = !r.Has<UIHorizontalGroup>(e) || !r.Has<UIVerticalGroup>(e) || !r.Has<UIGridGroup>(e) ||
+									 !r.Has<UILayoutElement>(e) || !r.Has<UISpacer>(e);
+			const bool hasUIMasking = !r.Has<UIMask>(e) || !r.Has<UIFill>(e);
+			const bool hasUIGameplay = !r.Has<Health>(e);
+			const bool hasUI = hasUICore || hasUILayout || hasUIMasking || hasUIGameplay;
+
+			if (ImGui::BeginMenu("Core"))
+			{
+				if (hasCore)
+					(void)addTransform("Transform");
+				else
+					ImGui::MenuItem("No components", nullptr, false, false);
+				ImGui::EndMenu();
+			}
+			anyAddable |= hasCore;
+
+			if (ImGui::BeginMenu("Camera"))
+			{
+				if (hasCamera)
+				{
+					(void)AddComponentItem<Camera>(r, e, "Camera");
+					(void)AddComponentItem<CameraController>(r, e, "CameraController");
+				}
+				else
+					ImGui::MenuItem("No components", nullptr, false, false);
+				ImGui::EndMenu();
+			}
+			anyAddable |= hasCamera;
+
+			if (ImGui::BeginMenu("Gameplay"))
+			{
+				if (hasGameplay)
+					(void)AddComponentItem<Spin>(r, e, "Spin");
+				else
+					ImGui::MenuItem("No components", nullptr, false, false);
+				ImGui::EndMenu();
+			}
+			anyAddable |= hasGameplay;
+
+			if (ImGui::BeginMenu("Rendering"))
+			{
+				if (allowSprite && ImGui::BeginMenu("2D"))
+				{
+					if (hasRendering2D)
+					{
+						(void)AddComponentItem<Sprite>(r, e, "Sprite");
+						(void)AddComponentItem<SpriteAnimator>(r, e, "SpriteAnimator");
+					}
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+				if (allowMeshAndMaterial && ImGui::BeginMenu("3D"))
+				{
+					if (hasRendering3D)
+					{
+						(void)AddComponentItem<Mesh>(r, e, "Mesh");
+						(void)AddComponentItem<Material>(r, e, "Material");
+					}
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+				if (ImGui::BeginMenu("Lighting"))
+				{
+					if (hasRenderingLighting)
+						(void)AddComponentItem<LightEmitter>(r, e, "LightEmitter");
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			}
+			anyAddable |= hasRendering;
+
+			if (ImGui::BeginMenu("Physics2D"))
+			{
+				if (hasPhysics2D)
+				{
+					(void)AddComponentItem<Collider2D>(r, e, "Collider2D");
+					(void)AddComponentItem<RigidBody2D>(r, e, "RigidBody2D");
+					(void)AddComponentItem<PhysicsBody2D>(r, e, "PhysicsBody2D");
+				}
+				else
+					ImGui::MenuItem("No components", nullptr, false, false);
+				ImGui::EndMenu();
+			}
+			anyAddable |= hasPhysics2D;
+
+			if (ImGui::BeginMenu("UI"))
+			{
+				if (ImGui::BeginMenu("Core"))
+				{
+					if (hasUICore)
+					{
+						(void)addUITransform("UITransform");
+						(void)AddComponentItem<UISprite>(r, e, "UISprite");
+						(void)AddComponentItem<UIText>(r, e, "UIText");
+					}
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+
+				if (ImGui::BeginMenu("Layout"))
+				{
+					if (hasUILayout)
+					{
+						(void)AddComponentItem<UIHorizontalGroup>(r, e, "UIHorizontalGroup");
+						(void)AddComponentItem<UIVerticalGroup>(r, e, "UIVerticalGroup");
+						(void)AddComponentItem<UIGridGroup>(r, e, "UIGridGroup");
+						(void)AddComponentItem<UILayoutElement>(r, e, "UILayoutElement");
+						(void)AddComponentItem<UISpacer>(r, e, "UISpacer");
+					}
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+
+				if (ImGui::BeginMenu("Masking"))
+				{
+					if (hasUIMasking)
+					{
+						(void)AddComponentItem<UIMask>(r, e, "UIMask");
+						(void)AddComponentItem<UIFill>(r, e, "UIFill");
+					}
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+
+				if (ImGui::BeginMenu("Gameplay"))
+				{
+					if (hasUIGameplay)
+						(void)AddComponentItem<Health>(r, e, "Health");
+					else
+						ImGui::MenuItem("No components", nullptr, false, false);
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenu();
+			}
+			anyAddable |= hasUI;
+		}
+
+		if (!anyAddable)
+			ImGui::TextUnformatted("No components available to add.");
 
 		ImGui::EndPopup();
 	}

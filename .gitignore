@@ -57,6 +57,11 @@ conan.lock
 *.dll
 *.lib
 *.exp
+!src/thirdparty/fmod_x64/*.dll
+!src/thirdparty/fmod_x64/*.lib
+!src/thirdparty/fmod/include/*.h
+!src/thirdparty/fmod/include/*.hpp
+src/thirdparty/fmod_x86/
 
 # =========================
 # OS

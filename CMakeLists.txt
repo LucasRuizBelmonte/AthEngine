@@ -10,7 +10,46 @@ find_package(glew REQUIRED)
 find_package(glm REQUIRED)
 find_package(imgui REQUIRED)
 find_package(assimp REQUIRED)
-find_package(fmod REQUIRED)
+
+if (NOT WIN32)
+    message(FATAL_ERROR "Local FMOD integration is configured only for Windows.")
+endif()
+
+if (NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR "Local FMOD integration is configured only for x64 builds.")
+endif()
+
+set(FMOD_LIB_DIR "${CMAKE_SOURCE_DIR}/src/thirdparty/fmod_x64")
+set(FMOD_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/thirdparty/fmod/include")
+
+set(FMOD_REQUIRED_FILES
+    "${FMOD_LIB_DIR}/fmod_vc.lib"
+    "${FMOD_LIB_DIR}/fmodL_vc.lib"
+    "${FMOD_LIB_DIR}/fmod.dll"
+    "${FMOD_LIB_DIR}/fmodL.dll"
+    "${FMOD_INCLUDE_DIR}/fmod.hpp"
+    "${FMOD_INCLUDE_DIR}/fmod_errors.h"
+)
+
+foreach(FMOD_REQUIRED_FILE IN LISTS FMOD_REQUIRED_FILES)
+    if (NOT EXISTS "${FMOD_REQUIRED_FILE}")
+        message(FATAL_ERROR "Missing FMOD dependency file: ${FMOD_REQUIRED_FILE}")
+    endif()
+endforeach()
+
+add_library(fmod::fmod SHARED IMPORTED GLOBAL)
+set_target_properties(fmod::fmod PROPERTIES
+    IMPORTED_CONFIGURATIONS "Debug;Release;RelWithDebInfo;MinSizeRel"
+    IMPORTED_IMPLIB_DEBUG "${FMOD_LIB_DIR}/fmodL_vc.lib"
+    IMPORTED_LOCATION_DEBUG "${FMOD_LIB_DIR}/fmodL.dll"
+    IMPORTED_IMPLIB_RELEASE "${FMOD_LIB_DIR}/fmod_vc.lib"
+    IMPORTED_LOCATION_RELEASE "${FMOD_LIB_DIR}/fmod.dll"
+    IMPORTED_IMPLIB_RELWITHDEBINFO "${FMOD_LIB_DIR}/fmod_vc.lib"
+    IMPORTED_LOCATION_RELWITHDEBINFO "${FMOD_LIB_DIR}/fmod.dll"
+    IMPORTED_IMPLIB_MINSIZEREL "${FMOD_LIB_DIR}/fmod_vc.lib"
+    IMPORTED_LOCATION_MINSIZEREL "${FMOD_LIB_DIR}/fmod.dll"
+    INTERFACE_INCLUDE_DIRECTORIES "${FMOD_INCLUDE_DIR}"
+)
 
 file(GLOB_RECURSE ATH_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
@@ -54,20 +93,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends"
 )
 
-if (WIN32 AND DEFINED ENV{FMOD_SDK_DIR})
-    set(FMOD_DLL_DIR "$ENV{FMOD_SDK_DIR}/api/core/lib/x64")
-
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${FMOD_DLL_DIR}/fmod.dll"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    )
-
-    if (EXISTS "${FMOD_DLL_DIR}/fmodL.dll")
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${FMOD_DLL_DIR}/fmodL.dll"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-        )
-    endif()
-endif()
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${FMOD_LIB_DIR}/fmod.dll"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${FMOD_LIB_DIR}/fmodL.dll"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+)

@@ -4,7 +4,6 @@ glew/2.2.0
 glm/1.0.1
 imgui/1.90.9-docking
 assimp/6.0.2
-fmod/2.03.12
 
 [generators]
 CMakeToolchain

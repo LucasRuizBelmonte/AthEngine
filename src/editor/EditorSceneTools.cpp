@@ -2,6 +2,7 @@
 #include "EditorSceneTools.h"
 
 #include <imgui.h>
+#include <any>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -12,6 +13,8 @@
 #include <cctype>
 #include <filesystem>
 #include <format>
+#include <type_traits>
+#include <typeindex>
 
 #include "../scene/IEditorScene.h"
 #include "../components/Tag.h"
@@ -72,6 +75,189 @@ namespace sceneeditor
 
 	static std::unordered_map<std::string, BufferedStringEditState> s_bufferedStringEdits;
 	static float s_dragSnapStep = 0.5f;
+
+	enum class InspectorValueClipboardType
+	{
+		None = 0,
+		Float,
+		Vec2,
+		Vec3,
+		Vec4
+	};
+
+	struct InspectorValueClipboard
+	{
+		InspectorValueClipboardType type = InspectorValueClipboardType::None;
+		glm::vec4 value{0.0f, 0.0f, 0.0f, 0.0f};
+	};
+
+	struct InspectorComponentClipboard
+	{
+		std::type_index type = typeid(void);
+		std::any value;
+	};
+
+	static InspectorValueClipboard s_valueClipboard;
+	static InspectorComponentClipboard s_componentClipboard;
+
+	static void CopyFloatToInspectorClipboard(float value)
+	{
+		s_valueClipboard.type = InspectorValueClipboardType::Float;
+		s_valueClipboard.value = glm::vec4(value, 0.0f, 0.0f, 0.0f);
+	}
+
+	static void CopyVec2ToInspectorClipboard(const float *value)
+	{
+		s_valueClipboard.type = InspectorValueClipboardType::Vec2;
+		s_valueClipboard.value = glm::vec4(value[0], value[1], 0.0f, 0.0f);
+	}
+
+	static void CopyVec3ToInspectorClipboard(const float *value)
+	{
+		s_valueClipboard.type = InspectorValueClipboardType::Vec3;
+		s_valueClipboard.value = glm::vec4(value[0], value[1], value[2], 0.0f);
+	}
+
+	static void CopyVec4ToInspectorClipboard(const float *value)
+	{
+		s_valueClipboard.type = InspectorValueClipboardType::Vec4;
+		s_valueClipboard.value = glm::vec4(value[0], value[1], value[2], value[3]);
+	}
+
+	static bool CanPasteFloatFromInspectorClipboard()
+	{
+		return s_valueClipboard.type == InspectorValueClipboardType::Float;
+	}
+
+	static bool CanPasteVec2FromInspectorClipboard()
+	{
+		return s_valueClipboard.type == InspectorValueClipboardType::Vec2;
+	}
+
+	static bool CanPasteVec3FromInspectorClipboard()
+	{
+		return s_valueClipboard.type == InspectorValueClipboardType::Vec3;
+	}
+
+	static bool CanPasteVec4FromInspectorClipboard()
+	{
+		return s_valueClipboard.type == InspectorValueClipboardType::Vec4;
+	}
+
+	static bool PasteFloatFromInspectorClipboard(float &outValue)
+	{
+		if (!CanPasteFloatFromInspectorClipboard())
+			return false;
+		outValue = s_valueClipboard.value.x;
+		return true;
+	}
+
+	static bool PasteVec2FromInspectorClipboard(float *outValue)
+	{
+		if (!CanPasteVec2FromInspectorClipboard())
+			return false;
+		outValue[0] = s_valueClipboard.value.x;
+		outValue[1] = s_valueClipboard.value.y;
+		return true;
+	}
+
+	static bool PasteVec3FromInspectorClipboard(float *outValue)
+	{
+		if (!CanPasteVec3FromInspectorClipboard())
+			return false;
+		outValue[0] = s_valueClipboard.value.x;
+		outValue[1] = s_valueClipboard.value.y;
+		outValue[2] = s_valueClipboard.value.z;
+		return true;
+	}
+
+	static bool PasteVec4FromInspectorClipboard(float *outValue)
+	{
+		if (!CanPasteVec4FromInspectorClipboard())
+			return false;
+		outValue[0] = s_valueClipboard.value.x;
+		outValue[1] = s_valueClipboard.value.y;
+		outValue[2] = s_valueClipboard.value.z;
+		outValue[3] = s_valueClipboard.value.w;
+		return true;
+	}
+
+	static std::string BuildVisibleFieldName(const char *label, const char *fallback = "Value")
+	{
+		if (!label || label[0] == '\0')
+			return fallback;
+
+		const char *hidden = std::strstr(label, "##");
+		const size_t visibleLen = hidden ? static_cast<size_t>(hidden - label) : std::strlen(label);
+		if (visibleLen == 0u)
+			return fallback;
+
+		return std::string(label, visibleLen);
+	}
+
+	static void DrawFloatClipboardMenu(float &value, const char *fieldLabel)
+	{
+		const std::string fieldName = BuildVisibleFieldName(fieldLabel, "Value");
+		const std::string copyLabel = std::format("Copy {}", fieldName);
+		const std::string pasteLabel = std::format("Paste {}", fieldName);
+
+		if (ImGui::MenuItem(copyLabel.c_str()))
+			CopyFloatToInspectorClipboard(value);
+		if (ImGui::MenuItem(pasteLabel.c_str(), nullptr, false, CanPasteFloatFromInspectorClipboard()))
+			(void)PasteFloatFromInspectorClipboard(value);
+	}
+
+	static void DrawVec2ClipboardMenu(float *value)
+	{
+		if (ImGui::MenuItem("Copy Value"))
+			CopyVec2ToInspectorClipboard(value);
+		if (ImGui::MenuItem("Paste Value", nullptr, false, CanPasteVec2FromInspectorClipboard()))
+			(void)PasteVec2FromInspectorClipboard(value);
+	}
+
+	static void DrawVec3ClipboardMenu(float *value)
+	{
+		if (ImGui::MenuItem("Copy Value"))
+			CopyVec3ToInspectorClipboard(value);
+		if (ImGui::MenuItem("Paste Value", nullptr, false, CanPasteVec3FromInspectorClipboard()))
+			(void)PasteVec3FromInspectorClipboard(value);
+	}
+
+	static void DrawVec4ClipboardMenu(float *value)
+	{
+		if (ImGui::MenuItem("Copy Value"))
+			CopyVec4ToInspectorClipboard(value);
+		if (ImGui::MenuItem("Paste Value", nullptr, false, CanPasteVec4FromInspectorClipboard()))
+			(void)PasteVec4FromInspectorClipboard(value);
+	}
+
+	template <typename T>
+	static void CopyComponentToInspectorClipboard(const T &value)
+	{
+		s_componentClipboard.type = typeid(T);
+		s_componentClipboard.value = value;
+	}
+
+	template <typename T>
+	static bool HasComponentInInspectorClipboard()
+	{
+		return s_componentClipboard.value.has_value() &&
+			   s_componentClipboard.type == std::type_index(typeid(T));
+	}
+
+	template <typename T>
+	static bool PasteComponentFromInspectorClipboard(T &outValue)
+	{
+		if (!HasComponentInInspectorClipboard<T>())
+			return false;
+
+		const T *stored = std::any_cast<T>(&s_componentClipboard.value);
+		if (!stored)
+			return false;
+
+		outValue = *stored;
+		return true;
+	}
 
 	static std::string BuildBufferedStringEditKey(Entity entity, const char *fieldKey)
 	{
@@ -210,6 +396,11 @@ namespace sceneeditor
 		const bool changed = ImGui::DragFloat(label, v, speed, minValue, maxValue, format, flags);
 		if (changed)
 			ApplySnapToFloat(*v, minValue, maxValue);
+		if (ImGui::BeginPopupContextItem(nullptr))
+		{
+			DrawFloatClipboardMenu(*v, label);
+			ImGui::EndPopup();
+		}
 		return changed;
 	}
 
@@ -225,6 +416,11 @@ namespace sceneeditor
 			const float mouseDeltaX = ImGui::GetIO().MouseDelta.x;
 			v[0] = SnapToStepDirectional(v[0], s_dragSnapStep, mouseDeltaX);
 			v[1] = SnapToStepDirectional(v[1], s_dragSnapStep, mouseDeltaX);
+		}
+		if (ImGui::BeginPopupContextItem(nullptr))
+		{
+			DrawVec2ClipboardMenu(v);
+			ImGui::EndPopup();
 		}
 		return changed;
 	}
@@ -251,6 +447,11 @@ namespace sceneeditor
 				v[2] = std::clamp(v[2], minValue, maxValue);
 			}
 		}
+		if (ImGui::BeginPopupContextItem(nullptr))
+		{
+			DrawVec3ClipboardMenu(v);
+			ImGui::EndPopup();
+		}
 		return changed;
 	}
 
@@ -268,6 +469,11 @@ namespace sceneeditor
 			v[1] = SnapToStepDirectional(v[1], s_dragSnapStep, mouseDeltaX);
 			v[2] = SnapToStepDirectional(v[2], s_dragSnapStep, mouseDeltaX);
 			v[3] = SnapToStepDirectional(v[3], s_dragSnapStep, mouseDeltaX);
+		}
+		if (ImGui::BeginPopupContextItem(nullptr))
+		{
+			DrawVec4ClipboardMenu(v);
+			ImGui::EndPopup();
 		}
 		return changed;
 	}
@@ -1041,9 +1247,41 @@ namespace sceneeditor
 			DrawEntityNode(r, e, children, st);
 	}
 
-	static void DrawVec3(const char *label, float *v, float speed)
+	static bool DrawVec3(const char *label,
+						 float *v,
+						 float speed,
+						 float minValue = 0.0f,
+						 float maxValue = 0.0f,
+						 const char *format = "%.3f",
+						 ImGuiSliderFlags flags = 0)
 	{
-		(void)DragFloat3WithSnap(label, v, speed);
+		bool changed = false;
+		ImGui::PushID(label);
+
+		ImGui::AlignTextToFramePadding();
+		ImGui::TextUnformatted(label);
+		if (ImGui::BeginPopupContextItem("Vec3LabelCtx"))
+		{
+			DrawVec3ClipboardMenu(v);
+			ImGui::EndPopup();
+		}
+
+		ImGui::SameLine();
+		const float spacing = ImGui::GetStyle().ItemSpacing.x;
+		const float totalWidth = ImGui::GetContentRegionAvail().x;
+		const float itemWidth = std::max(1.0f, (totalWidth - 2.0f * spacing) / 3.0f);
+
+		ImGui::SetNextItemWidth(itemWidth);
+		changed |= DragFloatWithSnap("X", &v[0], speed, minValue, maxValue, format, flags);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(itemWidth);
+		changed |= DragFloatWithSnap("Y", &v[1], speed, minValue, maxValue, format, flags);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(itemWidth);
+		changed |= DragFloatWithSnap("Z", &v[2], speed, minValue, maxValue, format, flags);
+
+		ImGui::PopID();
+		return changed;
 	}
 
 	static float WrapDegrees360(float degrees)
@@ -1061,13 +1299,13 @@ namespace sceneeditor
 			WrapDegrees360(glm::degrees(rotationEulerRadians.y)),
 			WrapDegrees360(glm::degrees(rotationEulerRadians.z))};
 
-		if (DragFloat3WithSnap(label,
-							   &deg.x,
-							   speedDeg,
-							   0.0f,
-							   360.0f,
-							   "%.3f",
-							   ImGuiSliderFlags_AlwaysClamp))
+		if (DrawVec3(label,
+					 &deg.x,
+					 speedDeg,
+					 0.0f,
+					 360.0f,
+					 "%.3f",
+					 ImGuiSliderFlags_AlwaysClamp))
 		{
 			deg.x = WrapDegrees360(deg.x);
 			deg.y = WrapDegrees360(deg.y);
@@ -1078,7 +1316,26 @@ namespace sceneeditor
 
 	static void DrawVec2(const char *label, float *v, float speed)
 	{
-		(void)DragFloat2WithSnap(label, v, speed);
+		ImGui::PushID(label);
+		ImGui::AlignTextToFramePadding();
+		ImGui::TextUnformatted(label);
+		if (ImGui::BeginPopupContextItem("Vec2LabelCtx"))
+		{
+			DrawVec2ClipboardMenu(v);
+			ImGui::EndPopup();
+		}
+
+		ImGui::SameLine();
+		const float spacing = ImGui::GetStyle().ItemSpacing.x;
+		const float totalWidth = ImGui::GetContentRegionAvail().x;
+		const float itemWidth = std::max(1.0f, (totalWidth - spacing) / 2.0f);
+
+		ImGui::SetNextItemWidth(itemWidth);
+		(void)DragFloatWithSnap("X", &v[0], speed);
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(itemWidth);
+		(void)DragFloatWithSnap("Y", &v[1], speed);
+		ImGui::PopID();
 	}
 
 	static bool DrawToggleButton(const char *label, bool &value)
@@ -1545,13 +1802,35 @@ namespace sceneeditor
 	}
 
 	template <typename T>
-	static void RemoveComponentMenu(Registry &r, Entity e, const char *popupId)
+	static void DrawComponentContextMenu(Registry &r, Entity e, const char *popupId)
 	{
 		if (!r.Has<T>(e))
 			return;
 
 		if (ImGui::BeginPopupContextItem(popupId))
 		{
+			if constexpr (std::is_copy_constructible_v<T>)
+			{
+				if (ImGui::MenuItem("Copy Values"))
+					CopyComponentToInspectorClipboard(r.Get<T>(e));
+			}
+			else
+			{
+				ImGui::MenuItem("Copy Values", nullptr, false, false);
+			}
+
+			if constexpr (std::is_copy_assignable_v<T> && std::is_copy_constructible_v<T>)
+			{
+				const bool canPaste = HasComponentInInspectorClipboard<T>();
+				if (ImGui::MenuItem("Paste Values", nullptr, false, canPaste))
+					(void)PasteComponentFromInspectorClipboard(r.Get<T>(e));
+			}
+			else
+			{
+				ImGui::MenuItem("Paste Values", nullptr, false, false);
+			}
+
+			ImGui::Separator();
 			if (ImGui::MenuItem("Remove"))
 				r.Remove<T>(e);
 			ImGui::EndPopup();
@@ -1570,7 +1849,7 @@ namespace sceneeditor
 			r.SetComponentEnabled<T>(e, enabled);
 		ImGui::SameLine();
 		const bool open = ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen);
-		RemoveComponentMenu<T>(r, e, popupId);
+		DrawComponentContextMenu<T>(r, e, popupId);
 		ImGui::PopID();
 		return open && r.Has<T>(e);
 	}

@@ -297,6 +297,8 @@ namespace editorui::internal
 		const Entity selected = se.selectedEntity;
 		if (selected == kInvalidEntity || !registry->IsAlive(selected) || !registry->Has<Transform>(selected))
 			return;
+		if (registry->Has<Camera>(selected))
+			return;
 
 		const auto &gizmoState = Gizmo();
 		glm::mat4 selectedWorld = registry->Get<Transform>(selected).worldMatrix;

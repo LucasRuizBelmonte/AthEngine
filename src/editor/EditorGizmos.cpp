@@ -391,6 +391,13 @@ namespace editorui::internal
 			RestoreGizmoRigidBodyOverride();
 			return;
 		}
+
+		if (registry.Has<Camera>(selected))
+		{
+			finalizeManipulation(registry);
+			RestoreGizmoRigidBodyOverride();
+			return;
+		}
 		GizmoDebug().hasTarget = true;
 
 		const Entity cameraEntity = FindEditorCameraEntity(registry);

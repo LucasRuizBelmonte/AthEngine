@@ -152,7 +152,7 @@ void UIRenderSystem::EnsureBuiltinFontAtlas(TextureManager &textureManager)
 		return;
 
 	constexpr int kFirstChar = 32;
-	constexpr int kCharCount = 96; // [32..127]
+	constexpr int kCharCount = 96; // 96 are the printable ASCII characters [32..127]
 	constexpr int kColumns = 16;
 	const int rows = (kCharCount + kColumns - 1) / kColumns;
 	const int padding = 1;

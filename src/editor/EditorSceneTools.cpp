@@ -396,7 +396,7 @@ namespace sceneeditor
 		const bool changed = ImGui::DragFloat(label, v, speed, minValue, maxValue, format, flags);
 		if (changed)
 			ApplySnapToFloat(*v, minValue, maxValue);
-		if (ImGui::BeginPopupContextItem(nullptr))
+		if (ImGui::GetItemID() != 0 && ImGui::BeginPopupContextItem(nullptr))
 		{
 			DrawFloatClipboardMenu(*v, label);
 			ImGui::EndPopup();
@@ -417,7 +417,7 @@ namespace sceneeditor
 			v[0] = SnapToStepDirectional(v[0], s_dragSnapStep, mouseDeltaX);
 			v[1] = SnapToStepDirectional(v[1], s_dragSnapStep, mouseDeltaX);
 		}
-		if (ImGui::BeginPopupContextItem(nullptr))
+		if (ImGui::GetItemID() != 0 && ImGui::BeginPopupContextItem(nullptr))
 		{
 			DrawVec2ClipboardMenu(v);
 			ImGui::EndPopup();
@@ -447,7 +447,7 @@ namespace sceneeditor
 				v[2] = std::clamp(v[2], minValue, maxValue);
 			}
 		}
-		if (ImGui::BeginPopupContextItem(nullptr))
+		if (ImGui::GetItemID() != 0 && ImGui::BeginPopupContextItem(nullptr))
 		{
 			DrawVec3ClipboardMenu(v);
 			ImGui::EndPopup();
@@ -470,7 +470,7 @@ namespace sceneeditor
 			v[2] = SnapToStepDirectional(v[2], s_dragSnapStep, mouseDeltaX);
 			v[3] = SnapToStepDirectional(v[3], s_dragSnapStep, mouseDeltaX);
 		}
-		if (ImGui::BeginPopupContextItem(nullptr))
+		if (ImGui::GetItemID() != 0 && ImGui::BeginPopupContextItem(nullptr))
 		{
 			DrawVec4ClipboardMenu(v);
 			ImGui::EndPopup();

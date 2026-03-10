@@ -262,5 +262,249 @@ namespace Physics2DAlgorithms
 		outContact.point = flipped.point;
 		return true;
 	}
+
+	inline float ShapeBroadphaseRadius(const WorldShape2D &shape)
+	{
+		if (shape.shape == Collider2D::Shape::Circle)
+			return shape.radius;
+		return glm::length(shape.halfExtents);
+	}
+
+	inline float ShapeFeatureSize(const WorldShape2D &shape)
+	{
+		if (shape.shape == Collider2D::Shape::Circle)
+			return shape.radius;
+		return std::min(shape.halfExtents.x, shape.halfExtents.y);
+	}
+
+	inline bool ContainsPoint(const WorldShape2D &shape, const glm::vec2 &point)
+	{
+		if (shape.shape == Collider2D::Shape::Circle)
+		{
+			const glm::vec2 delta = point - shape.center;
+			return glm::dot(delta, delta) <= (shape.radius * shape.radius);
+		}
+		return PointInObb(shape, point);
+	}
+
+	struct RaycastShapeHit2D
+	{
+		glm::vec2 point{0.f, 0.f};
+		glm::vec2 normal{0.f, 1.f};
+		float distance = 0.f;
+	};
+
+	inline bool RaycastCircle(const glm::vec2 &origin,
+	                          const glm::vec2 &directionNormalized,
+	                          float maxDistance,
+	                          const WorldShape2D &circle,
+	                          RaycastShapeHit2D &outHit)
+	{
+		const glm::vec2 toOrigin = origin - circle.center;
+		const float c = glm::dot(toOrigin, toOrigin) - circle.radius * circle.radius;
+		if (c <= 0.f)
+		{
+			outHit.distance = 0.f;
+			outHit.point = origin;
+			const float lenSq = glm::dot(toOrigin, toOrigin);
+			if (lenSq > 0.000001f)
+				outHit.normal = toOrigin / std::sqrt(lenSq);
+			else
+				outHit.normal = -directionNormalized;
+			return true;
+		}
+
+		const float b = glm::dot(toOrigin, directionNormalized);
+		if (b > 0.f)
+			return false;
+
+		const float discriminant = b * b - c;
+		if (discriminant < 0.f)
+			return false;
+
+		const float t = -b - std::sqrt(discriminant);
+		if (t < 0.f || t > maxDistance)
+			return false;
+
+		outHit.distance = t;
+		outHit.point = origin + directionNormalized * t;
+		const glm::vec2 normalDelta = outHit.point - circle.center;
+		const float normalLenSq = glm::dot(normalDelta, normalDelta);
+		if (normalLenSq > 0.000001f)
+			outHit.normal = normalDelta / std::sqrt(normalLenSq);
+		else
+			outHit.normal = -directionNormalized;
+		return true;
+	}
+
+	inline bool RaycastObb(const glm::vec2 &origin,
+	                       const glm::vec2 &directionNormalized,
+	                       float maxDistance,
+	                       const WorldShape2D &obb,
+	                       RaycastShapeHit2D &outHit)
+	{
+		const glm::vec2 delta = origin - obb.center;
+		const glm::vec2 localOrigin(glm::dot(delta, obb.axisX), glm::dot(delta, obb.axisY));
+		const glm::vec2 localDir(glm::dot(directionNormalized, obb.axisX), glm::dot(directionNormalized, obb.axisY));
+
+		const bool inside =
+			std::abs(localOrigin.x) <= obb.halfExtents.x &&
+			std::abs(localOrigin.y) <= obb.halfExtents.y;
+		if (inside)
+		{
+			outHit.distance = 0.f;
+			outHit.point = origin;
+			outHit.normal = -directionNormalized;
+			return true;
+		}
+
+		float tMin = 0.f;
+		float tMax = maxDistance;
+		glm::vec2 hitNormalLocal(0.f, 1.f);
+
+		const auto updateSlab = [&](float originCoord,
+		                            float dirCoord,
+		                            float extent,
+		                            const glm::vec2 &negNormal,
+		                            const glm::vec2 &posNormal,
+		                            float &ioTMin,
+		                            float &ioTMax,
+		                            glm::vec2 &ioNormal) -> bool
+		{
+			if (std::abs(dirCoord) <= 0.000001f)
+				return std::abs(originCoord) <= extent;
+
+			float t1 = (-extent - originCoord) / dirCoord;
+			float t2 = (extent - originCoord) / dirCoord;
+			glm::vec2 n1 = negNormal;
+			glm::vec2 n2 = posNormal;
+			if (t1 > t2)
+			{
+				std::swap(t1, t2);
+				std::swap(n1, n2);
+			}
+
+			if (t1 > ioTMin)
+			{
+				ioTMin = t1;
+				ioNormal = n1;
+			}
+			ioTMax = std::min(ioTMax, t2);
+			return ioTMin <= ioTMax;
+		};
+
+		if (!updateSlab(localOrigin.x, localDir.x, obb.halfExtents.x, glm::vec2(-1.f, 0.f), glm::vec2(1.f, 0.f), tMin, tMax, hitNormalLocal))
+			return false;
+		if (!updateSlab(localOrigin.y, localDir.y, obb.halfExtents.y, glm::vec2(0.f, -1.f), glm::vec2(0.f, 1.f), tMin, tMax, hitNormalLocal))
+			return false;
+
+		if (tMin < 0.f || tMin > maxDistance)
+			return false;
+
+		outHit.distance = tMin;
+		outHit.point = origin + directionNormalized * tMin;
+		outHit.normal = obb.axisX * hitNormalLocal.x + obb.axisY * hitNormalLocal.y;
+		return true;
+	}
+
+	inline bool RaycastShape(const glm::vec2 &origin,
+	                         const glm::vec2 &directionNormalized,
+	                         float maxDistance,
+	                         const WorldShape2D &shape,
+	                         RaycastShapeHit2D &outHit)
+	{
+		if (shape.shape == Collider2D::Shape::Circle)
+			return RaycastCircle(origin, directionNormalized, maxDistance, shape, outHit);
+		return RaycastObb(origin, directionNormalized, maxDistance, shape, outHit);
+	}
+
+	inline float DistanceSqPointSegment(const glm::vec2 &point,
+	                                    const glm::vec2 &segmentStart,
+	                                    const glm::vec2 &segmentEnd)
+	{
+		const glm::vec2 segment = segmentEnd - segmentStart;
+		const float segLenSq = glm::dot(segment, segment);
+		if (segLenSq <= 0.000001f)
+		{
+			const glm::vec2 d = point - segmentStart;
+			return glm::dot(d, d);
+		}
+
+		const float t = glm::clamp(glm::dot(point - segmentStart, segment) / segLenSq, 0.f, 1.f);
+		const glm::vec2 closest = segmentStart + segment * t;
+		const glm::vec2 d = point - closest;
+		return glm::dot(d, d);
+	}
+
+	inline bool SweepOverlapByConservativeSampling(const WorldShape2D &movingShapeStart,
+	                                               const glm::vec2 &travelDelta,
+	                                               const WorldShape2D &target,
+	                                               float &outFraction,
+	                                               Contact2D &outContact)
+	{
+		Contact2D initialContact;
+		if (TestOverlap(movingShapeStart, target, initialContact))
+		{
+			outFraction = 0.f;
+			outContact = initialContact;
+			return true;
+		}
+
+		const float pathLen = glm::length(travelDelta);
+		if (pathLen <= 0.000001f)
+			return false;
+
+		const glm::vec2 castStart = movingShapeStart.center;
+		const glm::vec2 castEnd = movingShapeStart.center + travelDelta;
+		const float broadphaseRadius = ShapeBroadphaseRadius(movingShapeStart) + ShapeBroadphaseRadius(target);
+		if (DistanceSqPointSegment(target.center, castStart, castEnd) > (broadphaseRadius * broadphaseRadius))
+			return false;
+
+		const float movingFeature = std::max(ShapeFeatureSize(movingShapeStart), 0.01f);
+		const float targetFeature = std::max(ShapeFeatureSize(target), 0.01f);
+		const float minFeature = std::min(movingFeature, targetFeature);
+		const float maxStepDistance = std::max(0.01f, minFeature * 0.25f);
+		int sampleCount = static_cast<int>(std::ceil(pathLen / maxStepDistance));
+		sampleCount = std::clamp(sampleCount, 8, 256);
+
+		WorldShape2D sampledShape = movingShapeStart;
+		float previousT = 0.f;
+		for (int i = 1; i <= sampleCount; ++i)
+		{
+			const float t = static_cast<float>(i) / static_cast<float>(sampleCount);
+			sampledShape.center = movingShapeStart.center + travelDelta * t;
+			Contact2D sampledContact;
+			if (!TestOverlap(sampledShape, target, sampledContact))
+			{
+				previousT = t;
+				continue;
+			}
+
+			float low = previousT;
+			float high = t;
+			Contact2D bestContact = sampledContact;
+			for (int iteration = 0; iteration < 12; ++iteration)
+			{
+				const float mid = 0.5f * (low + high);
+				sampledShape.center = movingShapeStart.center + travelDelta * mid;
+				Contact2D midContact;
+				if (TestOverlap(sampledShape, target, midContact))
+				{
+					high = mid;
+					bestContact = midContact;
+				}
+				else
+				{
+					low = mid;
+				}
+			}
+
+			outFraction = high;
+			outContact = bestContact;
+			return true;
+		}
+
+		return false;
+	}
 }
 #pragma endregion

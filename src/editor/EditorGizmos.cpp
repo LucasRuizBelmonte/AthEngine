@@ -377,6 +377,13 @@ namespace editorui::internal
 		}
 
 		Registry &registry = editorScene->GetEditorRegistry();
+		if (!DebugVizSettings().showTransformGizmo)
+		{
+			finalizeManipulation(registry);
+			RestoreGizmoRigidBodyOverride();
+			return;
+		}
+
 		Entity selected = se.selectedEntity;
 		if (selected == kInvalidEntity || !registry.IsAlive(selected) || !registry.Has<Transform>(selected))
 		{
@@ -491,15 +498,6 @@ namespace editorui::internal
 		else
 		{
 			RestoreGizmoRigidBodyOverride();
-		}
-
-		if (ShowForwardArrow() && registry.IsAlive(selected) && !registry.Has<CameraController>(selected))
-		{
-			const glm::mat4 arrowWorld =
-				(usingNow && gizmoState.hasActiveWorldMatrix)
-					? gizmoState.activeWorldMatrix
-					: ComputeWorldTransformMatrix(registry, selected);
-			DrawSelectedForwardArrowImpl(arrowWorld, view, projection, rectMin, rectSize);
 		}
 	}
 }

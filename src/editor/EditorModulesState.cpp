@@ -12,9 +12,8 @@ namespace editorui::internal
 		GizmoState g_gizmoState;
 		GizmoRuntimeDebug g_gizmoRuntimeDebug;
 		bool g_showGizmoDebug = false;
-		bool g_showForwardArrow = true;
-		bool g_showCollisionGizmos = true;
 		GizmoRigidBodyOverride g_gizmoRigidBodyOverride;
+		DebugVisualizationSettings g_debugVizSettings;
 		SpriteSheetGeneratorState g_spriteSheetGenerator;
 	}
 
@@ -58,19 +57,14 @@ namespace editorui::internal
 		return g_showGizmoDebug;
 	}
 
-	bool &ShowForwardArrow()
-	{
-		return g_showForwardArrow;
-	}
-
-	bool &ShowCollisionGizmos()
-	{
-		return g_showCollisionGizmos;
-	}
-
 	GizmoRigidBodyOverride &GizmoRigidBodyOverrideState()
 	{
 		return g_gizmoRigidBodyOverride;
+	}
+
+	DebugVisualizationSettings &DebugVizSettings()
+	{
+		return g_debugVizSettings;
 	}
 
 	SpriteSheetGeneratorState &SpriteSheetGenerator()

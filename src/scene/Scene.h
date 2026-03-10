@@ -30,6 +30,7 @@
 #include "../systems/ui/UISpriteAssetSyncSystem.h"
 #include "../systems/ui/UITransformSystem.h"
 #include "../systems/ui/UIRenderSystem.h"
+#include "../debugviz/DebugVisualization.h"
 
 #include "../components/Camera.h"
 #include "../components/CameraController.h"
@@ -182,6 +183,7 @@ public:
 	 * @brief Applies material texture slots for editor changes.
 	 */
 	bool EditorApplyMaterial(Entity e, std::string &outError) override;
+	const debugviz::DebugVizFrame &GetDebugVisualizationFrame() const override;
 
 #pragma endregion
 private:
@@ -207,6 +209,8 @@ private:
 	CameraSyncSystem m_cameraSyncSystem;
 	TriggerZoneConsoleSystem m_triggerZoneConsoleSystem;
 	Physics2DSystem m_physics2DSystem;
+	debugviz::DebugVisualizationSystem m_debugVisualizationSystem;
+	debugviz::DebugVizFrame m_debugVizFrame;
 	Animation2DLibrary m_animation2DLibrary;
 	SpriteAnimationSystem m_spriteAnimationSystem;
 	UIInputSystem m_uiInputSystem;

@@ -20,6 +20,10 @@ namespace prefab
 	class PrefabRegistry;
 	struct PrefabSpawnOverrides;
 }
+namespace debugviz
+{
+	struct DebugVizFrame;
+}
 struct Transform;
 
 struct EditorSystemToggle
@@ -116,6 +120,10 @@ public:
      * @brief Applies material texture slots/parameters after editor changes.
      */
     virtual bool EditorApplyMaterial(Entity e, std::string &outError) = 0;
+    /**
+     * @brief Returns the latest runtime-generated debug visualization frame.
+     */
+    virtual const debugviz::DebugVizFrame &GetDebugVisualizationFrame() const = 0;
 	#pragma endregion
 };
 #pragma endregion

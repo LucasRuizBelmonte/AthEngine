@@ -61,6 +61,20 @@ namespace editorui::internal
 		bool originalIsKinematic = false;
 	};
 
+	struct DebugVisualizationSettings
+	{
+		bool showTransformGizmo = true;
+		bool showColliders = true;
+		bool showRigidBodyVelocity = true;
+		bool showContactNormals = true;
+		bool showTriggerMarkers = true;
+		bool showCameraFrustums = true;
+		bool showLightGizmos = true;
+		bool showSelectionBounds = true;
+		bool showSelectionPivot = true;
+		bool showForwardArrow = true;
+	};
+
 	struct SpriteSheetSourceImage
 	{
 		std::string inputPath;
@@ -117,9 +131,8 @@ namespace editorui::internal
 	GizmoState &Gizmo();
 	GizmoRuntimeDebug &GizmoDebug();
 	bool &ShowGizmoDebug();
-	bool &ShowForwardArrow();
-	bool &ShowCollisionGizmos();
 	GizmoRigidBodyOverride &GizmoRigidBodyOverrideState();
+	DebugVisualizationSettings &DebugVizSettings();
 	SpriteSheetGeneratorState &SpriteSheetGenerator();
 
 	std::string TrimCopy(std::string text);
@@ -142,7 +155,10 @@ namespace editorui::internal
 	                                 const glm::mat4 &projection,
 	                                 const ImVec2 &rectMin,
 	                                 const ImVec2 &rectSize);
-	void DrawCollisionGizmosImpl(IEditorScene *editorScene, const ImVec2 &rectMin, const ImVec2 &rectSize);
+	void DrawDebugVisualizationLayerImpl(IEditorScene *editorScene,
+	                                     SceneEditorState &se,
+	                                     const ImVec2 &rectMin,
+	                                     const ImVec2 &rectSize);
 	void DrawGizmoToolbarImpl(bool viewportFocused);
 	void DrawTransformGizmoImpl(IEditorScene *editorScene,
 	                            SceneEditorState &se,

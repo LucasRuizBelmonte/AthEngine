@@ -124,6 +124,7 @@ void Scene::RequestLoad(AsyncLoader &)
 	m_eventBus.ClearAll();
 	BuildBaseTemplate();
 	RefreshRuntimeReferences();
+	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 	m_loaded = true;
 }
 
@@ -172,6 +173,7 @@ void Scene::Update(float dt, float now, const InputState &input)
 	m_uiSpriteAssetSyncSystem.Update(m_registry, m_textureManager, m_shaderManager);
 
 	m_uiInputSystem.Update(m_registry, input, dt);
+	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 }
 
 void Scene::FixedUpdate(float fixedDt)
@@ -190,6 +192,7 @@ void Scene::FixedUpdate(float fixedDt)
 
 	m_transformSystem.Update(m_registry);
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
+	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 }
 
 void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
@@ -405,6 +408,7 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 	m_fixedStepCounter = 0u;
 	m_gameplayEventProjectionSystem.Reset();
 	m_eventBus.ClearAll();
+	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 	m_loaded = true;
 	return true;
 }
@@ -614,6 +618,11 @@ bool Scene::EditorApplyMaterial(Entity e, std::string &outError)
 	}
 
 	return true;
+}
+
+const debugviz::DebugVizFrame &Scene::GetDebugVisualizationFrame() const
+{
+	return m_debugVizFrame;
 }
 
 void Scene::BuildBaseTemplate()

@@ -40,7 +40,7 @@ namespace editorui::internal
 			const ImVec2 imageMin = ImGui::GetItemRectMin();
 			const ImVec2 imageSize = ImGui::GetItemRectSize();
 			const bool imageHovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-			DrawCollisionGizmosImpl(editorScene, imageMin, imageSize);
+			DrawDebugVisualizationLayerImpl(editorScene, se, imageMin, imageSize);
 			DrawTransformGizmoImpl(editorScene, se, imageMin, imageSize, viewportFocused, imageHovered);
 			DrawGizmoDebugOverlayImpl(viewportFocused, imageHovered, imageMin);
 		}

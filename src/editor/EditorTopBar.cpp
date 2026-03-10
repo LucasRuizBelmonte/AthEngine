@@ -332,8 +332,23 @@ namespace editorui::internal
 
 		if (ImGui::BeginMenu("Config"))
 		{
+			auto &debugSettings = DebugVizSettings();
 			ImGui::MenuItem("Debug Clicks", nullptr, &ShowGizmoDebug());
-			ImGui::MenuItem("Forward Arrow", nullptr, &ShowForwardArrow());
+			if (ImGui::BeginMenu("Debug Gizmos"))
+			{
+				ImGui::MenuItem("Transform Gizmo", nullptr, &debugSettings.showTransformGizmo);
+				ImGui::MenuItem("Collider Gizmos", nullptr, &debugSettings.showColliders);
+				ImGui::MenuItem("RigidBody Velocity", nullptr, &debugSettings.showRigidBodyVelocity);
+				ImGui::MenuItem("Contact Normals", nullptr, &debugSettings.showContactNormals);
+				ImGui::MenuItem("Trigger Markers", nullptr, &debugSettings.showTriggerMarkers);
+				ImGui::MenuItem("Camera Frustums", nullptr, &debugSettings.showCameraFrustums);
+				ImGui::MenuItem("Light Gizmos", nullptr, &debugSettings.showLightGizmos);
+				ImGui::Separator();
+				ImGui::MenuItem("Selection Bounds", nullptr, &debugSettings.showSelectionBounds);
+				ImGui::MenuItem("Selection Pivot", nullptr, &debugSettings.showSelectionPivot);
+				ImGui::MenuItem("Selected Forward Arrow", nullptr, &debugSettings.showForwardArrow);
+				ImGui::EndMenu();
+			}
 			const char *consoleLevels[] = {"Debug", "Info", "Warning", "Error"};
 			int consoleLevelIndex = static_cast<int>(Console::GetLevel());
 			ImGui::SetNextItemWidth(160.0f);
@@ -347,13 +362,10 @@ namespace editorui::internal
 					ImGui::SetNextItemWidth(170.0f);
 					if (ImGui::DragFloat2("Gravity2D", &gravity.x, 0.05f, -1000.0f, 1000.0f, "%.3f"))
 						editorScene->SetPhysics2DGravity(gravity);
-
-					ImGui::MenuItem("Show 2DCollisions Gizmos", nullptr, &ShowCollisionGizmos());
 				}
 				else
 				{
 					ImGui::MenuItem("Gravity2D", nullptr, false, false);
-					ImGui::MenuItem("Show 2DCollisions Gizmos", nullptr, false, false);
 				}
 
 				ImGui::EndMenu();

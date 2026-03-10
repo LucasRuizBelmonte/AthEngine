@@ -1395,6 +1395,62 @@ namespace sceneeditor
 		return changed;
 	}
 
+	static bool DrawCollisionMaskBitGrid(const char *tableId, uint32_t &mask)
+	{
+		bool changed = false;
+		if (ImGui::BeginTable(tableId, 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
+		{
+			for (uint32_t layerIndex = 0u; layerIndex < Physics2DCollisionFiltering::kLayerCount; ++layerIndex)
+			{
+				if ((layerIndex % 8u) == 0u)
+					ImGui::TableNextRow();
+
+				ImGui::TableSetColumnIndex(static_cast<int>(layerIndex % 8u));
+				const uint32_t layerBit = Physics2DCollisionFiltering::LayerBitFromIndex(layerIndex);
+				bool enabled = Physics2DCollisionFiltering::MaskContainsLayer(mask, layerBit);
+				char label[8];
+				std::snprintf(label, sizeof(label), "%u", layerIndex + 1u);
+				if (DrawToggleButton(label, enabled))
+				{
+					Physics2DCollisionFiltering::SetLayerBit(mask, layerBit, enabled);
+					changed = true;
+				}
+			}
+			ImGui::EndTable();
+		}
+		return changed;
+	}
+
+	static bool DrawCollisionMaskEditor(const char *label, const char *hint, uint32_t &mask)
+	{
+		bool changed = false;
+		ImGui::PushID(label);
+
+		ImGui::TextUnformatted(label);
+		ImGui::TextDisabled("%s", hint);
+
+		changed |= DrawCollisionMaskBitGrid("##CollisionMaskBitGrid", mask);
+
+		if (ImGui::Button("All"))
+		{
+			mask = Physics2DCollisionFiltering::kDefaultCollisionMask;
+			changed = true;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("None"))
+		{
+			mask = 0u;
+			changed = true;
+		}
+
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+		changed |= ImGui::InputScalar("Raw Bits", ImGuiDataType_U32, &mask);
+		ImGui::TextDisabled("Hex: 0x%08X", mask);
+
+		ImGui::PopID();
+		return changed;
+	}
+
 	static void DrawColor4(const char *label, float *v)
 	{
 		ImGui::ColorEdit4(label, v);
@@ -2256,8 +2312,14 @@ namespace sceneeditor
 				c.shape = (shapeIndex == 1) ? Collider2D::Shape::Circle : Collider2D::Shape::AABB;
 
 			(void)DrawToggleButton("Is Trigger", c.isTrigger);
-			ImGui::InputScalar("Layer", ImGuiDataType_U32, &c.layer);
-			ImGui::InputScalar("Mask", ImGuiDataType_U32, &c.mask);
+			ImGui::SeparatorText("Collision Filtering");
+			(void)DrawCollisionMaskEditor("Collision Layer",
+			                              "Who I am. Objects include this layer in their mask to interact with me.",
+			                              c.collisionLayer);
+			ImGui::Separator();
+			(void)DrawCollisionMaskEditor("Collision Mask",
+			                              "What I collide/detect against. Enables layers this collider interacts with.",
+			                              c.collisionMask);
 			DrawVec2("Offset", &c.offset.x, 0.05f);
 
 			if (c.shape == Collider2D::Shape::AABB)

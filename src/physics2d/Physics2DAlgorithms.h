@@ -40,7 +40,8 @@ namespace Physics2DAlgorithms
 
 	inline bool ShouldCollide(const Collider2D &a, const Collider2D &b)
 	{
-		return (a.mask & b.layer) != 0u && (b.mask & a.layer) != 0u;
+		return Physics2DCollisionFiltering::MaskContainsLayer(a.collisionMask, b.collisionLayer) &&
+		       Physics2DCollisionFiltering::MaskContainsLayer(b.collisionMask, a.collisionLayer);
 	}
 
 	inline glm::vec2 RotateOffset(const glm::vec2 &offset, float radians)

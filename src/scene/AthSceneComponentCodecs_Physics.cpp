@@ -16,10 +16,11 @@ namespace AthSceneIO
 			return;
 
 		const Collider2D &component = registry.Get<Collider2D>(entity);
+
 		out << "COLLIDER2D "
 		    << static_cast<int>(component.shape) << " "
 		    << (component.isTrigger ? 1 : 0) << " "
-		    << component.layer << " " << component.mask << " "
+		    << component.collisionLayer << " " << component.collisionMask << " "
 		    << component.halfExtents.x << " " << component.halfExtents.y << " "
 		    << component.radius << " "
 		    << component.offset.x << " " << component.offset.y << "\n";
@@ -32,10 +33,10 @@ namespace AthSceneIO
 		std::istringstream ls(payload);
 		int shape = 0;
 		int isTrigger = 0;
-		uint64_t layer = 0u;
-		uint64_t mask = 0u;
+		uint64_t collisionLayer = 0u;
+		uint64_t collisionMask = 0u;
 		std::string extra;
-		if (!(ls >> shape >> isTrigger >> layer >> mask >>
+		if (!(ls >> shape >> isTrigger >> collisionLayer >> collisionMask >>
 		      ent.collider2D.halfExtents.x >> ent.collider2D.halfExtents.y >>
 		      ent.collider2D.radius >>
 		      ent.collider2D.offset.x >> ent.collider2D.offset.y) ||
@@ -43,7 +44,7 @@ namespace AthSceneIO
 		{
 			outError = internal::BuildSchemaError(
 				"Collider2D",
-				"COLLIDER2D <shape> <isTrigger> <layer:uint32> <mask:uint32> <halfExtentsX> <halfExtentsY> <radius> <offsetX> <offsetY>",
+				"COLLIDER2D <shape> <isTrigger> <collisionLayer:uint32> <collisionMask:uint32> <halfExtentsX> <halfExtentsY> <radius> <offsetX> <offsetY>",
 				payload);
 			return false;
 		}
@@ -55,12 +56,12 @@ namespace AthSceneIO
 		    !StrictParsing::ValidateFinite(ent.collider2D.offset.y, "offset.y", "Collider2D", outError))
 			return false;
 
-		if (layer > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) ||
-		    mask > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
+		if (collisionLayer > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) ||
+		    collisionMask > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))
 		{
 			outError = internal::BuildSchemaError(
 				"Collider2D",
-				"layer and mask inside uint32 range",
+				"collisionLayer and collisionMask inside uint32 range",
 				payload);
 			return false;
 		}
@@ -71,8 +72,8 @@ namespace AthSceneIO
 			return false;
 		}
 
-		ent.collider2D.layer = static_cast<uint32_t>(layer);
-		ent.collider2D.mask = static_cast<uint32_t>(mask);
+		ent.collider2D.collisionLayer = static_cast<uint32_t>(collisionLayer);
+		ent.collider2D.collisionMask = static_cast<uint32_t>(collisionMask);
 		ent.collider2D.shape = (shape == static_cast<int>(Collider2D::Shape::Circle)) ? Collider2D::Shape::Circle : Collider2D::Shape::AABB;
 		ent.collider2D.isTrigger = (isTrigger != 0);
 		return true;

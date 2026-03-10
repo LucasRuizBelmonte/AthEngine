@@ -7,6 +7,7 @@
 
 #pragma region Includes
 #include "../ecs/Registry.h"
+#include "Collider2D.h"
 
 #include <glm/glm.hpp>
 #include <cstdint>
@@ -19,8 +20,8 @@ namespace Physics2D
 	struct QueryFilter2D
 	{
 		uint32_t layerMask = 0xFFFFFFFFu;
-		uint32_t queryLayer = 1u;
-		uint32_t queryMask = 0xFFFFFFFFu;
+		uint32_t queryCollisionLayer = Physics2DCollisionFiltering::kDefaultCollisionLayer;
+		uint32_t queryCollisionMask = Physics2DCollisionFiltering::kDefaultCollisionMask;
 		bool respectCollisionMatrix = true;
 		bool includeTriggers = true;
 		bool includeDisabled = false;

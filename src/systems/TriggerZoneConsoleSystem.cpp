@@ -107,8 +107,8 @@ void TriggerZoneConsoleSystem::Update(const Registry &registry, const events::Sc
 
 		Physics2D::QueryFilter2D queryFilter;
 		queryFilter.layerMask = 0xFFFFFFFFu;
-		queryFilter.queryLayer = triggerZoneCollider->layer;
-		queryFilter.queryMask = triggerZoneCollider->mask;
+		queryFilter.queryCollisionLayer = triggerZoneCollider->collisionLayer;
+		queryFilter.queryCollisionMask = triggerZoneCollider->collisionMask;
 		queryFilter.respectCollisionMatrix = true;
 		queryFilter.includeTriggers = false;
 		queryFilter.ignoreEntity = triggerZone;

@@ -37,14 +37,14 @@ namespace Physics2D
 			if (!filter.includeTriggers && collider.isTrigger)
 				return false;
 
-			if ((collider.layer & filter.layerMask) == 0u)
+			if ((collider.collisionLayer & filter.layerMask) == 0u)
 				return false;
 
 			if (filter.respectCollisionMatrix)
 			{
-				if ((filter.queryMask & collider.layer) == 0u)
+				if ((filter.queryCollisionMask & collider.collisionLayer) == 0u)
 					return false;
-				if ((collider.mask & filter.queryLayer) == 0u)
+				if ((collider.collisionMask & filter.queryCollisionLayer) == 0u)
 					return false;
 			}
 

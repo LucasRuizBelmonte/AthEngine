@@ -55,7 +55,6 @@ file(GLOB_RECURSE ATH_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 list(FILTER ATH_SOURCES EXCLUDE REGEX ".*/src/thirdparty/imgui_backends/.*\\.cpp$")
-list(FILTER ATH_SOURCES EXCLUDE REGEX ".*/src/thirdparty/imgui_backendsWrong/.*\\.cpp$")
 
 add_executable(${PROJECT_NAME} ${ATH_SOURCES})
 

@@ -3,8 +3,8 @@
 #include "HudDemoScene.h"
 
 #include "../../components/Parent.h"
+#include "../../utils/AssetPath.h"
 
-#include <filesystem>
 #include <string>
 #pragma endregion
 
@@ -16,26 +16,6 @@ namespace
 		const std::vector<Entity> alive = registry.Alive();
 		for (Entity entity : alive)
 			registry.Destroy(entity);
-	}
-
-	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
-	{
-		if (rawPath.empty())
-			return {};
-
-		std::filesystem::path path(rawPath);
-		path = path.lexically_normal();
-		if (path.is_absolute())
-			return path.string();
-
-		const std::string generic = path.generic_string();
-		const std::filesystem::path assetRoot(ASSET_PATH);
-		const std::filesystem::path projectRoot = assetRoot.parent_path();
-
-		if (generic == "res" || generic.rfind("res/", 0) == 0)
-			return (projectRoot / path).lexically_normal().string();
-
-		return (assetRoot / path).lexically_normal().string();
 	}
 }
 #pragma endregion
@@ -105,7 +85,7 @@ void HudDemoScene::BuildHud()
 {
 	ClearRegistry(m_registry);
 
-	const auto iconTexture = m_textureManager.Load("hud_demo_icon", ResolveRuntimeAssetPath("res/textures/sprite_4.png"), true);
+	const auto iconTexture = m_textureManager.Load("hud_demo_icon", AssetPath::ResolveRuntimePath("res/textures/sprite_4.png"), true);
 
 	const Entity canvas = m_registry.Create();
 	{

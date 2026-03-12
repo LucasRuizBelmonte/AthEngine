@@ -1,6 +1,7 @@
 #pragma region Includes
 #include "MaterialMetadata.h"
 
+#include "../utils/AssetPath.h"
 #include "../utils/StrictParsing.h"
 
 #include <algorithm>
@@ -150,50 +151,15 @@ namespace
 		return true;
 	}
 
-	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
-	{
-		if (rawPath.empty())
-			return {};
-
-		std::filesystem::path path(rawPath);
-		path = path.lexically_normal();
-		if (path.is_absolute())
-			return path.string();
-
-		const std::string generic = path.generic_string();
-		const std::filesystem::path assetRoot(ASSET_PATH);
-		const std::filesystem::path projectRoot = assetRoot.parent_path();
-
-		if (generic == "res" || generic.rfind("res/", 0) == 0)
-			return (projectRoot / path).lexically_normal().string();
-
-		return (assetRoot / path).lexically_normal().string();
-	}
-
 	static std::string ResolveMetadataPath(const std::string &shaderPath)
 	{
 		if (shaderPath.empty())
 			return {};
 
-		const std::string resolvedShader = ResolveRuntimeAssetPath(shaderPath);
+		const std::string resolvedShader = AssetPath::ResolveRuntimePath(shaderPath);
 		if (resolvedShader.empty())
 			return {};
-
-		std::filesystem::path shaderFsPath(resolvedShader);
-		std::error_code ec;
-
-		std::filesystem::path candidate = shaderFsPath;
-		candidate.replace_extension(".matmeta");
-		if (std::filesystem::exists(candidate, ec))
-			return candidate.lexically_normal().string();
-		ec.clear();
-
-		candidate = shaderFsPath;
-		candidate += ".matmeta";
-		if (std::filesystem::exists(candidate, ec))
-			return candidate.lexically_normal().string();
-
-		return {};
+		return AssetPath::ResolveMaterialMetadataPathForFragment(resolvedShader);
 	}
 
 	static bool ParseMetadataFile(const std::string &metadataPath,
@@ -360,7 +326,7 @@ const ShaderMaterialMetadata &GetShaderMaterialMetadata(const std::string &shade
 	static const ShaderMaterialMetadata kEmptyMetadata;
 	static std::unordered_map<std::string, MetadataCacheEntry> s_cache;
 
-	const std::string resolvedShaderPath = ResolveRuntimeAssetPath(shaderPath);
+	const std::string resolvedShaderPath = AssetPath::ResolveRuntimePath(shaderPath);
 	if (resolvedShaderPath.empty())
 		return kEmptyMetadata;
 

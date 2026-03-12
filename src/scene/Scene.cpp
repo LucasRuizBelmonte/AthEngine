@@ -6,6 +6,7 @@
 #include "../rendering/ModelLoader.h"
 #include "../material/MaterialMetadata.h"
 #include "../prefab/BuiltinPrefabs.h"
+#include "../utils/AssetPath.h"
 
 #include "EditorSceneIO.h"
 
@@ -27,43 +28,6 @@ namespace
 		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
 	}
 
-	static std::string ResolveVertexShaderPathForFragment(const std::string &fragmentPath)
-	{
-		if (fragmentPath.empty())
-			return {};
-
-		std::filesystem::path candidate(fragmentPath);
-		if (!candidate.has_extension())
-			return {};
-
-		candidate.replace_extension(".vs");
-		std::error_code ec;
-		if (std::filesystem::exists(candidate, ec))
-			return candidate.string();
-
-		return {};
-	}
-
-	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
-	{
-		if (rawPath.empty())
-			return {};
-
-		std::filesystem::path path(rawPath);
-		path = path.lexically_normal();
-		if (path.is_absolute())
-			return path.string();
-
-		const std::string generic = path.generic_string();
-		const std::filesystem::path assetRoot(ASSET_PATH);
-		const std::filesystem::path projectRoot = assetRoot.parent_path();
-
-		if (generic == "res" || generic.rfind("res/", 0) == 0)
-			return (projectRoot / path).lexically_normal().string();
-
-		return (assetRoot / path).lexically_normal().string();
-	}
-
 	static bool ApplyMaterialTextureSlot(TextureManager &textureManager,
 										 ResourceHandle<Texture> &slot,
 										 const std::string &path,
@@ -76,7 +40,7 @@ namespace
 			return true;
 		}
 
-		const std::string resolvedPath = ResolveRuntimeAssetPath(path);
+		const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
 		auto handle = textureManager.Load(EditorAssetName(namePrefix, path), resolvedPath, true);
 		if (!handle.IsValid())
 		{
@@ -428,7 +392,7 @@ bool Scene::EditorSetSpriteTexture(Entity e, const std::string &path, std::strin
 		return true;
 	}
 
-	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
+	const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
 	auto handle = m_textureManager.Load(EditorAssetName("editor_tex_", path), resolvedPath, true);
 	if (!handle.IsValid())
 	{
@@ -456,8 +420,8 @@ bool Scene::EditorSetSpriteMaterial(Entity e, const std::string &path, std::stri
 		return true;
 	}
 
-	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
-	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath);
+	const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
+	const std::string vsPath = AssetPath::ResolveVertexShaderPathForFragment(resolvedPath);
 	if (vsPath.empty())
 	{
 		outError = "Could not resolve matching vertex shader for sprite material: " + path;
@@ -488,7 +452,7 @@ bool Scene::EditorSetMeshPath(Entity e, const std::string &path, std::string &ou
 	}
 
 	const std::string requestedPath = path;
-	const std::string resolvedPath = ResolveRuntimeAssetPath(requestedPath);
+	const std::string resolvedPath = AssetPath::ResolveRuntimePath(requestedPath);
 
 	auto &mesh = m_registry.Get<Mesh>(e);
 	mesh.meshPath = requestedPath;
@@ -540,8 +504,8 @@ bool Scene::EditorSetMeshMaterial(Entity e, const std::string &path, std::string
 		return true;
 	}
 
-	const std::string resolvedPath = ResolveRuntimeAssetPath(path);
-	const std::string vsPath = ResolveVertexShaderPathForFragment(resolvedPath);
+	const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
+	const std::string vsPath = AssetPath::ResolveVertexShaderPathForFragment(resolvedPath);
 	if (vsPath.empty())
 	{
 		outError = "Could not resolve matching vertex shader for mesh material: " + path;

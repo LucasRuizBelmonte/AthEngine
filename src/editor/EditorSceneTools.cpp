@@ -75,7 +75,23 @@ namespace sceneeditor
 		std::vector<char> inputBuffer;
 	};
 
+	struct BufferedIntEditState
+	{
+		bool editing = false;
+		int originalValue = 0;
+		int buffer = 0;
+	};
+
+	struct BufferedUint32EditState
+	{
+		bool editing = false;
+		uint32_t originalValue = 0u;
+		uint32_t buffer = 0u;
+	};
+
 	static std::unordered_map<std::string, BufferedStringEditState> s_bufferedStringEdits;
+	static std::unordered_map<std::string, BufferedIntEditState> s_bufferedIntEdits;
+	static std::unordered_map<std::string, BufferedUint32EditState> s_bufferedUint32Edits;
 	static float s_dragSnapStep = 0.5f;
 
 	enum class InspectorValueClipboardType
@@ -341,6 +357,102 @@ namespace sceneeditor
 		}
 
 		return false;
+	}
+
+	static bool DrawBufferedIntInput(Entity entity,
+	                                 const char *fieldKey,
+	                                 const char *inputLabel,
+	                                 int &inOutValue)
+	{
+		BufferedIntEditState &state = s_bufferedIntEdits[BuildBufferedStringEditKey(entity, fieldKey)];
+		if (!state.editing)
+		{
+			state.originalValue = inOutValue;
+			state.buffer = inOutValue;
+		}
+
+		bool committed = false;
+		const bool enterPressed = ImGui::InputInt(inputLabel, &state.buffer, 1, 100, ImGuiInputTextFlags_EnterReturnsTrue);
+		if (ImGui::IsItemActivated())
+		{
+			state.editing = true;
+			state.originalValue = inOutValue;
+			state.buffer = inOutValue;
+		}
+
+		if (state.editing && ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape))
+		{
+			state.buffer = state.originalValue;
+			state.editing = false;
+			return false;
+		}
+
+		if (state.editing && (enterPressed || ImGui::IsItemDeactivatedAfterEdit()))
+		{
+			committed = (inOutValue != state.buffer);
+			inOutValue = state.buffer;
+			state.originalValue = inOutValue;
+			state.editing = false;
+		}
+
+		if (state.editing && ImGui::IsItemDeactivated() && !ImGui::IsItemDeactivatedAfterEdit())
+		{
+			state.buffer = state.originalValue;
+			state.editing = false;
+		}
+
+		return committed;
+	}
+
+	static bool DrawBufferedUint32Input(Entity entity,
+	                                    const char *fieldKey,
+	                                    const char *inputLabel,
+	                                    uint32_t &inOutValue)
+	{
+		BufferedUint32EditState &state = s_bufferedUint32Edits[BuildBufferedStringEditKey(entity, fieldKey)];
+		if (!state.editing)
+		{
+			state.originalValue = inOutValue;
+			state.buffer = inOutValue;
+		}
+
+		bool committed = false;
+		const bool enterPressed = ImGui::InputScalar(inputLabel,
+		                                             ImGuiDataType_U32,
+		                                             &state.buffer,
+		                                             nullptr,
+		                                             nullptr,
+		                                             nullptr,
+		                                             ImGuiInputTextFlags_EnterReturnsTrue);
+		if (ImGui::IsItemActivated())
+		{
+			state.editing = true;
+			state.originalValue = inOutValue;
+			state.buffer = inOutValue;
+		}
+
+		if (state.editing && ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape))
+		{
+			state.buffer = state.originalValue;
+			state.editing = false;
+			return false;
+		}
+
+		if (state.editing && (enterPressed || ImGui::IsItemDeactivatedAfterEdit()))
+		{
+			committed = (inOutValue != state.buffer);
+			inOutValue = state.buffer;
+			state.originalValue = inOutValue;
+			state.editing = false;
+		}
+
+		if (state.editing && ImGui::IsItemDeactivated() && !ImGui::IsItemDeactivatedAfterEdit())
+		{
+			state.buffer = state.originalValue;
+			state.editing = false;
+		}
+
+		return committed;
 	}
 
 	static bool ShouldSnapDraggedValues()
@@ -1395,13 +1507,15 @@ namespace sceneeditor
 		return pressed;
 	}
 
-	static bool DrawInputIntPairHorizontal(const char *leftLabel,
-										   int *leftValue,
-										   const char *rightLabel,
-										   int *rightValue)
+	static bool DrawInputIntPairHorizontal(Entity entity,
+	                                       const char *fieldKey,
+	                                       const char *leftLabel,
+	                                       int *leftValue,
+	                                       const char *rightLabel,
+	                                       int *rightValue)
 	{
 		bool changed = false;
-		ImGui::PushID(leftLabel);
+		ImGui::PushID(fieldKey);
 		if (ImGui::BeginTable("##IntPair", 2, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
 		{
 			ImGui::TableNextRow();
@@ -1409,12 +1523,14 @@ namespace sceneeditor
 			ImGui::TableSetColumnIndex(0);
 			ImGui::TextWrapped("%s", leftLabel);
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-			changed |= ImGui::InputInt("##LeftValue", leftValue);
+			const std::string leftFieldKey = std::format("{}.Left", fieldKey);
+			changed |= DrawBufferedIntInput(entity, leftFieldKey.c_str(), "##LeftValue", *leftValue);
 
 			ImGui::TableSetColumnIndex(1);
 			ImGui::TextWrapped("%s", rightLabel);
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-			changed |= ImGui::InputInt("##RightValue", rightValue);
+			const std::string rightFieldKey = std::format("{}.Right", fieldKey);
+			changed |= DrawBufferedIntInput(entity, rightFieldKey.c_str(), "##RightValue", *rightValue);
 
 			ImGui::EndTable();
 		}
@@ -1448,7 +1564,7 @@ namespace sceneeditor
 		return changed;
 	}
 
-	static bool DrawCollisionMaskEditor(const char *label, const char *hint, uint32_t &mask)
+	static bool DrawCollisionMaskEditor(Entity entity, const char *fieldKey, const char *label, const char *hint, uint32_t &mask)
 	{
 		bool changed = false;
 		ImGui::PushID(label);
@@ -1471,7 +1587,7 @@ namespace sceneeditor
 		}
 
 		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-		changed |= ImGui::InputScalar("Raw Bits", ImGuiDataType_U32, &mask);
+		changed |= DrawBufferedUint32Input(entity, fieldKey, "Raw Bits", mask);
 		ImGui::TextDisabled("Hex: 0x%08X", mask);
 
 		ImGui::PopID();
@@ -1977,8 +2093,8 @@ namespace sceneeditor
 
 		{
 			auto &p = r.Get<Parent>(e);
-			unsigned pid = (p.parent == kInvalidEntity) ? 0u : (unsigned)p.parent;
-			if (ImGui::InputScalar("Parent (id)", ImGuiDataType_U32, &pid))
+			uint32_t pid = (p.parent == kInvalidEntity) ? 0u : static_cast<uint32_t>(p.parent);
+			if (DrawBufferedUint32Input(e, "Parent.Id", "Parent (id)", pid))
 			{
 				const Entity requestedParent = (pid == 0u) ? kInvalidEntity : static_cast<Entity>(pid);
 				if (requestedParent == kInvalidEntity)
@@ -2055,8 +2171,8 @@ namespace sceneeditor
 				s.shader = {};
 			DrawColor4("Tint", &s.tint.x);
 			(void)DragFloat4WithSnap("UV", &s.uv.x, 0.01f);
-			ImGui::InputInt("Layer", &s.layer);
-			ImGui::InputInt("Order In Layer", &s.orderInLayer);
+			(void)DrawBufferedIntInput(e, "UISprite.Layer", "Layer", s.layer);
+			(void)DrawBufferedIntInput(e, "UISprite.OrderInLayer", "Order In Layer", s.orderInLayer);
 			(void)DrawToggleButton("Preserve Aspect", s.preserveAspect);
 		}
 
@@ -2079,8 +2195,8 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Outline Thickness (px)", &t.outlineThicknessPx, 0.1f, 0.0f, 16.0f);
 
 			ImGui::Separator();
-			ImGui::InputInt("Layer", &t.layer);
-			ImGui::InputInt("Order In Layer", &t.orderInLayer);
+			(void)DrawBufferedIntInput(e, "UIText.Layer", "Layer", t.layer);
+			(void)DrawBufferedIntInput(e, "UIText.OrderInLayer", "Order In Layer", t.orderInLayer);
 		}
 
 		if (BeginInspectorComponentSection<UIHorizontalGroup>(r, e, "UIHorizontalGroup", "UIHorizontalGroupCtx"))
@@ -2121,7 +2237,7 @@ namespace sceneeditor
 			int constraint = UIGridConstraintToIndex(g.constraint);
 			if (ImGui::Combo("Constraint", &constraint, "Fixed Columns\0Fixed Rows\0"))
 				g.constraint = UIGridConstraintFromIndex(constraint);
-			ImGui::InputInt("Constraint Count", &g.count);
+			(void)DrawBufferedIntInput(e, "UIGridGroup.ConstraintCount", "Constraint Count", g.count);
 			g.count = std::max(1, g.count);
 			(void)DragFloatWithSnap("Padding Left", &g.padding.left, 0.1f, 0.0f, 10000.0f);
 			(void)DragFloatWithSnap("Padding Right", &g.padding.right, 0.1f, 0.0f, 10000.0f);
@@ -2285,8 +2401,8 @@ namespace sceneeditor
 			}
 			(void)DragFloat4WithSnap("UV", &s.uv.x, 0.01f);
 			DrawColor4("Tint", &s.tint.x);
-			ImGui::InputInt("Layer", &s.layer);
-			ImGui::InputInt("Order In Layer", &s.orderInLayer);
+			(void)DrawBufferedIntInput(e, "Sprite.Layer", "Layer", s.layer);
+			(void)DrawBufferedIntInput(e, "Sprite.OrderInLayer", "Order In Layer", s.orderInLayer);
 		}
 
 		if (BeginInspectorComponentSection<SpriteAnimator>(r, e, "SpriteAnimator", "SpriteAnimatorCtx"))
@@ -2304,17 +2420,17 @@ namespace sceneeditor
 			ImGui::SameLine();
 			(void)DrawToggleButton("Playing", a.playing);
 			ImGui::PopID();
-			ImGui::InputInt("Current Frame", &a.currentFrame);
+			(void)DrawBufferedIntInput(e, "SpriteAnimator.CurrentFrame", "Current Frame", a.currentFrame);
 			a.currentFrame = std::max(0, a.currentFrame);
 			ImGui::Separator();
 			ImGui::TextUnformatted("Grid Fallback");
 			ImGui::PushID("SpriteAnimatorGridFallback");
-			(void)DrawInputIntPairHorizontal("Columns", &a.columns, "Rows", &a.rows);
-			(void)DrawInputIntPairHorizontal("Gap X (px)", &a.gapX, "Gap Y (px)", &a.gapY);
-			(void)DrawInputIntPairHorizontal("Margin X (px)", &a.marginX, "Margin Y (px)", &a.marginY);
-			(void)DrawInputIntPairHorizontal("Start Index X", &a.startIndexX, "Start Index Y", &a.startIndexY);
-			ImGui::InputInt("Frame Count (0=auto)", &a.frameCount);
-			(void)DrawInputIntPairHorizontal("Cell Width (0=auto)", &a.cellWidth, "Cell Height (0=auto)", &a.cellHeight);
+			(void)DrawInputIntPairHorizontal(e, "SpriteAnimator.ColumnsRows", "Columns", &a.columns, "Rows", &a.rows);
+			(void)DrawInputIntPairHorizontal(e, "SpriteAnimator.Gap", "Gap X (px)", &a.gapX, "Gap Y (px)", &a.gapY);
+			(void)DrawInputIntPairHorizontal(e, "SpriteAnimator.Margin", "Margin X (px)", &a.marginX, "Margin Y (px)", &a.marginY);
+			(void)DrawInputIntPairHorizontal(e, "SpriteAnimator.StartIndex", "Start Index X", &a.startIndexX, "Start Index Y", &a.startIndexY);
+			(void)DrawBufferedIntInput(e, "SpriteAnimator.FrameCount", "Frame Count (0=auto)", a.frameCount);
+			(void)DrawInputIntPairHorizontal(e, "SpriteAnimator.CellSize", "Cell Width (0=auto)", &a.cellWidth, "Cell Height (0=auto)", &a.cellHeight);
 			ImGui::PopID();
 			a.columns = std::max(1, a.columns);
 			a.rows = std::max(1, a.rows);
@@ -2340,11 +2456,15 @@ namespace sceneeditor
 
 			(void)DrawToggleButton("Is Trigger", c.isTrigger);
 			ImGui::SeparatorText("Collision Filtering");
-			(void)DrawCollisionMaskEditor("Collision Layer",
+			(void)DrawCollisionMaskEditor(e,
+			                              "Collider2D.CollisionLayer",
+			                              "Collision Layer",
 			                              "Who I am. Objects include this layer in their mask to interact with me.",
 			                              c.collisionLayer);
 			ImGui::Separator();
-			(void)DrawCollisionMaskEditor("Collision Mask",
+			(void)DrawCollisionMaskEditor(e,
+			                              "Collider2D.CollisionMask",
+			                              "Collision Mask",
 			                              "What I collide/detect against. Enables layers this collider interacts with.",
 			                              c.collisionMask);
 			DrawVec2("Offset", &c.offset.x, 0.05f);

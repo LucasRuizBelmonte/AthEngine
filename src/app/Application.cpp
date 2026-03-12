@@ -341,8 +341,6 @@ void Application::Run()
 #pragma endregion
 
 #pragma region Input Handling
-static GLFWcursorposfun g_ImGuiCursorPos = nullptr;
-
 void Application::HandleSceneInput()
 {
 	const InputState &input = Input::GetState();

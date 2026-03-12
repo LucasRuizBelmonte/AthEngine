@@ -3,6 +3,7 @@
 #include "../input/Input.h"
 #include "../platform/GL.h"
 #include "../thirdparty/stb_image.h"
+#include "../utils/AssetPath.h"
 
 #include <imgui.h>
 
@@ -11,30 +12,64 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace editorui::internal
 {
 	namespace
 	{
-		std::string ResolveRuntimeAssetPath(const std::string &rawPath)
+		static constexpr const char *kTexturePickerPopupId = "SpriteSheet Texture Picker";
+
+		struct BufferedIntEditState
 		{
-			if (rawPath.empty())
-				return {};
+			bool editing = false;
+			int originalValue = 0;
+			int buffer = 0;
+		};
 
-			std::filesystem::path path(rawPath);
-			path = path.lexically_normal();
-			if (path.is_absolute())
-				return path.string();
+		static std::unordered_map<std::string, BufferedIntEditState> s_bufferedIntEdits;
 
-			const std::string generic = path.generic_string();
-			const std::filesystem::path assetRoot(ASSET_PATH);
-			const std::filesystem::path projectRoot = assetRoot.parent_path();
+		bool DrawBufferedIntInput(const char *fieldKey, const char *label, int &inOutValue)
+		{
+			BufferedIntEditState &state = s_bufferedIntEdits[fieldKey ? fieldKey : label];
+			if (!state.editing)
+			{
+				state.originalValue = inOutValue;
+				state.buffer = inOutValue;
+			}
 
-			if (generic == "res" || generic.rfind("res/", 0) == 0)
-				return (projectRoot / path).lexically_normal().string();
+			bool committed = false;
+			const bool enterPressed = ImGui::InputInt(label, &state.buffer, 1, 100, ImGuiInputTextFlags_EnterReturnsTrue);
+			if (ImGui::IsItemActivated())
+			{
+				state.editing = true;
+				state.originalValue = inOutValue;
+				state.buffer = inOutValue;
+			}
 
-			return (assetRoot / path).lexically_normal().string();
+			if (state.editing && ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape))
+			{
+				state.buffer = state.originalValue;
+				state.editing = false;
+				return false;
+			}
+
+			if (state.editing && (enterPressed || ImGui::IsItemDeactivatedAfterEdit()))
+			{
+				committed = (inOutValue != state.buffer);
+				inOutValue = state.buffer;
+				state.originalValue = inOutValue;
+				state.editing = false;
+			}
+
+			if (state.editing && ImGui::IsItemDeactivated() && !ImGui::IsItemDeactivatedAfterEdit())
+			{
+				state.buffer = state.originalValue;
+				state.editing = false;
+			}
+
+			return committed;
 		}
 
 		void DestroySpriteSheetPreviewTexture(SpriteSheetGeneratorState &state)
@@ -49,7 +84,7 @@ namespace editorui::internal
 
 		bool LoadSpriteSheetSourceImage(const std::string &inputPath, SpriteSheetSourceImage &outImage, std::string &outError)
 		{
-			const std::string resolvedPath = ResolveRuntimeAssetPath(inputPath);
+			const std::string resolvedPath = AssetPath::ResolveRuntimePath(inputPath);
 			int width = 0;
 			int height = 0;
 			int channels = 0;
@@ -85,13 +120,13 @@ namespace editorui::internal
 			const std::string path = TrimCopy(rawPath);
 			if (path.empty())
 			{
-				outMessage = "Ruta vacia.";
+				outMessage = "Path is empty.";
 				return false;
 			}
 
 			if (!IsSupportedImagePath(path))
 			{
-				outMessage = "Formato no soportado: " + path;
+				outMessage = "Unsupported image format: " + path;
 				return false;
 			}
 
@@ -105,8 +140,67 @@ namespace editorui::internal
 
 			state.sources.push_back(std::move(loaded));
 			++state.dirtyRevision;
-			outMessage = "Sprite anadido: " + path;
+			outMessage = "Sprite added: " + path;
 			return true;
+		}
+
+		void OpenTexturePicker(SpriteSheetGeneratorState &state)
+		{
+			state.texturePickerOpenRequested = true;
+			state.texturePickerFilter[0] = '\0';
+			state.texturePickerSelection = -1;
+		}
+
+		bool DrawTexturePickerPopup(SpriteSheetGeneratorState &state, std::string &outSelectedPath)
+		{
+			bool committed = false;
+			if (state.texturePickerOpenRequested)
+			{
+				state.texturePickerOpenRequested = false;
+				ImGui::OpenPopup(kTexturePickerPopupId);
+			}
+
+			if (!ImGui::BeginPopupModal(kTexturePickerPopupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+				return false;
+
+			ImGui::TextUnformatted("Select texture asset");
+			ImGui::SetNextItemWidth(640.0f);
+			(void)ImGui::InputText("Filter", state.texturePickerFilter, sizeof(state.texturePickerFilter));
+			ImGui::Separator();
+
+			std::string filterLower = ToLowerCopy(std::string(state.texturePickerFilter));
+			ImGui::BeginChild("TextureAssetList", ImVec2(740.f, 320.f), true);
+			for (size_t i = 0; i < state.textureAssetEntries.size(); ++i)
+			{
+				const std::string &entry = state.textureAssetEntries[i];
+				if (!filterLower.empty() && ToLowerCopy(entry).find(filterLower) == std::string::npos)
+					continue;
+
+				const bool selected = (state.texturePickerSelection == static_cast<int>(i));
+				if (ImGui::Selectable(entry.c_str(), selected))
+					state.texturePickerSelection = static_cast<int>(i);
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndChild();
+
+			ImGui::Separator();
+			if (ImGui::Button("Select"))
+			{
+				if (state.texturePickerSelection >= 0 &&
+				    state.texturePickerSelection < static_cast<int>(state.textureAssetEntries.size()))
+				{
+					outSelectedPath = state.textureAssetEntries[static_cast<size_t>(state.texturePickerSelection)];
+					committed = true;
+					ImGui::CloseCurrentPopup();
+				}
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel"))
+				ImGui::CloseCurrentPopup();
+
+			ImGui::EndPopup();
+			return committed;
 		}
 
 		bool TryReadPathFromDropPayload(const ImGuiPayload *payload, std::string &outPath)
@@ -133,7 +227,7 @@ namespace editorui::internal
 
 			if (state.sources.empty())
 			{
-				outError = "No hay sprites en la lista.";
+				outError = "No sprites in the list.";
 				return false;
 			}
 
@@ -151,11 +245,11 @@ namespace editorui::internal
 			const int placedCount = std::min(static_cast<int>(state.sources.size()), capacity);
 			if (placedCount <= 0)
 			{
-				outError = "No hay espacio para colocar sprites con columnas/filas actuales.";
+				outError = "No available cells with the current rows and columns.";
 				return false;
 			}
 			if (static_cast<int>(state.sources.size()) > capacity)
-				outError = "Hay mas sprites que celdas. Se usaran solo los primeros.";
+				outError = "More sprites than available cells. Extra sprites will be ignored.";
 
 			int cellWidth = 1;
 			int cellHeight = 1;
@@ -169,7 +263,7 @@ namespace editorui::internal
 			const int sheetHeight = marginY * 2 + rows * cellHeight + (rows - 1) * gapY;
 			if (sheetWidth <= 0 || sheetHeight <= 0)
 			{
-				outError = "El tamano final del sprite sheet es invalido.";
+				outError = "Computed sprite sheet size is invalid.";
 				return false;
 			}
 
@@ -251,14 +345,14 @@ namespace editorui::internal
 			outError.clear();
 			if (width <= 0 || height <= 0)
 			{
-				outError = "Sprite sheet vacio.";
+				outError = "Sprite sheet is empty.";
 				return false;
 			}
 
 			const size_t pixelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
 			if (rgba.size() < pixelCount * 4u)
 			{
-				outError = "Buffer RGBA incompleto.";
+				outError = "RGBA buffer is incomplete.";
 				return false;
 			}
 
@@ -270,7 +364,7 @@ namespace editorui::internal
 			std::ofstream out(path, std::ios::binary | std::ios::trunc);
 			if (!out)
 			{
-				outError = "No se pudo crear el archivo: " + path;
+				outError = "Could not create output file: " + path;
 				return false;
 			}
 
@@ -299,7 +393,7 @@ namespace editorui::internal
 			out.write(reinterpret_cast<const char *>(bgra.data()), static_cast<std::streamsize>(bgra.size()));
 			if (!out.good())
 			{
-				outError = "Error escribiendo el archivo: " + path;
+				outError = "Failed writing output file: " + path;
 				return false;
 			}
 			return true;
@@ -353,39 +447,23 @@ namespace editorui::internal
 		{
 			const auto &cachedEntries = CollectTextureAssetEntries(true);
 			state.textureAssetEntries.assign(cachedEntries.begin(), cachedEntries.end());
-			if (state.selectedTextureAsset >= static_cast<int>(state.textureAssetEntries.size()))
-				state.selectedTextureAsset = -1;
 		}
 
-		const char *assetPreview = (state.selectedTextureAsset >= 0 &&
-		                            state.selectedTextureAsset < static_cast<int>(state.textureAssetEntries.size()))
-		                           ? state.textureAssetEntries[static_cast<size_t>(state.selectedTextureAsset)].c_str()
-		                           : "Select texture asset...";
-		if (ImGui::BeginCombo("Texture Asset", assetPreview))
-		{
-			for (int i = 0; i < static_cast<int>(state.textureAssetEntries.size()); ++i)
-			{
-				const bool selected = (state.selectedTextureAsset == i);
-				if (ImGui::Selectable(state.textureAssetEntries[static_cast<size_t>(i)].c_str(), selected))
-					state.selectedTextureAsset = i;
-				if (selected)
-					ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
+		ImGui::SameLine();
+		if (ImGui::Button("Open Texture Picker"))
+			OpenTexturePicker(state);
 
-		if (ImGui::Button("Add Selected Asset") &&
-		    state.selectedTextureAsset >= 0 &&
-		    state.selectedTextureAsset < static_cast<int>(state.textureAssetEntries.size()))
+		std::string selectedTexturePath;
+		if (DrawTexturePickerPopup(state, selectedTexturePath))
 		{
-			const std::string selectedPath = state.textureAssetEntries[static_cast<size_t>(state.selectedTextureAsset)];
-			std::string addMessage;
-			(void)TryAddSourceToSpriteSheetGenerator(state, selectedPath, addMessage);
-			state.status = addMessage;
+			std::snprintf(state.spritePathBuf, sizeof(state.spritePathBuf), "%s", selectedTexturePath.c_str());
 		}
 
 		ImGui::Separator();
 		ImGui::InputText("Sprite Path", state.spritePathBuf, sizeof(state.spritePathBuf));
+		ImGui::SameLine();
+		if (ImGui::Button("..."))
+			OpenTexturePicker(state);
 		ImGui::SameLine();
 		if (ImGui::Button("Add Path"))
 		{
@@ -401,7 +479,7 @@ namespace editorui::internal
 		ImGui::Separator();
 		ImGui::TextUnformatted("Drag & Drop");
 		ImGui::BeginChild("##SpriteDropZone", ImVec2(0.0f, 48.0f), true);
-		ImGui::TextUnformatted("Suelta imagenes aqui (png/jpg/jpeg/bmp/tga).");
+		ImGui::TextUnformatted("Drop images here (png/jpg/jpeg/bmp/tga).");
 		ImGui::EndChild();
 
 		bool dropHandled = false;
@@ -460,9 +538,9 @@ namespace editorui::internal
 		{
 			if (dropAddedCount > 0)
 			{
-				state.status = "Sprites anadidos por drag and drop: " + std::to_string(dropAddedCount);
+				state.status = "Sprites added from drag and drop: " + std::to_string(dropAddedCount);
 				if (dropRejectedCount > 0)
-					state.status += " (omitidos: " + std::to_string(dropRejectedCount) + ")";
+					state.status += " (rejected: " + std::to_string(dropRejectedCount) + ")";
 			}
 			else if (!lastDropError.empty())
 			{
@@ -512,13 +590,13 @@ namespace editorui::internal
 		ImGui::Separator();
 		ImGui::TextUnformatted("Layout");
 		bool changed = false;
-		changed |= ImGui::InputInt("Columns", &state.columns);
-		changed |= ImGui::InputInt("Rows", &state.rows);
+		changed |= DrawBufferedIntInput("SpriteSheet.Columns", "Columns", state.columns);
+		changed |= DrawBufferedIntInput("SpriteSheet.Rows", "Rows", state.rows);
 		changed |= ImGui::Checkbox("Auto Expand Rows", &state.autoExpandRows);
-		changed |= ImGui::InputInt("Gap X (px)", &state.gapX);
-		changed |= ImGui::InputInt("Gap Y (px)", &state.gapY);
-		changed |= ImGui::InputInt("Margin X (px)", &state.marginX);
-		changed |= ImGui::InputInt("Margin Y (px)", &state.marginY);
+		changed |= DrawBufferedIntInput("SpriteSheet.GapX", "Gap X (px)", state.gapX);
+		changed |= DrawBufferedIntInput("SpriteSheet.GapY", "Gap Y (px)", state.gapY);
+		changed |= DrawBufferedIntInput("SpriteSheet.MarginX", "Margin X (px)", state.marginX);
+		changed |= DrawBufferedIntInput("SpriteSheet.MarginY", "Margin Y (px)", state.marginY);
 		if (changed)
 		{
 			state.columns = std::max(1, state.columns);
@@ -557,7 +635,7 @@ namespace editorui::internal
 		}
 		else
 		{
-			ImGui::TextUnformatted("Sin preview.");
+			ImGui::TextUnformatted("No preview available.");
 		}
 
 		ImGui::Separator();
@@ -576,7 +654,7 @@ namespace editorui::internal
 				const std::string outputRaw = TrimCopy(state.outputPathBuf);
 				if (outputRaw.empty())
 				{
-					state.status = "Output Path vacio.";
+					state.status = "Output path is empty.";
 				}
 				else
 				{
@@ -589,7 +667,7 @@ namespace editorui::internal
 					if (WriteTgaRgba(output.string(), composite.width, composite.height, composite.rgba, writeError))
 					{
 						std::snprintf(state.outputPathBuf, sizeof(state.outputPathBuf), "%s", output.generic_string().c_str());
-						state.status = "SpriteSheet generado: " + output.generic_string() +
+						state.status = "Sprite sheet generated: " + output.generic_string() +
 						               " | Animator: columns=" + std::to_string(std::max(1, state.columns)) +
 						               ", rows=" + std::to_string(std::max(1, state.rows)) +
 						               ", gapX=" + std::to_string(std::max(0, state.gapX)) +

@@ -4,11 +4,11 @@
 
 #include "../../components/Parent.h"
 #include "../../components/Material.h"
+#include "../../utils/AssetPath.h"
 
 #include <algorithm>
 #include <cctype>
 #include <cmath>
-#include <filesystem>
 #include <glm/gtc/matrix_transform.hpp>
 #pragma endregion
 
@@ -43,25 +43,6 @@ namespace
 		return std::max(0.0f, std::min(1.0f, value));
 	}
 
-	static std::string ResolveRuntimeAssetPath(const std::string &rawPath)
-	{
-		if (rawPath.empty())
-			return {};
-
-		std::filesystem::path path(rawPath);
-		path = path.lexically_normal();
-		if (path.is_absolute())
-			return path.string();
-
-		const std::string generic = path.generic_string();
-		const std::filesystem::path assetRoot(ASSET_PATH);
-		const std::filesystem::path projectRoot = assetRoot.parent_path();
-
-		if (generic == "res" || generic.rfind("res/", 0) == 0)
-			return (projectRoot / path).lexically_normal().string();
-
-		return (assetRoot / path).lexically_normal().string();
-	}
 }
 #pragma endregion
 
@@ -125,15 +106,15 @@ void UIRenderSystem::EnsureResources(ShaderManager &shaderManager, TextureManage
 	if (!m_defaultShader.IsValid())
 	{
 		m_defaultShader = shaderManager.Load("ui_default_unlit2d",
-											 ResolveRuntimeAssetPath("res/shaders/unlit2D.vs"),
-											 ResolveRuntimeAssetPath("res/shaders/unlit2D.fs"));
+											 AssetPath::ResolveRuntimePath("res/shaders/unlit2D.vs"),
+											 AssetPath::ResolveRuntimePath("res/shaders/unlit2D.fs"));
 	}
 
 	if (!m_batchShader.IsValid())
 	{
 		m_batchShader = shaderManager.Load("ui_batch_unlit",
-										   ResolveRuntimeAssetPath("res/shaders/ui_batch.vs"),
-										   ResolveRuntimeAssetPath("res/shaders/ui_batch.fs"));
+										   AssetPath::ResolveRuntimePath("res/shaders/ui_batch.vs"),
+										   AssetPath::ResolveRuntimePath("res/shaders/ui_batch.fs"));
 	}
 
 	if (!m_whiteTexture.IsValid())

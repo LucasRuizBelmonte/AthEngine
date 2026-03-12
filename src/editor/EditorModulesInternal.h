@@ -155,6 +155,13 @@ namespace editorui::internal
 	                                 const glm::mat4 &projection,
 	                                 const ImVec2 &rectMin,
 	                                 const ImVec2 &rectSize);
+	bool DrawPhysicsSelectionOverlayImpl(ImDrawList *drawList,
+	                                    Registry &registry,
+	                                    Entity selected,
+	                                    const glm::mat4 &view,
+	                                    const glm::mat4 &projection,
+	                                    const ImVec2 &rectMin,
+	                                    const ImVec2 &rectSize);
 	void DrawDebugVisualizationLayerImpl(IEditorScene *editorScene,
 	                                     SceneEditorState &se,
 	                                     const ImVec2 &rectMin,

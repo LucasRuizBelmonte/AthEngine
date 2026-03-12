@@ -33,6 +33,8 @@ namespace
 	constexpr float kDefaultRollingResistance = 0.02f;
 	constexpr float kLinearSleepThreshold = 0.0005f;
 	constexpr float kAngularSleepThreshold = 0.0025f;
+	constexpr float kLinearContactJitterThreshold = 0.015f;
+	constexpr float kAngularContactJitterThreshold = 0.01f;
 
 	struct BodyState
 	{
@@ -66,6 +68,7 @@ namespace
 	thread_local std::vector<BroadphaseProxy> g_broadphaseProxyScratch;
 	thread_local std::vector<std::pair<size_t, size_t>> g_pairScratch;
 	thread_local std::vector<ContactManifold> g_manifoldScratch;
+	thread_local std::vector<uint8_t> g_contactFlagScratch;
 
 	static bool IsPhysicsEnabled(Registry &registry, Entity entity)
 	{
@@ -118,6 +121,23 @@ namespace
 		if (!rigidBody.freezeAngularVelocityY && std::abs(rigidBody.angularVelocity.y) < kAngularSleepThreshold)
 			rigidBody.angularVelocity.y = 0.f;
 		if (!rigidBody.freezeAngularVelocityZ && std::abs(rigidBody.angularVelocity.z) < kAngularSleepThreshold)
+			rigidBody.angularVelocity.z = 0.f;
+	}
+
+	static void SnapNearZeroContactVelocities(RigidBody2D &rigidBody)
+	{
+		if (!rigidBody.freezeVelocityX && std::abs(rigidBody.velocity.x) < kLinearContactJitterThreshold)
+			rigidBody.velocity.x = 0.f;
+		if (!rigidBody.freezeVelocityY && std::abs(rigidBody.velocity.y) < kLinearContactJitterThreshold)
+			rigidBody.velocity.y = 0.f;
+		if (!rigidBody.freezeVelocityZ && std::abs(rigidBody.velocity.z) < kLinearContactJitterThreshold)
+			rigidBody.velocity.z = 0.f;
+
+		if (!rigidBody.freezeAngularVelocityX && std::abs(rigidBody.angularVelocity.x) < kAngularContactJitterThreshold)
+			rigidBody.angularVelocity.x = 0.f;
+		if (!rigidBody.freezeAngularVelocityY && std::abs(rigidBody.angularVelocity.y) < kAngularContactJitterThreshold)
+			rigidBody.angularVelocity.y = 0.f;
+		if (!rigidBody.freezeAngularVelocityZ && std::abs(rigidBody.angularVelocity.z) < kAngularContactJitterThreshold)
 			rigidBody.angularVelocity.z = 0.f;
 	}
 
@@ -610,6 +630,8 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 	std::vector<ContactManifold> &manifolds = g_manifoldScratch;
 	manifolds.clear();
 	manifolds.reserve(broadphasePairs.size());
+	std::vector<uint8_t> &hasContact = g_contactFlagScratch;
+	hasContact.assign(bodies.size(), 0u);
 
 	for (const auto &pair : broadphasePairs)
 	{
@@ -640,7 +662,11 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 		pairState.penetration = contact.penetration;
 
 		if (!key.trigger)
+		{
 			manifolds.push_back(ContactManifold{pair.first, pair.second, contact});
+			hasContact[pair.first] = 1u;
+			hasContact[pair.second] = 1u;
+		}
 	}
 
 	for (int i = 0; i < kVelocitySolverIterations; ++i)
@@ -655,11 +681,14 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 			CorrectContactPosition(manifold, bodies);
 	}
 
-	for (BodyState &body : bodies)
+	for (size_t bodyIndex = 0; bodyIndex < bodies.size(); ++bodyIndex)
 	{
+		BodyState &body = bodies[bodyIndex];
 		if (body.rigidBody)
 		{
 			EnforceVelocityConstraints(*body.rigidBody);
+			if (hasContact[bodyIndex] != 0u)
+				SnapNearZeroContactVelocities(*body.rigidBody);
 			SnapNearZeroVelocities(*body.rigidBody);
 		}
 	}

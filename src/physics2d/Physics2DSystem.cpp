@@ -41,6 +41,7 @@ namespace
 		Collider2D *collider = nullptr;
 		RigidBody2D *rigidBody = nullptr;
 		Physics2DAlgorithms::WorldShape2D shape;
+		float broadphaseRadius = 0.f;
 		float invMass = 0.f;
 		float invInertiaZ = 0.f;
 	};
@@ -51,6 +52,20 @@ namespace
 		size_t indexB = 0u;
 		Physics2DAlgorithms::Contact2D contact;
 	};
+
+	struct BroadphaseProxy
+	{
+		size_t bodyIndex = 0u;
+		float minX = 0.f;
+		float maxX = 0.f;
+		float minY = 0.f;
+		float maxY = 0.f;
+	};
+
+	thread_local std::vector<BodyState> g_bodyScratch;
+	thread_local std::vector<BroadphaseProxy> g_broadphaseProxyScratch;
+	thread_local std::vector<std::pair<size_t, size_t>> g_pairScratch;
+	thread_local std::vector<ContactManifold> g_manifoldScratch;
 
 	static bool IsPhysicsEnabled(Registry &registry, Entity entity)
 	{
@@ -162,6 +177,9 @@ namespace
 		if (!body.transform || !body.collider)
 			return;
 		body.shape = Physics2DAlgorithms::BuildWorldShape(*body.transform, *body.collider);
+		body.broadphaseRadius = (body.shape.shape == Collider2D::Shape::Circle)
+			                        ? body.shape.radius
+			                        : glm::length(body.shape.halfExtents);
 		body.invMass = ComputeInverseMass(body);
 		body.invInertiaZ = ComputeInverseInertiaZ(body);
 	}
@@ -257,27 +275,61 @@ namespace
 									 std::vector<std::pair<size_t, size_t>> &outPairs)
 	{
 		outPairs.clear();
-		const size_t count = bodies.size();
-		outPairs.reserve(count > 1u ? (count * (count - 1u)) / 2u : 0u);
-		for (size_t i = 0; i < count; ++i)
+
+		std::vector<BroadphaseProxy> &proxies = g_broadphaseProxyScratch;
+		proxies.clear();
+		proxies.reserve(bodies.size());
+
+		for (size_t i = 0; i < bodies.size(); ++i)
 		{
-			for (size_t j = i + 1u; j < count; ++j)
-				outPairs.emplace_back(i, j);
+			const Physics2DAlgorithms::WorldShape2D &shape = bodies[i].shape;
+			glm::vec2 extents(0.f, 0.f);
+			if (shape.shape == Collider2D::Shape::Circle)
+			{
+				extents = glm::vec2(shape.radius, shape.radius);
+			}
+			else
+			{
+				extents = glm::abs(shape.axisX) * shape.halfExtents.x +
+						  glm::abs(shape.axisY) * shape.halfExtents.y;
+			}
+
+			proxies.push_back(BroadphaseProxy{
+				i,
+				shape.center.x - extents.x,
+				shape.center.x + extents.x,
+				shape.center.y - extents.y,
+				shape.center.y + extents.y});
 		}
-	}
 
-	static float ComputeBroadphaseRadius(const Physics2DAlgorithms::WorldShape2D &shape)
-	{
-		if (shape.shape == Collider2D::Shape::Circle)
-			return shape.radius;
-		return glm::length(shape.halfExtents);
-	}
+		std::sort(proxies.begin(), proxies.end(), [](const BroadphaseProxy &a, const BroadphaseProxy &b)
+		          { return a.minX < b.minX; });
 
-	static bool PassesBroadphaseTest(const BodyState &a, const BodyState &b)
-	{
-		const glm::vec2 delta = b.shape.center - a.shape.center;
-		const float radiusSum = ComputeBroadphaseRadius(a.shape) + ComputeBroadphaseRadius(b.shape);
-		return glm::dot(delta, delta) <= radiusSum * radiusSum;
+		outPairs.reserve(proxies.size() * 2u);
+		for (size_t i = 0; i < proxies.size(); ++i)
+		{
+			const BroadphaseProxy &a = proxies[i];
+			for (size_t j = i + 1u; j < proxies.size(); ++j)
+			{
+				const BroadphaseProxy &b = proxies[j];
+				if (b.minX > a.maxX)
+					break;
+				if (b.maxY < a.minY || b.minY > a.maxY)
+					continue;
+
+				const BodyState &bodyA = bodies[a.bodyIndex];
+				const BodyState &bodyB = bodies[b.bodyIndex];
+				const glm::vec2 delta = bodyB.shape.center - bodyA.shape.center;
+				const float radiusSum = bodyA.broadphaseRadius + bodyB.broadphaseRadius;
+				if (glm::dot(delta, delta) > radiusSum * radiusSum)
+					continue;
+
+				if (a.bodyIndex < b.bodyIndex)
+					outPairs.emplace_back(a.bodyIndex, b.bodyIndex);
+				else
+					outPairs.emplace_back(b.bodyIndex, a.bodyIndex);
+			}
+		}
 	}
 
 	static float ComputeEffectiveRadius(const BodyState &body)
@@ -467,6 +519,11 @@ glm::vec2 Physics2DSystem::GetGravity() const
 	return m_gravity;
 }
 
+const Physics2DSystem::StepStats &Physics2DSystem::GetLastStepStats() const
+{
+	return m_lastStepStats;
+}
+
 void Physics2DSystem::EmitEvents(events::SceneEventBus &eventBus)
 {
 	for (const auto &kv : m_currentPairs)
@@ -536,31 +593,36 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 {
 	eventBus.Clear<events::PhysicsCollisionEvent2D>();
 	eventBus.Clear<events::PhysicsTriggerEvent2D>();
+	m_previousPairs.swap(m_currentPairs);
 	m_currentPairs.clear();
+	m_lastStepStats = {};
 
 	IntegrateDynamicBodies(registry, fixedDt, m_gravity, m_dynamicEntities);
 
-	std::vector<BodyState> bodies;
+	std::vector<BodyState> &bodies = g_bodyScratch;
 	BuildBodyStates(registry, m_colliderEntities, bodies);
+	m_lastStepStats.bodyCount = bodies.size();
 
-	std::vector<std::pair<size_t, size_t>> broadphasePairs;
+	std::vector<std::pair<size_t, size_t>> &broadphasePairs = g_pairScratch;
 	BuildBroadphasePairs(bodies, broadphasePairs);
+	m_lastStepStats.broadphasePairCount = broadphasePairs.size();
 
-	std::vector<ContactManifold> manifolds;
+	std::vector<ContactManifold> &manifolds = g_manifoldScratch;
+	manifolds.clear();
 	manifolds.reserve(broadphasePairs.size());
 
 	for (const auto &pair : broadphasePairs)
 	{
 		BodyState &a = bodies[pair.first];
 		BodyState &b = bodies[pair.second];
-		if (!PassesBroadphaseTest(a, b))
-			continue;
 		if (!Physics2DAlgorithms::ShouldCollide(*a.collider, *b.collider))
 			continue;
+		++m_lastStepStats.narrowphasePairCount;
 
 		Physics2DAlgorithms::Contact2D contact;
 		if (!Physics2DAlgorithms::TestOverlap(a.shape, b.shape, contact))
 			continue;
+		++m_lastStepStats.contactCount;
 
 		glm::vec2 pairNormal = contact.normal;
 		CollisionPairKey key;
@@ -600,10 +662,8 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 			EnforceVelocityConstraints(*body.rigidBody);
 			SnapNearZeroVelocities(*body.rigidBody);
 		}
-		RefreshBodyShapeAndMassProps(body);
 	}
 
 	EmitEvents(eventBus);
-	m_previousPairs = m_currentPairs;
 }
 #pragma endregion

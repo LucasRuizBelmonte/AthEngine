@@ -111,33 +111,43 @@ void Render2DSystem::Render(Registry &registry,
         const auto& tb = registry.Get<Transform>(b);
         return ta.worldMatrix[3][2] < tb.worldMatrix[3][2]; });
 
+	Material materialScratch;
+	materialScratch.parameters.reserve(8u);
+	std::string cachedShaderPath;
+	const ShaderMaterialMetadata *cachedMetadata = nullptr;
+
 	for (Entity e : m_items)
 	{
 		const auto &t = registry.Get<Transform>(e);
 		const auto &s = registry.Get<Sprite>(e);
 
-		Material m;
-		m.shader = s.shader;
-		m.shaderPath = s.materialPath;
-		SyncMaterialParametersWithMetadata(m, GetShaderMaterialMetadata(m.shaderPath));
+		materialScratch.shader = s.shader;
+		if (materialScratch.shaderPath != s.materialPath)
+			materialScratch.shaderPath = s.materialPath;
+		if (!cachedMetadata || cachedShaderPath != materialScratch.shaderPath)
+		{
+			cachedShaderPath = materialScratch.shaderPath;
+			cachedMetadata = &GetShaderMaterialMetadata(cachedShaderPath);
+		}
+		SyncMaterialParametersWithMetadata(materialScratch, *cachedMetadata);
 
-		auto tintIt = m.parameters.find("u_tint");
-		if (tintIt != m.parameters.end() && tintIt->second.type == MaterialParameterType::Vec4)
+		auto tintIt = materialScratch.parameters.find("u_tint");
+		if (tintIt != materialScratch.parameters.end() && tintIt->second.type == MaterialParameterType::Vec4)
 			tintIt->second.numericValue = s.tint;
 
-		auto texIt = m.parameters.find("u_texBaseColor");
-		if (texIt != m.parameters.end() && texIt->second.type == MaterialParameterType::Texture2D)
+		auto texIt = materialScratch.parameters.find("u_texBaseColor");
+		if (texIt != materialScratch.parameters.end() && texIt->second.type == MaterialParameterType::Texture2D)
 		{
 			texIt->second.texturePath = s.texturePath;
 			texIt->second.texture = s.texture;
 		}
 
-		auto uvIt = m.parameters.find("u_uvRect");
-		if (uvIt != m.parameters.end() && uvIt->second.type == MaterialParameterType::Vec4)
+		auto uvIt = materialScratch.parameters.find("u_uvRect");
+		if (uvIt != materialScratch.parameters.end() && uvIt->second.type == MaterialParameterType::Vec4)
 			uvIt->second.numericValue = s.uv;
 
 		const glm::mat4 model = BuildSpriteModel(t, s, halfW, halfH);
-		renderer.SubmitMesh(quadMeshId, m, model);
+		renderer.SubmitMesh(quadMeshId, materialScratch, model);
 	}
 
 	glDisable(GL_BLEND);

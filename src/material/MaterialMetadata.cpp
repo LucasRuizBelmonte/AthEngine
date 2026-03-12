@@ -407,19 +407,31 @@ const ShaderMaterialMetadata &GetShaderMaterialMetadata(const std::string &shade
 
 void SyncMaterialParametersWithMetadata(Material &material, const ShaderMaterialMetadata &metadata)
 {
-	std::unordered_map<std::string, MaterialParameter> synced;
-	synced.reserve(metadata.parameters.size());
+	for (auto it = material.parameters.begin(); it != material.parameters.end();)
+	{
+		const MaterialParameterMetadata *desc = metadata.FindParameter(it->first);
+		if (!desc || it->second.type != desc->type)
+		{
+			it = material.parameters.erase(it);
+			continue;
+		}
+
+		if (desc->type != MaterialParameterType::Texture2D)
+		{
+			it->second.texturePath.clear();
+			it->second.texture = {0};
+		}
+		++it;
+	}
+
+	if (material.parameters.bucket_count() < metadata.parameters.size())
+		material.parameters.reserve(metadata.parameters.size());
 
 	for (const MaterialParameterMetadata &desc : metadata.parameters)
 	{
-		MaterialParameter value;
-
-		auto it = material.parameters.find(desc.name);
-		if (it != material.parameters.end() && it->second.type == desc.type)
-		{
-			value = it->second;
-		}
-		else
+		auto [it, inserted] = material.parameters.try_emplace(desc.name);
+		MaterialParameter &value = it->second;
+		if (inserted)
 		{
 			value.type = desc.type;
 			value.numericValue = desc.defaultNumeric;
@@ -432,10 +444,6 @@ void SyncMaterialParametersWithMetadata(Material &material, const ShaderMaterial
 			value.texturePath.clear();
 			value.texture = {0};
 		}
-
-		synced.emplace(desc.name, std::move(value));
 	}
-
-	material.parameters = std::move(synced);
 }
 #pragma endregion

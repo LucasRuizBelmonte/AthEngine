@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <format>
 #include <type_traits>
@@ -56,6 +57,7 @@ namespace sceneeditor
 		Entity entity = kInvalidEntity;
 		std::string fieldKey;
 		std::vector<std::string> entries;
+		std::vector<std::string> entriesLower;
 		char filter[128] = {};
 		int selection = -1;
 
@@ -529,16 +531,35 @@ namespace sceneeditor
 
 	static std::vector<std::string> CollectAssetPickerEntries(AssetPickerType type)
 	{
-		std::vector<std::string> paths;
 		if (type == AssetPickerType::None)
-			return paths;
+			return {};
 
+		struct CacheByType
+		{
+			std::vector<std::string> entries;
+			std::chrono::steady_clock::time_point lastRefresh{};
+			bool valid = false;
+		};
+
+		static std::unordered_map<AssetPickerType, CacheByType> s_cache;
+		CacheByType &cache = s_cache[type];
+		const auto now = std::chrono::steady_clock::now();
+		constexpr auto kCacheTtl = std::chrono::milliseconds(1000);
+		const bool cacheFresh = cache.valid && ((now - cache.lastRefresh) < kCacheTtl);
+		if (cacheFresh)
+			return cache.entries;
+
+		std::vector<std::string> paths;
 		std::error_code ec;
 		const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
 		const std::filesystem::path projectRoot = assetRoot.parent_path();
-
 		if (!std::filesystem::exists(assetRoot, ec))
-			return paths;
+		{
+			cache.entries.clear();
+			cache.lastRefresh = now;
+			cache.valid = true;
+			return cache.entries;
+		}
 
 		std::filesystem::recursive_directory_iterator it(assetRoot, std::filesystem::directory_options::skip_permission_denied, ec);
 		const std::filesystem::recursive_directory_iterator end;
@@ -572,7 +593,10 @@ namespace sceneeditor
 		}
 
 		std::sort(paths.begin(), paths.end());
-		return paths;
+		cache.entries = std::move(paths);
+		cache.lastRefresh = now;
+		cache.valid = true;
+		return cache.entries;
 	}
 
 	static void RequestAssetPicker(AssetPickerRuntime &picker,
@@ -586,6 +610,10 @@ namespace sceneeditor
 		picker.fieldKey = fieldKey ? fieldKey : "";
 		picker.type = type;
 		picker.entries = CollectAssetPickerEntries(type);
+		picker.entriesLower.clear();
+		picker.entriesLower.reserve(picker.entries.size());
+		for (const std::string &entry : picker.entries)
+			picker.entriesLower.push_back(ToLowerCopy(entry));
 		picker.filter[0] = '\0';
 		picker.selection = -1;
 
@@ -678,8 +706,7 @@ namespace sceneeditor
 			const std::string &path = picker.entries[(size_t)i];
 			if (!filter.empty())
 			{
-				const std::string lowerPath = ToLowerCopy(path);
-				if (lowerPath.find(filter) == std::string::npos)
+				if (picker.entriesLower[(size_t)i].find(filter) == std::string::npos)
 					continue;
 			}
 

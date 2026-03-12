@@ -14,6 +14,7 @@
 #include "../../ui/BitmapFont.h"
 
 #include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 #pragma endregion
@@ -99,7 +100,7 @@ private:
 	                        const UITransform &transform,
 	                        const UIText &text,
 	                        const ui::BitmapFont &font,
-	                        const std::string &line,
+	                        std::string_view line,
 	                        float originX,
 	                        float originY,
 	                        const ScissorState &scissor);
@@ -125,5 +126,7 @@ private:
 	bool m_hasPendingBatch = false;
 	glm::mat4 m_batchView{1.0f};
 	glm::mat4 m_batchProj{1.0f};
+	std::vector<std::string_view> m_textInputLineViews;
+	std::vector<std::string_view> m_textWrappedLineViews;
 };
 #pragma endregion

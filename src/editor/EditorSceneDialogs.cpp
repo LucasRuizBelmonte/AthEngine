@@ -13,10 +13,12 @@ namespace editorui::internal
 	void DrawSceneFilePopupsImpl(SceneManager &scenes, EditorUIState &ui)
 	{
 		static std::vector<std::string> saveSceneEntries;
+		static std::vector<std::string> saveSceneEntriesLower;
 		static char saveSceneFilter[128] = {};
 		static int saveSceneSelection = -1;
 		static bool refreshSaveSceneList = false;
 		static std::vector<std::string> openSceneEntries;
+		static std::vector<std::string> openSceneEntriesLower;
 		static char openSceneFilter[128] = {};
 		static int openSceneSelection = -1;
 		static bool refreshOpenSceneList = false;
@@ -47,7 +49,12 @@ namespace editorui::internal
 		{
 			if (refreshSaveSceneList)
 			{
-				saveSceneEntries = CollectSceneAssetEntries();
+				const auto &cached = CollectSceneAssetEntries(true);
+				saveSceneEntries.assign(cached.begin(), cached.end());
+				saveSceneEntriesLower.clear();
+				saveSceneEntriesLower.reserve(saveSceneEntries.size());
+				for (const std::string &entry : saveSceneEntries)
+					saveSceneEntriesLower.push_back(ToLowerCopy(entry));
 				saveSceneFilter[0] = '\0';
 				saveSceneSelection = -1;
 				const std::string current = ui.savePathBuf;
@@ -76,8 +83,7 @@ namespace editorui::internal
 				const std::string &path = saveSceneEntries[static_cast<size_t>(i)];
 				if (!filter.empty())
 				{
-					const std::string lower = ToLowerCopy(path);
-					if (lower.find(filter) == std::string::npos)
+					if (saveSceneEntriesLower[static_cast<size_t>(i)].find(filter) == std::string::npos)
 						continue;
 				}
 
@@ -110,7 +116,12 @@ namespace editorui::internal
 		{
 			if (refreshOpenSceneList)
 			{
-				openSceneEntries = CollectSceneAssetEntries();
+				const auto &cached = CollectSceneAssetEntries(true);
+				openSceneEntries.assign(cached.begin(), cached.end());
+				openSceneEntriesLower.clear();
+				openSceneEntriesLower.reserve(openSceneEntries.size());
+				for (const std::string &entry : openSceneEntries)
+					openSceneEntriesLower.push_back(ToLowerCopy(entry));
 				openSceneFilter[0] = '\0';
 				openSceneSelection = -1;
 				const std::string current = ui.openPathBuf;
@@ -139,8 +150,7 @@ namespace editorui::internal
 				const std::string &path = openSceneEntries[static_cast<size_t>(i)];
 				if (!filter.empty())
 				{
-					const std::string lower = ToLowerCopy(path);
-					if (lower.find(filter) == std::string::npos)
+					if (openSceneEntriesLower[static_cast<size_t>(i)].find(filter) == std::string::npos)
 						continue;
 				}
 

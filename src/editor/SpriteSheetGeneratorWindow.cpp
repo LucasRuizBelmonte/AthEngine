@@ -338,7 +338,10 @@ namespace editorui::internal
 			return;
 
 		if (state.textureAssetEntries.empty())
-			state.textureAssetEntries = CollectTextureAssetEntries();
+		{
+			const auto &cachedEntries = CollectTextureAssetEntries();
+			state.textureAssetEntries.assign(cachedEntries.begin(), cachedEntries.end());
+		}
 
 		if (!ImGui::Begin("SpriteSheet Generator", &state.open))
 		{
@@ -348,7 +351,8 @@ namespace editorui::internal
 
 		if (ImGui::Button("Refresh Texture Assets"))
 		{
-			state.textureAssetEntries = CollectTextureAssetEntries();
+			const auto &cachedEntries = CollectTextureAssetEntries(true);
+			state.textureAssetEntries.assign(cachedEntries.begin(), cachedEntries.end());
 			if (state.selectedTextureAsset >= static_cast<int>(state.textureAssetEntries.size()))
 				state.selectedTextureAsset = -1;
 		}

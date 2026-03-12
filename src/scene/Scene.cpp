@@ -192,7 +192,6 @@ void Scene::FixedUpdate(float fixedDt)
 
 	m_transformSystem.Update(m_registry);
 	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
-	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 }
 
 void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)

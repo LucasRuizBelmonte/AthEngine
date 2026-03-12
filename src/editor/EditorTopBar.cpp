@@ -440,7 +440,7 @@ namespace editorui::internal
 				}
 				else
 				{
-					const std::vector<BasicShapeEntry> shapes = CollectBasicShapeEntries();
+					const std::vector<BasicShapeEntry> &shapes = CollectBasicShapeEntries();
 					if (shapes.empty())
 					{
 						ImGui::MenuItem("No models found in res/models/basicShapes", nullptr, false, false);

@@ -137,9 +137,9 @@ namespace editorui::internal
 
 	std::string TrimCopy(std::string text);
 	std::string ToLowerCopy(std::string text);
-	std::vector<std::string> CollectSceneAssetEntries();
-	std::vector<BasicShapeEntry> CollectBasicShapeEntries();
-	std::vector<std::string> CollectTextureAssetEntries();
+	const std::vector<std::string> &CollectSceneAssetEntries(bool forceRefresh = false);
+	const std::vector<BasicShapeEntry> &CollectBasicShapeEntries(bool forceRefresh = false);
+	const std::vector<std::string> &CollectTextureAssetEntries(bool forceRefresh = false);
 
 	void DrawDockSpaceImpl(EditorUIState &state);
 	void DrawSceneFilePopupsImpl(SceneManager &scenes, EditorUIState &ui);

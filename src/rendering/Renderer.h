@@ -148,6 +148,7 @@ private:
 	TextureManager &m_textureManager;
 	glm::mat4 m_view{};
 	glm::mat4 m_proj{};
+	glm::vec3 m_viewPosition{0.0f, 0.0f, 0.0f};
 	std::vector<LightData> m_lights;
 	std::vector<GpuMesh> m_gpuMeshes;
 	std::unordered_map<std::string, uint32_t> m_meshCacheByKey;

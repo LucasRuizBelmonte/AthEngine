@@ -405,44 +405,43 @@ void UIRenderSystem::RenderTextEntity(Registry &registry,
 	const float lineHeight = static_cast<float>(font->glyphHeight + 1) * pixelSize;
 	const float rectWidth = UIRectSize(transform.worldRect).x;
 
-	std::vector<std::string> inputLines;
+	m_textInputLineViews.clear();
+	m_textWrappedLineViews.clear();
+	m_textInputLineViews.reserve(8u);
+	m_textWrappedLineViews.reserve(8u);
+
+	const std::string_view fullText(text.text);
+	size_t lineStart = 0u;
+	for (size_t pos = 0u; pos <= fullText.size(); ++pos)
 	{
-		std::string current;
-		for (char c : text.text)
-		{
-			if (c == '\n')
-			{
-				inputLines.push_back(current);
-				current.clear();
-				continue;
-			}
-			current.push_back(c);
-		}
-		inputLines.push_back(current);
+		if (pos != fullText.size() && fullText[pos] != '\n')
+			continue;
+
+		m_textInputLineViews.push_back(fullText.substr(lineStart, pos - lineStart));
+		lineStart = pos + 1u;
 	}
 
-	std::vector<std::string> lines;
 	if (!text.wrap || advancePx <= 0.0f || rectWidth <= 0.0f)
 	{
-		lines = inputLines;
+		m_textWrappedLineViews = m_textInputLineViews;
 	}
 	else
 	{
 		const int maxChars = std::max(1, static_cast<int>(std::floor(rectWidth / advancePx)));
-		for (const std::string &raw : inputLines)
+		for (std::string_view raw : m_textInputLineViews)
 		{
 			if (raw.empty())
 			{
-				lines.emplace_back();
+				m_textWrappedLineViews.emplace_back();
 				continue;
 			}
 
-			std::string remaining = raw;
+			std::string_view remaining = raw;
 			while (!remaining.empty())
 			{
 				if (static_cast<int>(remaining.size()) <= maxChars)
 				{
-					lines.push_back(remaining);
+					m_textWrappedLineViews.push_back(remaining);
 					break;
 				}
 
@@ -450,16 +449,19 @@ void UIRenderSystem::RenderTextEntity(Registry &registry,
 				if (split == std::string::npos || split == 0u)
 					split = static_cast<size_t>(maxChars);
 
-				lines.push_back(remaining.substr(0u, split));
-				remaining = remaining.substr(std::min(split + 1u, remaining.size()));
+				m_textWrappedLineViews.push_back(remaining.substr(0u, split));
+				size_t next = std::min(split + 1u, remaining.size());
+				while (next < remaining.size() && remaining[next] == ' ')
+					++next;
+				remaining = remaining.substr(next);
 			}
 		}
 	}
 
-	for (size_t i = 0; i < lines.size(); ++i)
+	for (size_t i = 0; i < m_textWrappedLineViews.size(); ++i)
 	{
-		const std::string &line = lines[i];
-		const float lineWidth = static_cast<float>(line.size()) * advancePx;
+		const std::string_view lineView = m_textWrappedLineViews[i];
+		const float lineWidth = static_cast<float>(lineView.size()) * advancePx;
 
 		float x = transform.worldRect.min.x;
 		switch (text.alignment)
@@ -477,7 +479,7 @@ void UIRenderSystem::RenderTextEntity(Registry &registry,
 		}
 
 		const float y = transform.worldRect.min.y + static_cast<float>(i) * lineHeight;
-		DrawTextLineGlyphs(renderer, quadMeshId, transform, text, *font, line, x, y, scissor);
+		DrawTextLineGlyphs(renderer, quadMeshId, transform, text, *font, lineView, x, y, scissor);
 	}
 }
 
@@ -712,7 +714,7 @@ void UIRenderSystem::DrawTextLineGlyphs(Renderer &renderer,
 										const UITransform &,
 										const UIText &text,
 										const ui::BitmapFont &font,
-										const std::string &line,
+										std::string_view line,
 										float originX,
 										float originY,
 										const ScissorState &scissor)

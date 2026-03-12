@@ -11,6 +11,7 @@
 #include "../material/MaterialMetadata.h"
 
 #include <glm/gtc/matrix_inverse.hpp>
+#include <array>
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
@@ -63,6 +64,40 @@ namespace
 			return {};
 		return "u_has" + suffix + "Tex";
 	}
+
+	struct LightUniformNames
+	{
+		std::array<std::string, Renderer::MAX_LIGHTS> type{};
+		std::array<std::string, Renderer::MAX_LIGHTS> position{};
+		std::array<std::string, Renderer::MAX_LIGHTS> direction{};
+		std::array<std::string, Renderer::MAX_LIGHTS> color{};
+		std::array<std::string, Renderer::MAX_LIGHTS> intensity{};
+		std::array<std::string, Renderer::MAX_LIGHTS> range{};
+		std::array<std::string, Renderer::MAX_LIGHTS> innerCone{};
+		std::array<std::string, Renderer::MAX_LIGHTS> outerCone{};
+	};
+
+	static const LightUniformNames &GetLightUniformNames()
+	{
+		static const LightUniformNames names = []()
+		{
+			LightUniformNames out;
+			for (int i = 0; i < Renderer::MAX_LIGHTS; ++i)
+			{
+				const std::string prefix = "lights[" + std::to_string(i) + "]";
+				out.type[i] = prefix + ".type";
+				out.position[i] = prefix + ".position";
+				out.direction[i] = prefix + ".direction";
+				out.color[i] = prefix + ".color";
+				out.intensity[i] = prefix + ".intensity";
+				out.range[i] = prefix + ".range";
+				out.innerCone[i] = prefix + ".innerCone";
+				out.outerCone[i] = prefix + ".outerCone";
+			}
+			return out;
+		}();
+		return names;
+	}
 }
 #pragma endregion
 
@@ -99,6 +134,8 @@ void Renderer::SetCamera(const glm::mat4 &view, const glm::mat4 &proj)
 {
 	m_view = view;
 	m_proj = proj;
+	const glm::mat4 invView = glm::inverse(view);
+	m_viewPosition = glm::vec3(invView[3]);
 }
 
 void Renderer::SetLights(const std::vector<LightData> &lights)
@@ -263,28 +300,25 @@ void Renderer::SubmitMesh(uint32_t meshId,
 	shader->SetUniform("u_model", model);
 	shader->SetUniform("u_view", m_view);
 	shader->SetUniform("u_proj", m_proj);
-
-	const glm::mat4 invView = glm::inverse(m_view);
-	const glm::vec3 viewPos = glm::vec3(invView[3]);
-	shader->SetUniform("u_viewPos", viewPos);
+	shader->SetUniform("u_viewPos", m_viewPosition);
 	if (!m_lights.empty())
 		shader->SetUniform("u_lightDir", m_lights[0].direction);
 	else
 		shader->SetUniform("u_lightDir", glm::normalize(glm::vec3(-0.4f, -1.0f, -0.25f)));
 
 	shader->SetUniform("lightCount", static_cast<int>(m_lights.size()));
+	const LightUniformNames &lightUniformNames = GetLightUniformNames();
 	for (size_t i = 0; i < m_lights.size(); ++i)
 	{
 		const LightData &l = m_lights[i];
-		const std::string prefix = "lights[" + std::to_string(i) + "]";
-		shader->SetUniform(prefix + ".type", l.type);
-		shader->SetUniform(prefix + ".position", l.position);
-		shader->SetUniform(prefix + ".direction", l.direction);
-		shader->SetUniform(prefix + ".color", l.color);
-		shader->SetUniform(prefix + ".intensity", l.intensity);
-		shader->SetUniform(prefix + ".range", l.range);
-		shader->SetUniform(prefix + ".innerCone", l.innerCone);
-		shader->SetUniform(prefix + ".outerCone", l.outerCone);
+		shader->SetUniform(lightUniformNames.type[i], l.type);
+		shader->SetUniform(lightUniformNames.position[i], l.position);
+		shader->SetUniform(lightUniformNames.direction[i], l.direction);
+		shader->SetUniform(lightUniformNames.color[i], l.color);
+		shader->SetUniform(lightUniformNames.intensity[i], l.intensity);
+		shader->SetUniform(lightUniformNames.range[i], l.range);
+		shader->SetUniform(lightUniformNames.innerCone[i], l.innerCone);
+		shader->SetUniform(lightUniformNames.outerCone[i], l.outerCone);
 	}
 
 	std::string shaderPath = material.shaderPath;
@@ -317,8 +351,9 @@ void Renderer::SubmitMesh(uint32_t meshId,
 		return bound;
 	};
 
-	std::vector<GLenum> usedTextureUnits;
-	usedTextureUnits.reserve(8);
+	constexpr size_t kMaxTrackedTextureUnits = 32u;
+	std::array<GLenum, kMaxTrackedTextureUnits> usedTextureUnits{};
+	size_t usedTextureUnitCount = 0u;
 
 	int samplerUnit = 0;
 	for (const MaterialParameterMetadata &desc : metadata.parameters)
@@ -366,8 +401,8 @@ void Renderer::SubmitMesh(uint32_t meshId,
 			                                      (it != material.parameters.end()) ? it->second.texture : ResourceHandle<Texture>{0},
 			                                      desc.name,
 			                                      hasUniform);
-			if (wasBound)
-				usedTextureUnits.push_back(textureUnit);
+			if (wasBound && usedTextureUnitCount < usedTextureUnits.size())
+				usedTextureUnits[usedTextureUnitCount++] = textureUnit;
 			++samplerUnit;
 			break;
 		}
@@ -384,9 +419,9 @@ void Renderer::SubmitMesh(uint32_t meshId,
 	m_frameStats.indices += static_cast<uint64_t>(mesh.indexCount);
 	m_frameStats.triangles += static_cast<uint64_t>(mesh.indexCount / 3u);
 
-	for (auto it = usedTextureUnits.rbegin(); it != usedTextureUnits.rend(); ++it)
+	for (size_t i = usedTextureUnitCount; i > 0u; --i)
 	{
-		glActiveTexture(*it);
+		glActiveTexture(usedTextureUnits[i - 1u]);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 	glActiveTexture(GL_TEXTURE0);

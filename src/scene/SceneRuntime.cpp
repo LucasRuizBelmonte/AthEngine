@@ -143,17 +143,18 @@ std::vector<std::shared_ptr<IScene>> &SceneStack::MutableScenes()
 }
 
 void SceneTransitionController::Start(
-	SceneRequest req,
-	const std::function<std::shared_ptr<IScene>(SceneRequest)> &createScene,
+	SceneId sceneId,
+	bool push,
+	const std::function<std::shared_ptr<IScene>(SceneId)> &createScene,
 	AsyncLoader &loader,
 	GLFWwindow &window)
 {
 	if (m_isTransitioning)
 		return;
 
-	m_isPush = (req == SceneRequest::PushScene || req == SceneRequest::HudDemoScene);
+	m_isPush = push;
 
-	m_pending = createScene(req);
+	m_pending = createScene(sceneId);
 	m_pending->RequestLoad(loader);
 
 	m_loading = std::make_shared<LoadingScene>();
@@ -302,7 +303,7 @@ bool SceneOpenSaveService::QueueOpenSceneFromFile(
 	const std::string &path,
 	std::string &outError,
 	bool transitionInProgress,
-	const std::function<void(SceneRequest)> &startTransition)
+	const std::function<void()> &startPushTransition)
 {
 	if (transitionInProgress)
 	{
@@ -324,7 +325,7 @@ bool SceneOpenSaveService::QueueOpenSceneFromFile(
 	m_openJob.pending = true;
 	m_openJob.path = path;
 	m_openJob.sceneName = header.sceneName;
-	startTransition(SceneRequest::PushScene);
+	startPushTransition();
 	return true;
 }
 
@@ -376,37 +377,42 @@ void SceneRuntime::Shutdown()
 	m_sceneRemovalQueue.Clear();
 }
 
-std::shared_ptr<IScene> SceneRuntime::CreateScene(SceneRequest req)
+std::shared_ptr<IScene> SceneRuntime::CreateScene(SceneId sceneId)
 {
-	switch (req)
+	switch (sceneId)
 	{
-	case SceneRequest::HudDemoScene:
+	case SceneId::HudDemoScene:
 		return std::make_shared<HudDemoScene>(m_shaders, m_textures);
-	case SceneRequest::BasicScene:
-	case SceneRequest::PushScene:
+	case SceneId::DefaultScene:
 	default:
 		return std::make_shared<Scene>(m_shaders, m_textures);
 	}
 }
 
-void SceneRuntime::Request(SceneRequest req)
+void SceneRuntime::Request(SceneId sceneId)
 {
 	m_transitionController.Start(
-		req,
-		[this](SceneRequest request)
+		sceneId,
+		false,
+		[this](SceneId id)
 		{
-			return CreateScene(request);
+			return CreateScene(id);
 		},
 		m_loader,
 		m_window);
 }
 
-void SceneRuntime::AddScene(SceneRequest req)
+void SceneRuntime::AddScene(SceneId sceneId)
 {
-	if (req == SceneRequest::BasicScene)
-		req = SceneRequest::PushScene;
-
-	Request(req);
+	m_transitionController.Start(
+		sceneId,
+		true,
+		[this](SceneId id)
+		{
+			return CreateScene(id);
+		},
+		m_loader,
+		m_window);
 }
 
 void SceneRuntime::Update(float dt, float now, const InputState &input)
@@ -574,9 +580,9 @@ bool SceneRuntime::QueueOpenSceneFromFile(const std::string &path, std::string &
 		path,
 		outError,
 		m_transitionController.IsTransitioning(),
-		[this](SceneRequest req)
+		[this]()
 		{
-			Request(req);
+			AddScene(SceneId::DefaultScene);
 		});
 }
 #pragma endregion

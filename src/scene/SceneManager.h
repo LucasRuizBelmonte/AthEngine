@@ -17,10 +17,9 @@
 #pragma endregion
 
 #pragma region Declarations
-enum class SceneRequest
+enum class SceneId
 {
-    BasicScene,
-    PushScene,
+    DefaultScene,
 	HudDemoScene
 };
 
@@ -37,11 +36,11 @@ public:
     /**
      * @brief Executes Request.
      */
-    void Request(SceneRequest req);
+    void Request(SceneId sceneId);
     /**
      * @brief Adds a new scene to the loaded stack.
      */
-    void AddScene(SceneRequest req);
+    void AddScene(SceneId sceneId);
 
     /**
      * @brief Executes Update.

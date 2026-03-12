@@ -464,13 +464,13 @@ namespace editorui::internal
 			if (ImGui::MenuItem("Add Scene"))
 			{
 				ui.selectedScene = scenes.GetLoadedSceneCount();
-				scenes.AddScene(SceneRequest::BasicScene);
+				scenes.AddScene(SceneId::DefaultScene);
 			}
 
 			if (ImGui::MenuItem("Add HUD Demo Scene"))
 			{
 				ui.selectedScene = scenes.GetLoadedSceneCount();
-				scenes.AddScene(SceneRequest::HudDemoScene);
+				scenes.AddScene(SceneId::HudDemoScene);
 			}
 
 			ImGui::EndMenu();

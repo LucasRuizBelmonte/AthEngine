@@ -139,7 +139,7 @@ Application::Application()
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
 	m_Scenes = std::make_unique<SceneManager>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
-	m_Scenes->Request(SceneRequest::BasicScene);
+	m_Scenes->Request(SceneId::DefaultScene);
 
 	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 

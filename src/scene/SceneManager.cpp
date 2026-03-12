@@ -17,14 +17,14 @@ void SceneManager::Shutdown()
 	m_runtime.Shutdown();
 }
 
-void SceneManager::Request(SceneRequest req)
+void SceneManager::Request(SceneId sceneId)
 {
-	m_runtime.Request(req);
+	m_runtime.Request(sceneId);
 }
 
-void SceneManager::AddScene(SceneRequest req)
+void SceneManager::AddScene(SceneId sceneId)
 {
-	m_runtime.AddScene(req);
+	m_runtime.AddScene(sceneId);
 }
 
 void SceneManager::Update(float dt, float now, const InputState &input)

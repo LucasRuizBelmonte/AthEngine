@@ -23,7 +23,7 @@
 #pragma region Declarations
 class Renderer;
 
-enum class SceneRequest;
+enum class SceneId;
 
 class SceneStack
 {
@@ -52,8 +52,9 @@ private:
 class SceneTransitionController
 {
 public:
-	void Start(SceneRequest req,
-	           const std::function<std::shared_ptr<IScene>(SceneRequest)> &createScene,
+	void Start(SceneId sceneId,
+	           bool push,
+	           const std::function<std::shared_ptr<IScene>(SceneId)> &createScene,
 	           AsyncLoader &loader,
 	           GLFWwindow &window);
 	void Shutdown(GLFWwindow &window);
@@ -119,7 +120,7 @@ public:
 	bool QueueOpenSceneFromFile(const std::string &path,
 	                           std::string &outError,
 	                           bool transitionInProgress,
-	                           const std::function<void(SceneRequest)> &startTransition);
+	                           const std::function<void()> &startPushTransition);
 
 	void ApplyPendingOpen(SceneStack &stack) const;
 
@@ -136,8 +137,8 @@ public:
 	void InitializeCoreScene(const std::shared_ptr<IScene> &coreScene);
 	void Shutdown();
 
-	void Request(SceneRequest req);
-	void AddScene(SceneRequest req);
+	void Request(SceneId sceneId);
+	void AddScene(SceneId sceneId);
 
 	void Update(float dt, float now, const InputState &input);
 	void FixedUpdate(float fixedDt);
@@ -163,7 +164,7 @@ public:
 	bool QueueOpenSceneFromFile(const std::string &path, std::string &outError);
 
 private:
-	std::shared_ptr<IScene> CreateScene(SceneRequest req);
+	std::shared_ptr<IScene> CreateScene(SceneId sceneId);
 
 private:
 	ShaderManager &m_shaders;

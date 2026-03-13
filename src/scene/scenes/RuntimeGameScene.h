@@ -1,13 +1,12 @@
 /**
- * @file RuntimeDefaultScene.h
- * @brief Runtime-only default scene without editor dependencies.
+ * @file RuntimeGameScene.h
+ * @brief Runtime gameplay scene loaded from .athscene data.
  */
 
 #pragma once
 
 #pragma region Includes
 #include "../IScene.h"
-#include "../AsyncLoader.h"
 
 #include "../../ecs/Registry.h"
 #include "../../systems/ClearColorSystem.h"
@@ -30,27 +29,28 @@
 #include "../../systems/ui/UIRenderSystem.h"
 
 #include "../../components/Camera.h"
-#include "../../components/Transform.h"
-#include "../../components/LightEmitter.h"
 
 #include "../../resources/ShaderManager.h"
 #include "../../resources/TextureManager.h"
 
 #include <cstdint>
+#include <string>
 #pragma endregion
 
 #pragma region Declarations
 class Renderer;
 
-class RuntimeDefaultScene final : public IScene
+class RuntimeGameScene final : public IScene
 {
 public:
-	RuntimeDefaultScene(ShaderManager &shaderManager, TextureManager &textureManager);
-	~RuntimeDefaultScene() override = default;
+	RuntimeGameScene(ShaderManager &shaderManager, TextureManager &textureManager, std::string scenePath);
+	~RuntimeGameScene() override = default;
 
 	const char *GetName() const override;
+	bool Load();
 	void RequestLoad(AsyncLoader &loader) override;
 	bool IsLoaded() const override;
+	const std::string &GetLastLoadError() const;
 
 	void OnAttach(GLFWwindow &window) override;
 	void OnDetach(GLFWwindow &window) override;
@@ -61,7 +61,10 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 
 private:
-	void BuildBaseTemplate();
+	bool LoadRegistryFromDisk(std::string &outError);
+	bool BindRuntimeAssets(std::string &outError);
+	bool LoadSpriteAssets(Entity entity, std::string &outError);
+	bool LoadMaterialAssets(Entity entity, std::string &outError);
 	void RegisterBuiltin2DAnimationClips();
 	void RefreshRuntimeReferences();
 	Entity ResolvePrimaryCamera();
@@ -101,6 +104,10 @@ private:
 	bool m_sysUIRender = true;
 
 	Entity m_camera = kInvalidEntity;
+	std::string m_scenePath;
+	std::string m_sceneName = "RuntimeScene";
+	std::string m_lastLoadError;
+	bool m_is2DScene = false;
 	GLFWwindow *m_window = nullptr;
 	bool m_loaded = false;
 	float m_fixedSimulationNow = 0.0f;

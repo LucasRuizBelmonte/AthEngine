@@ -2,13 +2,38 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug AthEngine",
+            "name": "Debug AthEngine Editor",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/athengine.exe",
-            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/build/athengine_editor.exe",
+            "cwd": "${workspaceFolder}/build",
             "console": "integratedTerminal",
             "preLaunchTask": "Build"
+        },
+        {
+            "name": "Debug AthEngine Editor (No Build)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/athengine_editor.exe",
+            "cwd": "${workspaceFolder}/build",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Debug AthEngine Runtime",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/athengine_runtime.exe",
+            "cwd": "${workspaceFolder}/build",
+            "console": "integratedTerminal",
+            "preLaunchTask": "Build"
+        },
+        {
+            "name": "Debug AthEngine Runtime (No Build)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/athengine_runtime.exe",
+            "cwd": "${workspaceFolder}/build",
+            "console": "integratedTerminal"
         }
     ]
 }

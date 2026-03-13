@@ -14,6 +14,22 @@
                 "isDefault": true
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Run Runtime (No Build)",
+            "type": "process",
+            "command": "${workspaceFolder}/build/athengine_runtime.exe",
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            }
+        },
+        {
+            "label": "Run Editor (No Build)",
+            "type": "process",
+            "command": "${workspaceFolder}/build/athengine_editor.exe",
+            "options": {
+                "cwd": "${workspaceFolder}/build"
+            }
         }
     ]
 }

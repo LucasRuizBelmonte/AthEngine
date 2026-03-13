@@ -64,7 +64,7 @@ set(ATH_EDITOR_SOURCES ${ATH_ALL_SOURCES})
 list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/runtime_main\\.cpp$")
 list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/app/RuntimeApplication\\.cpp$")
 list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/scene/RuntimeSceneManager\\.cpp$")
-list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/scene/scenes/RuntimeDefaultScene\\.cpp$")
+list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/scene/scenes/RuntimeGameScene\\.cpp$")
 
 set(ATH_RUNTIME_SOURCES ${ATH_ALL_SOURCES})
 list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/editor/.*\\.cpp$")

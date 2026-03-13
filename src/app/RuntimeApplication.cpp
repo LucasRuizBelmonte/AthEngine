@@ -3,14 +3,83 @@
 #include "RuntimeApplication.h"
 
 #include "../input/Input.h"
+#include "../utils/AssetPath.h"
 
+#include <cctype>
+#include <fstream>
 #include <stdexcept>
+#include <string>
 
 namespace
 {
 	constexpr bool kUseFixedTimestep = true;
 	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
 	constexpr float kMaxFrameTimeSeconds = 0.10f;
+	constexpr const char *kRuntimeStartupConfigPath = "res/runtime/startup.cfg";
+
+	static std::string TrimCopy(const std::string &value)
+	{
+		size_t first = 0u;
+		while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])) != 0)
+			++first;
+
+		size_t last = value.size();
+		while (last > first && std::isspace(static_cast<unsigned char>(value[last - 1u])) != 0)
+			--last;
+
+		return value.substr(first, last - first);
+	}
+
+	static std::string StripOptionalQuotes(std::string value)
+	{
+		if (value.size() < 2u)
+			return value;
+
+		const char first = value.front();
+		const char last = value.back();
+		if ((first == '"' && last == '"') || (first == '\'' && last == '\''))
+			return value.substr(1u, value.size() - 2u);
+
+		return value;
+	}
+
+	static std::string LoadStartupScenePathFromConfig()
+	{
+		const std::string configPath = AssetPath::ResolveRuntimePath(kRuntimeStartupConfigPath);
+		std::ifstream in(configPath);
+		if (!in)
+			throw std::runtime_error("Could not open runtime startup config: " + configPath);
+
+		std::string startupScenePath;
+		std::string line;
+		int lineNumber = 0;
+		while (std::getline(in, line))
+		{
+			++lineNumber;
+			std::string trimmed = TrimCopy(line);
+			if (trimmed.empty() || trimmed.rfind("#", 0) == 0 || trimmed.rfind("//", 0) == 0)
+				continue;
+
+			const size_t eq = trimmed.find('=');
+			if (eq == std::string::npos)
+				throw std::runtime_error("Invalid runtime startup config entry at line " + std::to_string(lineNumber) + ".");
+
+			const std::string key = TrimCopy(trimmed.substr(0u, eq));
+			const std::string value = StripOptionalQuotes(TrimCopy(trimmed.substr(eq + 1u)));
+			if (key == "scene")
+			{
+				startupScenePath = value;
+				continue;
+			}
+
+			throw std::runtime_error("Unknown runtime startup config key '" + key + "' at line " + std::to_string(lineNumber) + ".");
+		}
+
+		if (startupScenePath.empty())
+			throw std::runtime_error("Runtime startup config is missing 'scene=<path>' in " + configPath + ".");
+
+		return startupScenePath;
+	}
 }
 
 RuntimeApplication::RuntimeApplication()
@@ -24,8 +93,11 @@ RuntimeApplication::RuntimeApplication()
 	glEnable(GL_DEPTH_TEST);
 
 	m_Renderer = std::make_unique<Renderer>(m_ShaderManager, m_TextureManager);
-	m_Scenes = std::make_unique<RuntimeSceneManager>(m_ShaderManager, m_TextureManager, *m_Window->GetNative());
-	m_Scenes->Request(SceneId::DefaultScene);
+	m_Scenes = std::make_unique<RuntimeSceneManager>(
+		m_ShaderManager,
+		m_TextureManager,
+		*m_Window->GetNative(),
+		LoadStartupScenePathFromConfig());
 
 	glfwSetInputMode(m_Window->GetNative(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	Input::AttachWindow(m_Window->GetNative());

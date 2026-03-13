@@ -1,0 +1,74 @@
+{
+    "version": 4,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 24,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_POLICY_DEFAULT_CMP0091": "NEW"
+            }
+        },
+        {
+            "name": "editor-debug",
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/build/editor/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/conan/editor-debug/conan_toolchain.cmake",
+                "ATH_BUILD_EDITOR": "ON",
+                "ATH_BUILD_RUNTIME": "OFF"
+            }
+        },
+        {
+            "name": "runtime-debug",
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/build/runtime/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/conan/runtime-debug/conan_toolchain.cmake",
+                "ATH_BUILD_EDITOR": "OFF",
+                "ATH_BUILD_RUNTIME": "ON"
+            }
+        },
+        {
+            "name": "runtime-release",
+            "inherits": "base",
+            "binaryDir": "${sourceDir}/build/runtime/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/conan/runtime-release/conan_toolchain.cmake",
+                "ATH_BUILD_EDITOR": "OFF",
+                "ATH_BUILD_RUNTIME": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "editor-debug",
+            "configurePreset": "editor-debug",
+            "targets": [
+                "athengine_editor"
+            ]
+        },
+        {
+            "name": "runtime-debug",
+            "configurePreset": "runtime-debug",
+            "targets": [
+                "athengine_runtime"
+            ]
+        },
+        {
+            "name": "runtime-release",
+            "configurePreset": "runtime-release",
+            "targets": [
+                "athengine_runtime"
+            ]
+        }
+    ]
+}

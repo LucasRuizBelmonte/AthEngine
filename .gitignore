@@ -17,7 +17,6 @@ cmake_install.cmake
 CTestTestfile.cmake
 Makefile
 compile_commands.json
-CMakePresets.json
 CMakeUserPresets.json
 
 # =========================

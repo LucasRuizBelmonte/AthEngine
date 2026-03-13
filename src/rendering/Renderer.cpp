@@ -15,7 +15,9 @@
 #include <array>
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <vector>
 #pragma endregion
@@ -216,20 +218,38 @@ uint32_t Renderer::AcquireOrCreateMesh(const std::string &cacheKey, const std::s
 uint32_t Renderer::AcquireMesh(const std::string &meshPath)
 {
 	if (meshPath.empty())
+	{
+		std::fprintf(stderr, "[Renderer] Mesh path is empty.\n");
 		return 0;
+	}
 	if (meshPath == "builtin://quad")
 		return AcquireBuiltinQuad();
 
-	const std::string resolvedPath = AssetPath::ResolveRuntimePath(meshPath);
-	if (resolvedPath.empty())
+	std::string resolvedPath;
+	std::string resolveError;
+	if (!AssetPath::TryResolveRuntimeFilePath(meshPath, resolvedPath, resolveError))
+	{
+		std::fprintf(stderr, "[Renderer] Could not resolve mesh '%s': %s\n", meshPath.c_str(), resolveError.c_str());
 		return 0;
+	}
 
 	try
 	{
 		return AcquireOrCreateMesh(resolvedPath, resolvedPath);
 	}
+	catch (const std::exception &ex)
+	{
+		std::fprintf(stderr, "[Renderer] Could not load mesh '%s' from '%s': %s\n",
+		             meshPath.c_str(),
+		             resolvedPath.c_str(),
+		             ex.what());
+		return 0;
+	}
 	catch (...)
 	{
+		std::fprintf(stderr, "[Renderer] Could not load mesh '%s' from '%s' (unknown error).\n",
+		             meshPath.c_str(),
+		             resolvedPath.c_str());
 		return 0;
 	}
 }

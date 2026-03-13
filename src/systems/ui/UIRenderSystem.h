@@ -117,7 +117,7 @@ private:
 	ResourceHandle<Shader> m_defaultShader;
 	ResourceHandle<Shader> m_batchShader;
 	std::unordered_map<int, glm::vec4> m_builtinFontGlyphUv;
-	std::string m_defaultMaterialPath = "res/shaders/unlit2D.fs";
+	std::string m_defaultMaterialPath = "shaders/unlit2D.fs";
 	UIRect m_screenRect{};
 
 	std::vector<Renderer::UnlitBatchVertex> m_pendingBatchVertices;

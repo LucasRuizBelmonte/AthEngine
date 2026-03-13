@@ -19,8 +19,8 @@ namespace prefab
 			Sprite sprite;
 			sprite.size = glm::vec2(1.0f, 1.2f);
 			sprite.tint = glm::vec4(0.35f, 0.85f, 0.45f, 1.0f);
-			sprite.texturePath = "res/textures/sprite.png";
-			sprite.materialPath = "res/shaders/sprite.fs";
+			sprite.texturePath = "textures/sprite.png";
+			sprite.materialPath = "shaders/sprite.fs";
 
 			Collider2D collider;
 			collider.shape = Collider2D::Shape::AABB;
@@ -47,8 +47,8 @@ namespace prefab
 			Sprite sprite;
 			sprite.size = glm::vec2(0.9f, 0.9f);
 			sprite.tint = glm::vec4(0.95f, 0.30f, 0.30f, 1.0f);
-			sprite.texturePath = "res/textures/sprite_2.png";
-			sprite.materialPath = "res/shaders/sprite.fs";
+			sprite.texturePath = "textures/sprite_2.png";
+			sprite.materialPath = "shaders/sprite.fs";
 
 			Collider2D collider;
 			collider.shape = Collider2D::Shape::Circle;

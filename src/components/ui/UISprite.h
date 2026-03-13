@@ -21,7 +21,7 @@ struct UISprite
 	ResourceHandle<Texture> texture;
 	ResourceHandle<Shader> shader;
 	std::string texturePath;
-	std::string materialPath = "res/shaders/unlit2D.fs";
+	std::string materialPath = "shaders/unlit2D.fs";
 
 	glm::vec4 tint{1.0f, 1.0f, 1.0f, 1.0f};
 	glm::vec4 uv{0.0f, 0.0f, 1.0f, 1.0f};

@@ -15,7 +15,7 @@ namespace
 	constexpr bool kUseFixedTimestep = true;
 	constexpr float kFixedDeltaSeconds = 1.0f / 60.0f;
 	constexpr float kMaxFrameTimeSeconds = 0.10f;
-	constexpr const char *kRuntimeStartupConfigPath = "res/runtime/startup.cfg";
+	constexpr const char *kRuntimeStartupConfigPath = "runtime/startup.cfg";
 
 	static std::string TrimCopy(const std::string &value)
 	{
@@ -45,7 +45,11 @@ namespace
 
 	static std::string LoadStartupScenePathFromConfig()
 	{
-		const std::string configPath = AssetPath::ResolveRuntimePath(kRuntimeStartupConfigPath);
+		std::string configPath;
+		std::string configResolveError;
+		if (!AssetPath::TryResolveRuntimeFilePath(kRuntimeStartupConfigPath, configPath, configResolveError))
+			throw std::runtime_error("Could not resolve runtime startup config: " + configResolveError);
+
 		std::ifstream in(configPath);
 		if (!in)
 			throw std::runtime_error("Could not open runtime startup config: " + configPath);
@@ -78,7 +82,15 @@ namespace
 		if (startupScenePath.empty())
 			throw std::runtime_error("Runtime startup config is missing 'scene=<path>' in " + configPath + ".");
 
-		return startupScenePath;
+		std::string normalizedScenePath;
+		std::string normalizeError;
+		if (!AssetPath::TryNormalizeRuntimeAssetPath(startupScenePath, normalizedScenePath, normalizeError))
+		{
+			throw std::runtime_error("Runtime startup scene path is invalid in " + configPath +
+			                         ": " + normalizeError);
+		}
+
+		return normalizedScenePath;
 	}
 }
 

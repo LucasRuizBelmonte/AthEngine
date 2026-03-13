@@ -66,6 +66,7 @@ private:
 	bool LoadRegistryFromDisk(bool &outIs2DScene, std::string &outError);
 	bool BindRuntimeAssets(std::string &outError);
 	bool LoadSpriteAssets(Entity entity, std::string &outError);
+	bool LoadUISpriteAssets(Entity entity, std::string &outError);
 	bool LoadMaterialAssets(Entity entity, std::string &outError);
 	void ResetRuntimeResources(bool is2DScene);
 	void RegisterBuiltin2DAnimationClips();

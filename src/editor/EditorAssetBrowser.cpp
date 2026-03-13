@@ -64,7 +64,6 @@ namespace editorui::internal
 			                        std::error_code ec;
 
 			                        const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
-			                        const std::filesystem::path projectRoot = assetRoot.parent_path();
 			                        if (!std::filesystem::exists(assetRoot, ec))
 				                        return entries;
 
@@ -90,7 +89,7 @@ namespace editorui::internal
 				                        if (ext != ".athscene")
 					                        continue;
 
-				                        std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+				                        std::filesystem::path rel = std::filesystem::relative(candidate, assetRoot, ec);
 				                        if (ec)
 				                        {
 					                        ec.clear();
@@ -113,7 +112,6 @@ namespace editorui::internal
 			                        std::error_code ec;
 
 			                        const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
-			                        const std::filesystem::path projectRoot = assetRoot.parent_path();
 			                        const std::filesystem::path basicShapeRoot = assetRoot / "models" / "basicShapes";
 			                        if (!std::filesystem::exists(basicShapeRoot, ec))
 				                        return entries;
@@ -140,7 +138,7 @@ namespace editorui::internal
 				                        if (ext != ".fbx" && ext != ".obj" && ext != ".gltf" && ext != ".glb")
 					                        continue;
 
-				                        std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+				                        std::filesystem::path rel = std::filesystem::relative(candidate, assetRoot, ec);
 				                        if (ec)
 				                        {
 					                        ec.clear();
@@ -166,7 +164,6 @@ namespace editorui::internal
 			                        std::error_code ec;
 
 			                        const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
-			                        const std::filesystem::path projectRoot = assetRoot.parent_path();
 			                        if (!std::filesystem::exists(assetRoot, ec))
 				                        return entries;
 
@@ -192,7 +189,7 @@ namespace editorui::internal
 				                        if (ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".bmp" && ext != ".tga")
 					                        continue;
 
-				                        std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+				                        std::filesystem::path rel = std::filesystem::relative(candidate, assetRoot, ec);
 				                        if (ec)
 				                        {
 					                        ec.clear();

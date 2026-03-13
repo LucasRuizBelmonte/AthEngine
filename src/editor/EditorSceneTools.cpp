@@ -664,7 +664,6 @@ namespace sceneeditor
 		std::vector<std::string> paths;
 		std::error_code ec;
 		const std::filesystem::path assetRoot = std::filesystem::path(ASSET_PATH).lexically_normal();
-		const std::filesystem::path projectRoot = assetRoot.parent_path();
 		if (!std::filesystem::exists(assetRoot, ec))
 		{
 			cache.entries.clear();
@@ -694,7 +693,7 @@ namespace sceneeditor
 			if (!PathMatchesAssetType(candidate, type))
 				continue;
 
-			std::filesystem::path rel = std::filesystem::relative(candidate, projectRoot, ec);
+			std::filesystem::path rel = std::filesystem::relative(candidate, assetRoot, ec);
 			if (ec)
 			{
 				ec.clear();
@@ -773,23 +772,34 @@ namespace sceneeditor
 
 		ImGui::PushID(fieldKey);
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextUnformatted(label);
-		ImGui::SameLine();
+		ImGui::TextWrapped("%s", label);
 
 		const float buttonWidth = ImGui::CalcTextSize("...").x + ImGui::GetStyle().FramePadding.x * 2.0f;
 		const float spacing = ImGui::GetStyle().ItemInnerSpacing.x;
 		const float avail = ImGui::GetContentRegionAvail().x;
-		const float inputWidth = std::max(80.0f, avail - buttonWidth - spacing);
-		ImGui::SetNextItemWidth(inputWidth);
-
-		if (DrawBufferedStringInput(entity, fieldKey, "##Path", inOutValue, 512))
+		const float minInlineInputWidth = 120.0f;
+		const bool inlineLayout = avail >= (buttonWidth + spacing + minInlineInputWidth);
+		if (inlineLayout)
 		{
-			changed = true;
-		}
+			const float inputWidth = std::max(1.0f, avail - buttonWidth - spacing);
+			ImGui::SetNextItemWidth(inputWidth);
 
-		ImGui::SameLine();
-		if (ImGui::Button("..."))
-			RequestAssetPicker(picker, entity, fieldKey, type, inOutValue);
+			if (DrawBufferedStringInput(entity, fieldKey, "##Path", inOutValue, 512))
+				changed = true;
+
+			ImGui::SameLine();
+			if (ImGui::Button("..."))
+				RequestAssetPicker(picker, entity, fieldKey, type, inOutValue);
+		}
+		else
+		{
+			ImGui::SetNextItemWidth(std::max(1.0f, ImGui::GetContentRegionAvail().x));
+			if (DrawBufferedStringInput(entity, fieldKey, "##Path", inOutValue, 512))
+				changed = true;
+
+			if (ImGui::Button("..."))
+				RequestAssetPicker(picker, entity, fieldKey, type, inOutValue);
+		}
 
 		ImGui::PopID();
 		return changed;
@@ -1398,14 +1408,13 @@ namespace sceneeditor
 		ImGui::PushID(label);
 
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextUnformatted(label);
+		ImGui::TextWrapped("%s", label);
 		if (ImGui::BeginPopupContextItem("Vec3LabelCtx"))
 		{
 			DrawVec3ClipboardMenu(v);
 			ImGui::EndPopup();
 		}
 
-		ImGui::SameLine();
 		const float spacing = ImGui::GetStyle().ItemSpacing.x;
 		const float totalWidth = ImGui::GetContentRegionAvail().x;
 		const float itemWidth = std::max(1.0f, (totalWidth - 2.0f * spacing) / 3.0f);
@@ -1457,14 +1466,13 @@ namespace sceneeditor
 	{
 		ImGui::PushID(label);
 		ImGui::AlignTextToFramePadding();
-		ImGui::TextUnformatted(label);
+		ImGui::TextWrapped("%s", label);
 		if (ImGui::BeginPopupContextItem("Vec2LabelCtx"))
 		{
 			DrawVec2ClipboardMenu(v);
 			ImGui::EndPopup();
 		}
 
-		ImGui::SameLine();
 		const float spacing = ImGui::GetStyle().ItemSpacing.x;
 		const float totalWidth = ImGui::GetContentRegionAvail().x;
 		const float itemWidth = std::max(1.0f, (totalWidth - spacing) / 2.0f);
@@ -1498,7 +1506,10 @@ namespace sceneeditor
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, offActiveColor);
 		}
 
-		const bool pressed = ImGui::Button(label);
+		const float naturalButtonWidth = ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+		const float maxWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+		const ImVec2 buttonSize(std::min(naturalButtonWidth, maxWidth), 0.0f);
+		const bool pressed = ImGui::Button(label, buttonSize);
 		ImGui::PopStyleColor(3);
 
 		if (pressed)
@@ -1541,14 +1552,20 @@ namespace sceneeditor
 	static bool DrawCollisionMaskBitGrid(const char *tableId, uint32_t &mask)
 	{
 		bool changed = false;
-		if (ImGui::BeginTable(tableId, 8, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
+		const float minButtonWidth = ImGui::CalcTextSize("88").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+		const float spacing = ImGui::GetStyle().ItemSpacing.x;
+		const float availableWidth = std::max(1.0f, ImGui::GetContentRegionAvail().x);
+		const int maxColumns = static_cast<int>(Physics2DCollisionFiltering::kLayerCount);
+		const int columnCount = std::clamp(static_cast<int>(std::floor((availableWidth + spacing) / (minButtonWidth + spacing))), 1, maxColumns);
+
+		if (ImGui::BeginTable(tableId, columnCount, ImGuiTableFlags_SizingStretchSame | ImGuiTableFlags_NoSavedSettings))
 		{
 			for (uint32_t layerIndex = 0u; layerIndex < Physics2DCollisionFiltering::kLayerCount; ++layerIndex)
 			{
-				if ((layerIndex % 8u) == 0u)
+				if ((layerIndex % static_cast<uint32_t>(columnCount)) == 0u)
 					ImGui::TableNextRow();
 
-				ImGui::TableSetColumnIndex(static_cast<int>(layerIndex % 8u));
+				ImGui::TableSetColumnIndex(static_cast<int>(layerIndex % static_cast<uint32_t>(columnCount)));
 				const uint32_t layerBit = Physics2DCollisionFiltering::LayerBitFromIndex(layerIndex);
 				bool enabled = Physics2DCollisionFiltering::MaskContainsLayer(mask, layerBit);
 				char label[8];
@@ -1569,8 +1586,10 @@ namespace sceneeditor
 		bool changed = false;
 		ImGui::PushID(label);
 
-		ImGui::TextUnformatted(label);
-		ImGui::TextDisabled("%s", hint);
+		ImGui::TextWrapped("%s", label);
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+		ImGui::TextWrapped("%s", hint);
+		ImGui::PopStyleColor();
 
 		changed |= DrawCollisionMaskBitGrid("##CollisionMaskBitGrid", mask);
 
@@ -1579,7 +1598,6 @@ namespace sceneeditor
 			mask = Physics2DCollisionFiltering::kDefaultCollisionMask;
 			changed = true;
 		}
-		ImGui::SameLine();
 		if (ImGui::Button("None"))
 		{
 			mask = 0u;
@@ -2119,13 +2137,10 @@ namespace sceneeditor
 			bool absoluteScale = t.absoluteScale;
 			bool absoluteFlagsChanged = false;
 
-			ImGui::TextUnformatted("Absolute");
-			ImGui::SameLine();
+			ImGui::TextWrapped("%s", "Absolute");
 			ImGui::PushID("TransformAbsoluteFlags");
 			absoluteFlagsChanged |= DrawToggleButton("Position", absolutePosition);
-			ImGui::SameLine();
 			absoluteFlagsChanged |= DrawToggleButton("Rotation", absoluteRotation);
-			ImGui::SameLine();
 			absoluteFlagsChanged |= DrawToggleButton("Scale", absoluteScale);
 			ImGui::PopID();
 
@@ -2413,11 +2428,9 @@ namespace sceneeditor
 			(void)DragFloatWithSnap("Time", &a.time, 0.01f);
 			(void)DragFloatWithSnap("FPS", &a.fps, 0.05f, 0.0f, 1000.0f);
 			(void)DragFloatWithSnap("Speed", &a.speed, 0.01f);
-			ImGui::TextUnformatted("Playback");
-			ImGui::SameLine();
+			ImGui::TextWrapped("%s", "Playback");
 			ImGui::PushID("SpriteAnimatorPlayback");
 			(void)DrawToggleButton("Loop", a.loop);
-			ImGui::SameLine();
 			(void)DrawToggleButton("Playing", a.playing);
 			ImGui::PopID();
 			(void)DrawBufferedIntInput(e, "SpriteAnimator.CurrentFrame", "Current Frame", a.currentFrame);
@@ -2490,23 +2503,17 @@ namespace sceneeditor
 			DrawVec3("Angular Velocity", &rb.angularVelocity.x, 0.05f);
 			(void)DrawToggleButton("Is Kinematic", rb.isKinematic);
 
-			ImGui::TextUnformatted("Freeze Velocity");
-			ImGui::SameLine();
+			ImGui::TextWrapped("%s", "Freeze Velocity");
 			ImGui::PushID("FreezeVelocity");
 			(void)DrawToggleButton("X", rb.freezeVelocityX);
-			ImGui::SameLine();
 			(void)DrawToggleButton("Y", rb.freezeVelocityY);
-			ImGui::SameLine();
 			(void)DrawToggleButton("Z", rb.freezeVelocityZ);
 			ImGui::PopID();
 
-			ImGui::TextUnformatted("Freeze Angular");
-			ImGui::SameLine();
+			ImGui::TextWrapped("%s", "Freeze Angular");
 			ImGui::PushID("FreezeAngularVelocity");
 			(void)DrawToggleButton("X", rb.freezeAngularVelocityX);
-			ImGui::SameLine();
 			(void)DrawToggleButton("Y", rb.freezeAngularVelocityY);
-			ImGui::SameLine();
 			(void)DrawToggleButton("Z", rb.freezeAngularVelocityZ);
 			ImGui::PopID();
 

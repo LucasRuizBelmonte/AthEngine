@@ -35,7 +35,7 @@ ENTITY 5
 TAG "Ground_Plane"
 PARENT 4294967295
 TRANSFORM 0 -2 0 0 0 0 240 1 240 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.32 0.36 0.3 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -43,13 +43,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/plane.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/plane.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 6
 TAG "House_BackWall"
 PARENT 4294967295
 TRANSFORM 0 10 -45 0 0 0 53.1412 42 8 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.9 0.82 0.72 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -57,13 +57,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 7
 TAG "House_LeftWall"
 PARENT 4294967295
 TRANSFORM -45 10 0 0 0 0 8 42 51.3408 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.9 0.82 0.72 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -71,13 +71,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 8
 TAG "House_RightWall"
 PARENT 4294967295
 TRANSFORM 45 10 0 0 0 0 8 42 49.9129 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.9 0.82 0.72 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -85,13 +85,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 9
 TAG "House_FrontWall_Left"
 PARENT 4294967295
 TRANSFORM -22 10 45 0 0 0 15 42 8 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.9 0.82 0.72 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -99,13 +99,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 10
 TAG "House_FrontWall_Right"
 PARENT 4294967295
 TRANSFORM 22 10 45 0 0 0 15 42 8 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.9 0.82 0.72 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -113,13 +113,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 11
 TAG "House_DoorHeader"
 PARENT 4294967295
 TRANSFORM 0 53.7587 44.7537 0 0 0 43.9375 12.977 8 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.85 0.78 0.68 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -127,13 +127,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 12
 TAG "House_Roof_Left"
 PARENT 4294967295
 TRANSFORM -32 70 0 0 0 0.62 35 8 60 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.58 0.2 0.18 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -141,13 +141,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 13
 TAG "House_Roof_Right"
 PARENT 4294967295
 TRANSFORM 32 70 0 0 0 -0.62 35 8 60 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.58 0.2 0.18 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -155,13 +155,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 14
 TAG "House_Chimney"
 PARENT 4294967295
 TRANSFORM 30 99.4038 -12 0 0 0 12 24 12 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.35 0.35 0.38 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -169,13 +169,13 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cylinder.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cylinder.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 15
 TAG "House_PorchStep"
 PARENT 4294967295
 TRANSFORM 0 -0.5 56 0 0 0 28 4 14 0 0 0 0 0 0
-MATERIAL_V2 1 "res/shaders/lit3D.fs" 7
+MATERIAL_V2 1 "shaders/lit3D.fs" 7
 MATERIAL_PARAM "u_tint" 3 0.6 0.58 0.55 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
 MATERIAL_PARAM "u_specularStrength" 0 1
@@ -183,16 +183,16 @@ MATERIAL_PARAM "u_shininess" 0 32
 MATERIAL_PARAM "u_texSpecular" 4 ""
 MATERIAL_PARAM "u_emissionStrength" 0 0
 MATERIAL_PARAM "u_texEmission" 4 ""
-MESH "res/models/basicShapes/cube.fbx" "res/shaders/lit3D.fs"
+MESH "models/basicShapes/cube.fbx" "shaders/lit3D.fs"
 END_ENTITY
 ENTITY 16
 TAG "Unlit_Mailbox"
 PARENT 4294967295
 TRANSFORM -30 2 60 0 0.25 0 10 12 10 0 0 0 0 0 0
-MATERIAL_V2 2 "res/shaders/unlit3D.fs" 2
+MATERIAL_V2 2 "shaders/unlit3D.fs" 2
 MATERIAL_PARAM "u_tint" 3 1 1 1 1
 MATERIAL_PARAM "u_texBaseColor" 4 ""
-MESH "res/models/basicShapes/capsule.fbx" "res/shaders/unlit3D.fs"
+MESH "models/basicShapes/capsule.fbx" "shaders/unlit3D.fs"
 END_ENTITY
 ENTITY 17
 TAG "GlobalLight"

@@ -33,8 +33,8 @@ struct EditorUIState
 
 	bool saveScenePopupOpen = false;
 	bool openScenePopupOpen = false;
-	char savePathBuf[260] = "res/scenes/scene.athscene";
-	char openPathBuf[260] = "res/scenes/scene.athscene";
+	char savePathBuf[260] = "scenes/scene.athscene";
+	char openPathBuf[260] = "scenes/scene.athscene";
 	std::string sceneFileStatus;
 	float dragSnapStep = 0.5f;
 };

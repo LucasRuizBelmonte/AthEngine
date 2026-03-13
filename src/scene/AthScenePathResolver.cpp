@@ -1,4 +1,6 @@
-﻿#include "AthSceneIOInternal.h"
+#include "AthSceneIOInternal.h"
+
+#include "../utils/AssetPath.h"
 
 #include <filesystem>
 
@@ -14,9 +16,15 @@ namespace AthSceneIO
 
 		if (path.is_absolute())
 		{
-			const std::filesystem::path projectRoot = std::filesystem::path(ASSET_PATH).lexically_normal().parent_path();
+			std::string runtimeAssetRootText;
+			std::string runtimeAssetRootError;
+			const bool hasRuntimeAssetRoot = AssetPath::TryGetRuntimeAssetRoot(runtimeAssetRootText, runtimeAssetRootError);
+			const std::filesystem::path runtimeAssetRoot =
+				hasRuntimeAssetRoot ? std::filesystem::path(runtimeAssetRootText)
+				                    : std::filesystem::path(ASSET_PATH).lexically_normal();
+
 			std::error_code ec;
-			std::filesystem::path rel = std::filesystem::relative(path, projectRoot, ec);
+			std::filesystem::path rel = std::filesystem::relative(path, runtimeAssetRoot, ec);
 			if (!ec && !rel.empty())
 			{
 				path = rel.lexically_normal();
@@ -34,6 +42,15 @@ namespace AthSceneIO
 			}
 		}
 
-		return path.generic_string();
+		std::string candidate = path.generic_string();
+		if (candidate.rfind("res/", 0) == 0)
+			candidate = candidate.substr(4u);
+
+		std::string normalized;
+		std::string normalizeError;
+		if (AssetPath::TryNormalizeRuntimeAssetPath(candidate, normalized, normalizeError))
+			return normalized;
+
+		return std::filesystem::path(candidate).lexically_normal().generic_string();
 	}
 }

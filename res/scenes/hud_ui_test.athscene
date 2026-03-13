@@ -25,7 +25,7 @@ TAG "HUD_Icon"
 PARENT 2
 UITRANSFORM 0 0 0 0 0.5 0.5 0 0 100 100 0 1 1
 UILAYOUTELEMENT 48 48 48 48 0 0
-UISPRITE 0 0 1 0.95 0.95 1 0 0 1 1 10 0 1 "res/textures/sprite_4.png" "res/shaders/unlit2D.fs"
+UISPRITE 0 0 1 0.95 0.95 1 0 0 1 1 10 0 1 "textures/sprite_4.png" "shaders/unlit2D.fs"
 END_ENTITY
 ENTITY 4
 TAG "HUD_Spacer"
@@ -51,13 +51,13 @@ ENTITY 7
 TAG "HUD_HealthBackground"
 PARENT 6
 UITRANSFORM 0 0 1 1 0.5 0.5 0 0 0 0 0 1 1
-UISPRITE 0 0 0.25 0.04 0.04 0.95 0 0 1 1 10 0 0 "" "res/shaders/unlit2D.fs"
+UISPRITE 0 0 0.25 0.04 0.04 0.95 0 0 1 1 10 0 0 "" "shaders/unlit2D.fs"
 END_ENTITY
 ENTITY 8
 TAG "HUD_HealthFill"
 PARENT 6
 UITRANSFORM 0 0 1 1 0.5 0.5 0 0 0 0 0 1 1
-UISPRITE 0 0 0.19 0.85 0.24 1 0 0 1 1 10 1 0 "" "res/shaders/unlit2D.fs"
+UISPRITE 0 0 0.19 0.85 0.24 1 0 0 1 1 10 1 0 "" "shaders/unlit2D.fs"
 UIFILL 0.75 0
 END_ENTITY
 ENTITY 9

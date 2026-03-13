@@ -12,6 +12,7 @@
 #include "../../utils/AssetPath.h"
 
 #include <functional>
+#include <string>
 #include <utility>
 #include <vector>
 #pragma endregion
@@ -22,6 +23,42 @@ namespace
 	static std::string BuildAssetName(const char *prefix, const std::string &path)
 	{
 		return std::string(prefix) + std::to_string(std::hash<std::string>{}(path));
+	}
+
+	static bool NormalizeAssetPath(const std::string &rawPath,
+	                               const char *context,
+	                               std::string &outNormalizedPath,
+	                               std::string &outError)
+	{
+		if (rawPath.empty())
+		{
+			outError = std::string(context) + " is empty.";
+			return false;
+		}
+
+		std::string normalizeError;
+		if (!AssetPath::TryNormalizeRuntimeAssetPath(rawPath, outNormalizedPath, normalizeError))
+		{
+			outError = std::string(context) + " is invalid: " + normalizeError;
+			return false;
+		}
+
+		return true;
+	}
+
+	static bool ResolveAssetFilePath(const std::string &normalizedPath,
+	                                 const char *context,
+	                                 std::string &outResolvedPath,
+	                                 std::string &outError)
+	{
+		std::string resolveError;
+		if (!AssetPath::TryResolveRuntimeFilePath(normalizedPath, outResolvedPath, resolveError))
+		{
+			outError = std::string(context) + " could not be resolved: " + resolveError;
+			return false;
+		}
+
+		return true;
 	}
 
 	static bool ApplyMaterialTextureSlot(TextureManager &textureManager,
@@ -36,11 +73,19 @@ namespace
 			return true;
 		}
 
-		const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
-		auto handle = textureManager.Load(BuildAssetName(namePrefix, path), resolvedPath, true);
+		std::string normalizedPath;
+		if (!NormalizeAssetPath(path, "Material texture path", normalizedPath, outError))
+			return false;
+
+		std::string resolvedPath;
+		if (!ResolveAssetFilePath(normalizedPath, "Material texture path", resolvedPath, outError))
+			return false;
+
+		auto handle = textureManager.Load(BuildAssetName(namePrefix, normalizedPath), resolvedPath, true);
 		if (!handle.IsValid())
 		{
-			outError = std::string("Could not load texture: ") + path;
+			outError = std::string("Could not load material texture '") + normalizedPath +
+			           "' from '" + resolvedPath + "'.";
 			return false;
 		}
 
@@ -210,12 +255,13 @@ void RuntimeGameScene::Render2D(Renderer &renderer, int framebufferWidth, int fr
 
 bool RuntimeGameScene::LoadRegistryFromDisk(bool &outIs2DScene, std::string &outError)
 {
-	const std::string resolvedScenePath = AssetPath::ResolveRuntimePath(m_scenePath);
-	if (resolvedScenePath.empty())
-	{
-		outError = "Startup scene path is empty.";
+	std::string normalizedScenePath;
+	if (!NormalizeAssetPath(m_scenePath, "Startup scene path", normalizedScenePath, outError))
 		return false;
-	}
+
+	std::string resolvedScenePath;
+	if (!ResolveAssetFilePath(normalizedScenePath, "Startup scene path", resolvedScenePath, outError))
+		return false;
 
 	AthSceneIO::SceneHeader header;
 	if (!AthSceneIO::AthSceneReader::PeekHeader(resolvedScenePath, header, outError))
@@ -233,7 +279,8 @@ bool RuntimeGameScene::LoadRegistryFromDisk(bool &outIs2DScene, std::string &out
 		return false;
 
 	outIs2DScene = (header.sceneType == "Scene2D");
-	m_sceneName = sceneName.empty() ? m_scenePath : sceneName;
+	m_scenePath = normalizedScenePath;
+	m_sceneName = sceneName.empty() ? normalizedScenePath : sceneName;
 	return true;
 }
 
@@ -254,9 +301,27 @@ bool RuntimeGameScene::BindRuntimeAssets(std::string &outError)
 			auto &mesh = m_registry.Get<Mesh>(entity);
 			mesh.gpuMeshId = 0;
 			mesh.gpuIndexCount = 0;
+
+			if (mesh.meshPath.empty())
+			{
+				outError = "Mesh component has empty meshPath on entity " + std::to_string(entity) + ".";
+				return false;
+			}
+
+			std::string normalizedMeshPath;
+			if (!NormalizeAssetPath(mesh.meshPath, "Mesh.meshPath", normalizedMeshPath, outError))
+				return false;
+
+			std::string resolvedMeshPath;
+			if (!ResolveAssetFilePath(normalizedMeshPath, "Mesh.meshPath", resolvedMeshPath, outError))
+				return false;
+
+			mesh.meshPath = normalizedMeshPath;
 		}
 
 		if (!LoadSpriteAssets(entity, outError))
+			return false;
+		if (!LoadUISpriteAssets(entity, outError))
 			return false;
 		if (!LoadMaterialAssets(entity, outError))
 			return false;
@@ -276,32 +341,118 @@ bool RuntimeGameScene::LoadSpriteAssets(Entity entity, std::string &outError)
 
 	if (!sprite.texturePath.empty())
 	{
-		const std::string resolvedTexturePath = AssetPath::ResolveRuntimePath(sprite.texturePath);
-		auto textureHandle = m_textureManager.Load(BuildAssetName("runtime_sprite_tex_", sprite.texturePath), resolvedTexturePath, true);
+		std::string normalizedTexturePath;
+		if (!NormalizeAssetPath(sprite.texturePath, "Sprite.texturePath", normalizedTexturePath, outError))
+			return false;
+		std::string resolvedTexturePath;
+		if (!ResolveAssetFilePath(normalizedTexturePath, "Sprite.texturePath", resolvedTexturePath, outError))
+			return false;
+
+		auto textureHandle = m_textureManager.Load(BuildAssetName("runtime_sprite_tex_", normalizedTexturePath), resolvedTexturePath, true);
 		if (!textureHandle.IsValid())
 		{
-			outError = "Could not load sprite texture: " + sprite.texturePath;
+			outError = "Could not load sprite texture '" + normalizedTexturePath +
+			           "' from '" + resolvedTexturePath + "'.";
 			return false;
 		}
+
+		sprite.texturePath = normalizedTexturePath;
 		sprite.texture = textureHandle;
 	}
 
 	if (!sprite.materialPath.empty())
 	{
-		const std::string resolvedMaterialPath = AssetPath::ResolveRuntimePath(sprite.materialPath);
-		const std::string vertexPath = AssetPath::ResolveVertexShaderPathForFragment(resolvedMaterialPath);
-		if (vertexPath.empty())
+		std::string normalizedMaterialPath;
+		if (!NormalizeAssetPath(sprite.materialPath, "Sprite.materialPath", normalizedMaterialPath, outError))
+			return false;
+
+		std::string resolvedMaterialPath;
+		if (!ResolveAssetFilePath(normalizedMaterialPath, "Sprite.materialPath", resolvedMaterialPath, outError))
+			return false;
+
+		std::string vertexPath;
+		std::string vertexError;
+		if (!AssetPath::TryResolveVertexShaderPathForFragment(resolvedMaterialPath, vertexPath, vertexError))
 		{
-			outError = "Could not resolve vertex shader for sprite material: " + sprite.materialPath;
+			outError = "Could not resolve vertex shader for sprite material '" +
+			           normalizedMaterialPath + "': " + vertexError;
 			return false;
 		}
 
-		auto shaderHandle = m_shaderManager.Load(BuildAssetName("runtime_sprite_mat_", sprite.materialPath), vertexPath, resolvedMaterialPath);
+		auto shaderHandle = m_shaderManager.Load(BuildAssetName("runtime_sprite_mat_", normalizedMaterialPath), vertexPath, resolvedMaterialPath);
 		if (!shaderHandle.IsValid())
 		{
-			outError = "Could not load sprite material shader: " + sprite.materialPath;
+			outError = "Could not load sprite material shader '" + normalizedMaterialPath +
+			           "' from '" + resolvedMaterialPath + "'.";
 			return false;
 		}
+
+		sprite.materialPath = normalizedMaterialPath;
+		sprite.shader = shaderHandle;
+	}
+
+	return true;
+}
+
+bool RuntimeGameScene::LoadUISpriteAssets(Entity entity, std::string &outError)
+{
+	if (!m_registry.Has<UISprite>(entity))
+		return true;
+
+	UISprite &sprite = m_registry.Get<UISprite>(entity);
+	sprite.texture = {0};
+	sprite.shader = {0};
+
+	if (!sprite.texturePath.empty())
+	{
+		std::string normalizedTexturePath;
+		if (!NormalizeAssetPath(sprite.texturePath, "UISprite.texturePath", normalizedTexturePath, outError))
+			return false;
+
+		std::string resolvedTexturePath;
+		if (!ResolveAssetFilePath(normalizedTexturePath, "UISprite.texturePath", resolvedTexturePath, outError))
+			return false;
+
+		auto textureHandle = m_textureManager.Load(BuildAssetName("runtime_ui_tex_", normalizedTexturePath), resolvedTexturePath, true);
+		if (!textureHandle.IsValid())
+		{
+			outError = "Could not load UI sprite texture '" + normalizedTexturePath +
+			           "' from '" + resolvedTexturePath + "'.";
+			return false;
+		}
+
+		sprite.texturePath = normalizedTexturePath;
+		sprite.texture = textureHandle;
+	}
+
+	if (!sprite.materialPath.empty())
+	{
+		std::string normalizedMaterialPath;
+		if (!NormalizeAssetPath(sprite.materialPath, "UISprite.materialPath", normalizedMaterialPath, outError))
+			return false;
+
+		std::string resolvedMaterialPath;
+		if (!ResolveAssetFilePath(normalizedMaterialPath, "UISprite.materialPath", resolvedMaterialPath, outError))
+			return false;
+
+		std::string vertexPath;
+		std::string vertexError;
+		if (!AssetPath::TryResolveVertexShaderPathForFragment(resolvedMaterialPath, vertexPath, vertexError))
+		{
+			outError = "Could not resolve vertex shader for UI sprite material '" +
+			           normalizedMaterialPath + "': " + vertexError;
+			return false;
+		}
+
+		auto shaderHandle = m_shaderManager.Load(BuildAssetName("runtime_ui_mat_", normalizedMaterialPath), vertexPath, resolvedMaterialPath);
+		if (!shaderHandle.IsValid())
+		{
+			outError = "Could not load UI sprite material shader '" + normalizedMaterialPath +
+			           "' from '" + resolvedMaterialPath + "'.";
+			return false;
+		}
+
+		sprite.materialPath = normalizedMaterialPath;
 		sprite.shader = shaderHandle;
 	}
 
@@ -326,28 +477,43 @@ bool RuntimeGameScene::LoadMaterialAssets(Entity entity, std::string &outError)
 		return false;
 	}
 
-	const std::string resolvedMaterialPath = AssetPath::ResolveRuntimePath(shaderPath);
-	const std::string vertexPath = AssetPath::ResolveVertexShaderPathForFragment(resolvedMaterialPath);
-	if (vertexPath.empty())
+	std::string normalizedShaderPath;
+	if (!NormalizeAssetPath(shaderPath, "Material.shaderPath", normalizedShaderPath, outError))
+		return false;
+
+	std::string resolvedMaterialPath;
+	if (!ResolveAssetFilePath(normalizedShaderPath, "Material.shaderPath", resolvedMaterialPath, outError))
+		return false;
+
+	std::string vertexPath;
+	std::string vertexError;
+	if (!AssetPath::TryResolveVertexShaderPathForFragment(resolvedMaterialPath, vertexPath, vertexError))
 	{
-		outError = "Could not resolve vertex shader for material: " + shaderPath;
+		outError = "Could not resolve vertex shader for material '" + normalizedShaderPath + "': " + vertexError;
 		return false;
 	}
 
-	auto shaderHandle = m_shaderManager.Load(BuildAssetName("runtime_mesh_mat_", shaderPath), vertexPath, resolvedMaterialPath);
+	auto shaderHandle = m_shaderManager.Load(BuildAssetName("runtime_mesh_mat_", normalizedShaderPath), vertexPath, resolvedMaterialPath);
 	if (!shaderHandle.IsValid())
 	{
-		outError = "Could not load material shader: " + shaderPath;
+		outError = "Could not load material shader '" + normalizedShaderPath +
+		           "' from '" + resolvedMaterialPath + "'.";
 		return false;
 	}
 
 	material.shader = shaderHandle;
-	material.shaderPath = shaderPath;
+	material.shaderPath = normalizedShaderPath;
+	if (m_registry.Has<Mesh>(entity))
+	{
+		Mesh &mesh = m_registry.Get<Mesh>(entity);
+		if (mesh.materialPath.empty() || mesh.materialPath == shaderPath)
+			mesh.materialPath = normalizedShaderPath;
+	}
 
-	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(shaderPath);
+	const ShaderMaterialMetadata &metadata = GetShaderMaterialMetadata(normalizedShaderPath);
 	if (metadata.Empty())
 	{
-		outError = "Material metadata not found or empty for shader: " + shaderPath;
+		outError = "Material metadata not found or empty for shader: " + normalizedShaderPath;
 		return false;
 	}
 

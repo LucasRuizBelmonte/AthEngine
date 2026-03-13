@@ -1,6 +1,8 @@
 #pragma region Includes
 #include "ShaderManager.h"
 #include "../fileManager/fileManager.h"
+
+#include <cstdio>
 #pragma endregion
 
 #pragma region Function Definitions
@@ -13,11 +15,35 @@ ShaderManager::Load(const std::string &name,
     if (it != m_nameToId.end())
         return {it->second};
 
-    auto shader = std::make_unique<Shader>();
+    if (vsPath.empty() || fsPath.empty())
+    {
+        std::fprintf(stderr, "[ShaderManager] Shader paths are empty for '%s' (vs='%s', fs='%s').\n",
+                     name.c_str(),
+                     vsPath.c_str(),
+                     fsPath.c_str());
+        return {0};
+    }
 
-    shader->Init(
-        FileManager::read(vsPath),
-        FileManager::read(fsPath));
+    const std::string vsSource = FileManager::read(vsPath);
+    const std::string fsSource = FileManager::read(fsPath);
+    if (vsSource.empty() || fsSource.empty())
+    {
+        std::fprintf(stderr, "[ShaderManager] Failed to read shader source for '%s' (vs='%s', fs='%s').\n",
+                     name.c_str(),
+                     vsPath.c_str(),
+                     fsPath.c_str());
+        return {0};
+    }
+
+    auto shader = std::make_unique<Shader>();
+    if (!shader->Init(vsSource, fsSource))
+    {
+        std::fprintf(stderr, "[ShaderManager] Failed to compile shader '%s' (vs='%s', fs='%s').\n",
+                     name.c_str(),
+                     vsPath.c_str(),
+                     fsPath.c_str());
+        return {0};
+    }
 
     uint32_t id = m_nextId++;
 
@@ -44,8 +70,18 @@ ShaderManager::LoadFromSource(const std::string &name,
     if (it != m_nameToId.end())
         return {it->second};
 
+    if (vsSource.empty() || fsSource.empty())
+    {
+        std::fprintf(stderr, "[ShaderManager] Shader source is empty for '%s'.\n", name.c_str());
+        return {0};
+    }
+
     auto shader = std::make_unique<Shader>();
-    shader->Init(vsSource, fsSource);
+    if (!shader->Init(vsSource, fsSource))
+    {
+        std::fprintf(stderr, "[ShaderManager] Failed to compile in-memory shader '%s'.\n", name.c_str());
+        return {0};
+    }
 
     uint32_t id = m_nextId++;
 
@@ -93,9 +129,22 @@ void ShaderManager::ReloadAll()
         if (!entry.hasPaths)
             continue;
 
-        entry.shader->Init(
-            FileManager::read(entry.vsPath),
-            FileManager::read(entry.fsPath));
+        const std::string vsSource = FileManager::read(entry.vsPath);
+        const std::string fsSource = FileManager::read(entry.fsPath);
+        if (vsSource.empty() || fsSource.empty())
+        {
+            std::fprintf(stderr, "[ShaderManager] Skipping shader reload due to missing source (vs='%s', fs='%s').\n",
+                         entry.vsPath.c_str(),
+                         entry.fsPath.c_str());
+            continue;
+        }
+
+        if (!entry.shader->Init(vsSource, fsSource))
+        {
+            std::fprintf(stderr, "[ShaderManager] Shader reload failed (vs='%s', fs='%s').\n",
+                         entry.vsPath.c_str(),
+                         entry.fsPath.c_str());
+        }
     }
 }
 #pragma endregion

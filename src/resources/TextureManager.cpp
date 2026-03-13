@@ -1,5 +1,8 @@
 #pragma region Includes
 #include "TextureManager.h"
+
+#include <cstdio>
+#include <filesystem>
 #pragma endregion
 
 #pragma region Function Definitions
@@ -11,8 +14,25 @@ TextureManager::Load(const std::string &name, const std::string &path, bool flip
 		return {it->second};
 
 	auto tex = std::make_unique<Texture>();
-	if (!tex->LoadFromFile(path.c_str(), flipY))
+	if (path.empty())
+	{
+		std::fprintf(stderr, "[TextureManager] Texture path is empty for '%s'.\n", name.c_str());
 		return {0};
+	}
+
+	std::error_code ec;
+	const std::filesystem::path fsPath(path);
+	if (!std::filesystem::exists(fsPath, ec) || !std::filesystem::is_regular_file(fsPath, ec))
+	{
+		std::fprintf(stderr, "[TextureManager] Texture file not found: '%s' (name='%s').\n", path.c_str(), name.c_str());
+		return {0};
+	}
+
+	if (!tex->LoadFromFile(path.c_str(), flipY))
+	{
+		std::fprintf(stderr, "[TextureManager] Failed to decode texture file: '%s' (name='%s').\n", path.c_str(), name.c_str());
+		return {0};
+	}
 
 	uint32_t id = m_nextId++;
 

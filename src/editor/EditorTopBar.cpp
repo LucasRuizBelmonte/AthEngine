@@ -41,7 +41,7 @@ namespace editorui::internal
 
 			auto &mesh = registry.Get<Mesh>(entity);
 			mesh.meshPath = meshPath;
-			mesh.materialPath = "res/shaders/lit3D.fs";
+			mesh.materialPath = "shaders/lit3D.fs";
 
 			if (!registry.Has<Material>(entity))
 				registry.Emplace<Material>(entity);
@@ -443,7 +443,7 @@ namespace editorui::internal
 					const std::vector<BasicShapeEntry> &shapes = CollectBasicShapeEntries();
 					if (shapes.empty())
 					{
-						ImGui::MenuItem("No models found in res/models/basicShapes", nullptr, false, false);
+						ImGui::MenuItem("No models found in models/basicShapes", nullptr, false, false);
 					}
 					else
 					{

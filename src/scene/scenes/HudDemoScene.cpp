@@ -85,7 +85,7 @@ void HudDemoScene::BuildHud()
 {
 	ClearRegistry(m_registry);
 
-	const auto iconTexture = m_textureManager.Load("hud_demo_icon", AssetPath::ResolveRuntimePath("res/textures/sprite_4.png"), true);
+	const auto iconTexture = m_textureManager.Load("hud_demo_icon", AssetPath::ResolveRuntimePath("textures/sprite_4.png"), true);
 
 	const Entity canvas = m_registry.Create();
 	{
@@ -127,8 +127,8 @@ void HudDemoScene::BuildHud()
 	{
 		UISprite sprite;
 		sprite.texture = iconTexture;
-		sprite.texturePath = "res/textures/sprite_4.png";
-		sprite.materialPath = "res/shaders/unlit2D.fs";
+		sprite.texturePath = "textures/sprite_4.png";
+		sprite.materialPath = "shaders/unlit2D.fs";
 		sprite.tint = glm::vec4(1.0f, 0.95f, 0.95f, 1.0f);
 		sprite.preserveAspect = true;
 		sprite.layer = 10;
@@ -180,7 +180,7 @@ void HudDemoScene::BuildHud()
 		{},
 		{},
 		"",
-		"res/shaders/unlit2D.fs",
+		"shaders/unlit2D.fs",
 		glm::vec4(0.25f, 0.04f, 0.04f, 0.95f),
 		glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
 		10,
@@ -200,7 +200,7 @@ void HudDemoScene::BuildHud()
 		{},
 		{},
 		"",
-		"res/shaders/unlit2D.fs",
+		"shaders/unlit2D.fs",
 		glm::vec4(0.19f, 0.85f, 0.24f, 1.0f),
 		glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
 		10,

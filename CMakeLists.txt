@@ -137,6 +137,14 @@ if (ATH_BUILD_RUNTIME)
     configure_ath_target(athengine_runtime)
     target_compile_definitions(athengine_runtime PRIVATE ATH_RUNTIME_BUILD=1)
 
+    add_custom_command(TARGET athengine_runtime POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:athengine_runtime>/assets"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:athengine_runtime>/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/res"
+            "$<TARGET_FILE_DIR:athengine_runtime>/assets"
+    )
+
     install(TARGETS athengine_runtime
         RUNTIME_DEPENDENCY_SET athengine_runtime_dependencies
         RUNTIME DESTINATION .
@@ -161,5 +169,5 @@ if (ATH_BUILD_RUNTIME)
         CONFIGURATIONS Release RelWithDebInfo MinSizeRel
     )
 
-    install(DIRECTORY "${CMAKE_SOURCE_DIR}/res/" DESTINATION "res")
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/res/" DESTINATION "assets")
 endif()

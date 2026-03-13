@@ -106,15 +106,15 @@ void UIRenderSystem::EnsureResources(ShaderManager &shaderManager, TextureManage
 	if (!m_defaultShader.IsValid())
 	{
 		m_defaultShader = shaderManager.Load("ui_default_unlit2d",
-											 AssetPath::ResolveRuntimePath("res/shaders/unlit2D.vs"),
-											 AssetPath::ResolveRuntimePath("res/shaders/unlit2D.fs"));
+											 AssetPath::ResolveRuntimePath("shaders/unlit2D.vs"),
+											 AssetPath::ResolveRuntimePath("shaders/unlit2D.fs"));
 	}
 
 	if (!m_batchShader.IsValid())
 	{
 		m_batchShader = shaderManager.Load("ui_batch_unlit",
-										   AssetPath::ResolveRuntimePath("res/shaders/ui_batch.vs"),
-										   AssetPath::ResolveRuntimePath("res/shaders/ui_batch.fs"));
+										   AssetPath::ResolveRuntimePath("shaders/ui_batch.vs"),
+										   AssetPath::ResolveRuntimePath("shaders/ui_batch.fs"));
 	}
 
 	if (!m_whiteTexture.IsValid())

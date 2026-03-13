@@ -103,7 +103,7 @@ namespace editorui::internal
 		bool texturePickerOpenRequested = false;
 		char texturePickerFilter[128] = {};
 		int texturePickerSelection = -1;
-		char outputPathBuf[512] = "res/textures/generated_sprite_sheet.tga";
+		char outputPathBuf[512] = "textures/generated_sprite_sheet.tga";
 		int columns = 4;
 		int rows = 4;
 		bool autoExpandRows = true;

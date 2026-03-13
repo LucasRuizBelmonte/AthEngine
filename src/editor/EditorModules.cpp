@@ -80,7 +80,10 @@ namespace editorui
 		if (state.showInspector)
 		{
 			ImGui::Begin("Inspector");
+			ImGui::SetScrollX(0.0f);
+			ImGui::PushTextWrapPos(0.0f);
 			InspectorPanel::Draw(editorScene, se);
+			ImGui::PopTextWrapPos();
 			ImGui::End();
 		}
 

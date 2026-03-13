@@ -70,8 +70,8 @@ namespace
 Scene::Scene(ShaderManager &shaderManager, TextureManager &textureManager)
 	: m_shaderManager(shaderManager), m_textureManager(textureManager)
 {
-	RegisterBuiltin2DAnimationClips();
 	RegisterBuiltinPrefabs();
+	ResetRuntimeResources();
 }
 
 const char *Scene::GetName() const
@@ -82,12 +82,11 @@ const char *Scene::GetName() const
 void Scene::RequestLoad(AsyncLoader &)
 {
 	m_loaded = false;
-	m_fixedSimulationNow = 0.0f;
-	m_fixedStepCounter = 0u;
-	m_gameplayEventProjectionSystem.Reset();
-	m_eventBus.ClearAll();
+	ResetRuntimeResources();
+	m_gameplayEventProjectionSystem.Reset(m_registry);
+	GetEventBus().ClearAll();
 	BuildBaseTemplate();
-	RefreshRuntimeReferences();
+	m_primaryCameraSystem.Reset(m_registry);
 	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 	m_loaded = true;
 }
@@ -115,25 +114,29 @@ void Scene::Update(float dt, float now, const InputState &input)
 	if (!m_loaded)
 		return;
 
-	m_gameplayEventProjectionSystem.Update(m_eventBus, m_fixedStepCounter);
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
 
-	if (m_sysClearColor)
+	events::SceneEventBus &eventBus = GetEventBus();
+	m_gameplayEventProjectionSystem.Update(m_registry, eventBus);
+
+	if (switches.clearColor)
 		m_clearColorSystem.Update(now);
 
-	const Entity camera = ResolvePrimaryCamera();
+	const Entity camera = m_primaryCameraSystem.Resolve(m_registry);
 	if (camera != kInvalidEntity)
 	{
-		if (m_sysCameraController && m_window && m_editorInputEnabled)
+		if (switches.cameraController && m_window && flags.editorInputEnabled)
 		{
-			m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, m_dimension == EditorSceneDimension::Scene2D, input);
-			m_cameraSyncSystem.SyncTransformFromCamera(m_registry, camera, m_dimension == EditorSceneDimension::Scene2D);
+			m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, flags.is2DScene, input);
+			m_cameraSyncSystem.SyncTransformFromCamera(m_registry, camera, flags.is2DScene);
 		}
 	}
 
 	m_transformSystem.Update(m_registry);
-	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
-	if (m_sysSpriteAnimation)
-		m_spriteAnimationSystem.Update(m_registry, m_animation2DLibrary, m_textureManager, dt);
+	m_cameraSyncSystem.SyncAllFromTransform(m_registry, flags.is2DScene);
+	if (switches.spriteAnimation)
+		m_spriteAnimationSystem.Update(m_registry, AnimationLibrary(), m_textureManager, dt);
 	m_uiSpriteAssetSyncSystem.Update(m_registry, m_textureManager, m_shaderManager);
 
 	m_uiInputSystem.Update(m_registry, input, dt);
@@ -145,25 +148,35 @@ void Scene::FixedUpdate(float fixedDt)
 	if (!m_loaded)
 		return;
 
-	m_fixedSimulationNow += fixedDt;
-	if (m_sysSpin)
-		m_spinSystem.Update(m_registry, m_fixedSimulationNow);
+	RuntimeSimulationClock &clock = SimulationClock();
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
 
-	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, m_eventBus);
-	if (m_sysTriggerZoneConsole)
-		m_triggerZoneConsoleSystem.Update(m_registry, m_eventBus);
-	++m_fixedStepCounter;
+	clock.fixedSimulationNow += fixedDt;
+	if (switches.spin)
+		m_spinSystem.Update(m_registry, clock.fixedSimulationNow);
+
+	events::SceneEventBus &eventBus = GetEventBus();
+	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, eventBus);
+	if (switches.triggerZoneConsole)
+		m_triggerZoneConsoleSystem.Update(m_registry, eventBus);
+	++clock.fixedStepCounter;
 
 	m_transformSystem.Update(m_registry);
-	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_dimension == EditorSceneDimension::Scene2D);
+	m_cameraSyncSystem.SyncAllFromTransform(m_registry, flags.is2DScene);
 }
 
 void Scene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	if (!m_loaded || !m_sysRender || m_dimension != EditorSceneDimension::Scene3D)
+	if (!m_loaded)
 		return;
 
-	const Entity camera = ResolvePrimaryCamera();
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
+	if (!switches.render3D || flags.is2DScene)
+		return;
+
+	const Entity camera = m_primaryCameraSystem.Resolve(m_registry);
 	if (camera == kInvalidEntity)
 		return;
 
@@ -176,9 +189,12 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 	if (!m_loaded)
 		return;
 
-	if (m_sysRender2D && m_dimension == EditorSceneDimension::Scene2D)
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
+
+	if (switches.render2D && flags.is2DScene)
 	{
-		const Entity camera = ResolvePrimaryCamera();
+		const Entity camera = m_primaryCameraSystem.Resolve(m_registry);
 		if (camera != kInvalidEntity)
 		{
 			glDisable(GL_DEPTH_TEST);
@@ -186,7 +202,7 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 		}
 	}
 
-	if (m_sysUIRender)
+	if (switches.uiRender)
 	{
 		glDisable(GL_DEPTH_TEST);
 		m_uiLayoutSystem.Update(m_registry, framebufferWidth, framebufferHeight);
@@ -197,12 +213,12 @@ void Scene::Render2D(Renderer &renderer, int framebufferWidth, int framebufferHe
 
 events::SceneEventBus &Scene::GetEventBus()
 {
-	return m_eventBus;
+	return m_registry.EnsureResource<events::SceneEventBus>();
 }
 
 const events::SceneEventBus &Scene::GetEventBus() const
 {
-	return m_eventBus;
+	return m_registry.GetResource<events::SceneEventBus>();
 }
 
 Registry &Scene::GetEditorRegistry()
@@ -244,15 +260,18 @@ Entity Scene::SpawnPrefab(const std::string &name,
 
 void Scene::GetEditorSystems(std::vector<EditorSystemToggle> &out)
 {
+	RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
+
 	out.clear();
-	out.push_back({"CameraControllerSystem", &m_sysCameraController});
-	if (m_dimension == EditorSceneDimension::Scene3D)
-		out.push_back({"RenderSystem", &m_sysRender});
+	out.push_back({"CameraControllerSystem", &switches.cameraController});
+	if (!flags.is2DScene)
+		out.push_back({"RenderSystem", &switches.render3D});
 	else
 	{
-		out.push_back({"SpriteAnimationSystem", &m_sysSpriteAnimation});
-		out.push_back({"Render2DSystem", &m_sysRender2D});
-		out.push_back({"TriggerZoneConsoleSystem", &m_sysTriggerZoneConsole});
+		out.push_back({"SpriteAnimationSystem", &switches.spriteAnimation});
+		out.push_back({"Render2DSystem", &switches.render2D});
+		out.push_back({"TriggerZoneConsoleSystem", &switches.triggerZoneConsole});
 	}
 }
 
@@ -274,17 +293,17 @@ void Scene::SetEditorSceneDimension(EditorSceneDimension dimension)
 
 void Scene::SetEditorInputEnabled(bool enabled)
 {
-	m_editorInputEnabled = enabled;
+	SceneFlags().editorInputEnabled = enabled;
 }
 
 void Scene::SetPhysics2DGravity(const glm::vec2 &gravity)
 {
-	m_physics2DSystem.SetGravity(gravity);
+	m_physics2DSystem.SetGravity(m_registry, gravity);
 }
 
 glm::vec2 Scene::GetPhysics2DGravity() const
 {
-	return m_physics2DSystem.GetGravity();
+	return m_physics2DSystem.GetGravity(m_registry);
 }
 
 bool Scene::SaveToFile(const std::string &path, const std::string &sceneName, std::string &outError)
@@ -366,11 +385,11 @@ bool Scene::LoadFromFile(const std::string &path, std::string &inOutSceneName, s
 		}
 	}
 
-	RefreshRuntimeReferences();
-	m_fixedSimulationNow = 0.0f;
-	m_fixedStepCounter = 0u;
-	m_gameplayEventProjectionSystem.Reset();
-	m_eventBus.ClearAll();
+	ResetRuntimeResources();
+	ApplySceneDimensionRules();
+	m_gameplayEventProjectionSystem.Reset(m_registry);
+	GetEventBus().ClearAll();
+	m_primaryCameraSystem.Reset(m_registry);
 	m_debugVisualizationSystem.Generate(m_registry, m_debugVizFrame);
 	m_loaded = true;
 	return true;
@@ -588,6 +607,64 @@ const debugviz::DebugVizFrame &Scene::GetDebugVisualizationFrame() const
 	return m_debugVizFrame;
 }
 
+void Scene::ResetRuntimeResources()
+{
+	m_registry.SetResource<RuntimeSystemSwitches>(RuntimeSystemSwitches{});
+	m_registry.SetResource<RuntimeSceneFlags>(RuntimeSceneFlags{});
+	m_registry.SetResource<RuntimeSimulationClock>(RuntimeSimulationClock{});
+	m_registry.SetResource<Animation2DLibrary>(Animation2DLibrary{});
+	m_registry.SetResource<GameplayEventProjectionState>(GameplayEventProjectionState{});
+	m_registry.SetResource<RuntimePrimaryCamera>(RuntimePrimaryCamera{});
+	m_registry.SetResource<events::SceneEventBus>(events::SceneEventBus{});
+	RegisterBuiltin2DAnimationClips();
+
+	RuntimeSceneFlags &flags = SceneFlags();
+	flags.is2DScene = (m_dimension == EditorSceneDimension::Scene2D);
+	flags.editorInputEnabled = false;
+
+	m_physics2DSystem.ResetWorldState(m_registry);
+}
+
+RuntimeSystemSwitches &Scene::RuntimeSwitches()
+{
+	return m_registry.EnsureResource<RuntimeSystemSwitches>();
+}
+
+const RuntimeSystemSwitches &Scene::RuntimeSwitches() const
+{
+	return m_registry.GetResource<RuntimeSystemSwitches>();
+}
+
+RuntimeSceneFlags &Scene::SceneFlags()
+{
+	return m_registry.EnsureResource<RuntimeSceneFlags>();
+}
+
+const RuntimeSceneFlags &Scene::SceneFlags() const
+{
+	return m_registry.GetResource<RuntimeSceneFlags>();
+}
+
+RuntimeSimulationClock &Scene::SimulationClock()
+{
+	return m_registry.EnsureResource<RuntimeSimulationClock>();
+}
+
+const RuntimeSimulationClock &Scene::SimulationClock() const
+{
+	return m_registry.GetResource<RuntimeSimulationClock>();
+}
+
+Animation2DLibrary &Scene::AnimationLibrary()
+{
+	return m_registry.EnsureResource<Animation2DLibrary>();
+}
+
+const Animation2DLibrary &Scene::AnimationLibrary() const
+{
+	return m_registry.GetResource<Animation2DLibrary>();
+}
+
 void Scene::BuildBaseTemplate()
 {
 	ClearRegistry(m_registry);
@@ -618,39 +695,22 @@ void Scene::RegisterBuiltinPrefabs()
 	prefab::RegisterBuiltinPrefabs(m_prefabRegistry);
 }
 
-void Scene::RefreshRuntimeReferences()
-{
-	m_camera = kInvalidEntity;
-	std::vector<Entity> cameras;
-	m_registry.ViewEntities<Camera>(cameras);
-	if (!cameras.empty())
-		m_camera = cameras.front();
-}
-
-Entity Scene::ResolvePrimaryCamera()
-{
-	if (m_camera != kInvalidEntity &&
-		m_registry.IsAlive(m_camera) &&
-		m_registry.Has<Camera>(m_camera) &&
-		m_registry.IsComponentEnabled<Camera>(m_camera))
-		return m_camera;
-
-	RefreshRuntimeReferences();
-	return m_camera;
-}
-
 void Scene::ApplySceneDimensionRules()
 {
+	RuntimeSystemSwitches &switches = RuntimeSwitches();
+	RuntimeSceneFlags &flags = SceneFlags();
+	flags.is2DScene = (m_dimension == EditorSceneDimension::Scene2D);
+
 	if (m_dimension == EditorSceneDimension::Scene2D)
 	{
-		m_sysRender = false;
-		m_sysRender2D = true;
+		switches.render3D = false;
+		switches.render2D = true;
 		Remove3DContent();
 	}
 	else
 	{
-		m_sysRender = true;
-		m_sysRender2D = false;
+		switches.render3D = true;
+		switches.render2D = false;
 		Remove2DContent();
 	}
 
@@ -705,6 +765,6 @@ void Scene::RegisterBuiltin2DAnimationClips()
 		glm::vec4{0.0f, 0.5f, 0.5f, 1.0f},
 		glm::vec4{0.5f, 0.5f, 1.0f, 1.0f}};
 
-	m_animation2DLibrary.RegisterClip("sample.sprite_sheet.2x2", std::move(sampleClip));
+	AnimationLibrary().RegisterClip("sample.sprite_sheet.2x2", std::move(sampleClip));
 }
 #pragma endregion

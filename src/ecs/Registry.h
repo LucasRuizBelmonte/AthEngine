@@ -14,6 +14,7 @@
 #include <utility>
 #include <algorithm>
 #include <cstdint>
+#include <stdexcept>
 
 #include "Entity.h"
 #include "SparseSet.h"
@@ -178,6 +179,93 @@ public:
 	}
 
 	/**
+	 * @brief Replace or create a global ECS resource value of type T.
+	 *
+	 * Resources are singleton values attached to the registry itself rather
+	 * than to an entity.
+	 */
+	template <typename T, typename... Args>
+	T &SetResource(Args &&...args)
+	{
+		std::type_index key = std::type_index(typeid(T));
+		auto ptr = std::make_unique<ResourceBox<T>>(std::forward<Args>(args)...);
+		T *raw = &ptr->value;
+		m_resources[key] = std::move(ptr);
+		return *raw;
+	}
+
+	/**
+	 * @brief Return an existing resource or create it with forwarded args.
+	 */
+	template <typename T, typename... Args>
+	T &EnsureResource(Args &&...args)
+	{
+		std::type_index key = std::type_index(typeid(T));
+		auto it = m_resources.find(key);
+		if (it == m_resources.end())
+			return SetResource<T>(std::forward<Args>(args)...);
+		return static_cast<ResourceBox<T> *>(it->second.get())->value;
+	}
+
+	/**
+	 * @brief Check if a resource of type T exists.
+	 */
+	template <typename T>
+	bool HasResource() const
+	{
+		std::type_index key = std::type_index(typeid(T));
+		return m_resources.find(key) != m_resources.end();
+	}
+
+	/**
+	 * @brief Get a mutable resource of type T.
+	 *
+	 * @note Throws std::logic_error when the resource does not exist.
+	 */
+	template <typename T>
+	T &GetResource()
+	{
+		std::type_index key = std::type_index(typeid(T));
+		auto it = m_resources.find(key);
+		if (it == m_resources.end())
+			throw std::logic_error("Requested missing ECS resource.");
+		return static_cast<ResourceBox<T> *>(it->second.get())->value;
+	}
+
+	/**
+	 * @brief Get a const resource of type T.
+	 *
+	 * @note Throws std::logic_error when the resource does not exist.
+	 */
+	template <typename T>
+	const T &GetResource() const
+	{
+		std::type_index key = std::type_index(typeid(T));
+		auto it = m_resources.find(key);
+		if (it == m_resources.end())
+			throw std::logic_error("Requested missing ECS resource.");
+		return static_cast<const ResourceBox<T> *>(it->second.get())->value;
+	}
+
+	/**
+	 * @brief Remove a resource of type T if present.
+	 */
+	template <typename T>
+	void RemoveResource()
+	{
+		std::type_index key = std::type_index(typeid(T));
+		m_resources.erase(key);
+	}
+
+	/**
+	 * @brief Remove all registry resources.
+	 */
+	void ClearResources()
+	{
+		m_resources.clear();
+	}
+
+	/**
 	 * @brief Retrieve a list of currently alive entities.
 	 *
 	 * @return const std::vector<Entity>& Vector of live entity IDs.
@@ -298,6 +386,23 @@ private:
 		const std::vector<Entity> &Entities() const override { return set.Entities(); }
 	};
 
+	struct IResource
+	{
+		virtual ~IResource() = default;
+	};
+
+	template <typename T>
+	struct ResourceBox final : IResource
+	{
+		template <typename... Args>
+		explicit ResourceBox(Args &&...args)
+			: value(std::forward<Args>(args)...)
+		{
+		}
+
+		T value;
+	};
+
 	/**
 	 * @brief Obtain a mutable reference to the pool for type `T`, creating it
 	 *        if necessary.
@@ -379,6 +484,9 @@ private:
 
 	// Map of component pools keyed by type_index
 	std::unordered_map<std::type_index, std::unique_ptr<IPool>> m_pools;
+
+	// Map of registry-scoped singleton resources keyed by type_index
+	std::unordered_map<std::type_index, std::unique_ptr<IResource>> m_resources;
 #pragma endregion
 };
 #pragma endregion

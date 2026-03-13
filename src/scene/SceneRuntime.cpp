@@ -9,10 +9,11 @@
 #include "scenes/HudDemoScene.h"
 
 #include "../rendering/Renderer.h"
+#include "../utils/AssetPath.h"
+#include "../utils/Console.h"
 
 #include <algorithm>
 #include <chrono>
-#include <iostream>
 #include <thread>
 #pragma endregion
 
@@ -295,7 +296,14 @@ bool SceneOpenSaveService::SaveLoadedSceneToFile(
 		return false;
 	}
 
-	return m_saveJob.Execute(scene, stack.Name(index), path, outError);
+	const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
+	if (resolvedPath.empty())
+	{
+		outError = "Save path is empty.";
+		return false;
+	}
+
+	return m_saveJob.Execute(scene, stack.Name(index), resolvedPath, outError);
 }
 
 bool SceneOpenSaveService::QueueOpenSceneFromFile(
@@ -310,8 +318,15 @@ bool SceneOpenSaveService::QueueOpenSceneFromFile(
 		return false;
 	}
 
+	const std::string resolvedPath = AssetPath::ResolveRuntimePath(path);
+	if (resolvedPath.empty())
+	{
+		outError = "Open path is empty.";
+		return false;
+	}
+
 	EditorSceneIO::SceneHeader header;
-	if (!EditorSceneIO::PeekHeader(path, header, outError))
+	if (!EditorSceneIO::PeekHeader(resolvedPath, header, outError))
 		return false;
 
 	if (header.sceneType != "Scene2D" &&
@@ -322,7 +337,7 @@ bool SceneOpenSaveService::QueueOpenSceneFromFile(
 	}
 
 	m_openJob.pending = true;
-	m_openJob.path = path;
+	m_openJob.path = resolvedPath;
 	m_openJob.sceneName = header.sceneName;
 	startPushTransition();
 	return true;
@@ -341,7 +356,7 @@ void SceneOpenSaveService::ApplyPendingOpen(SceneStack &stack) const
 		if (opened->LoadFromFile(m_openJob.path, loadedName, loadError))
 			(void)stack.Rename(stack.Count() - 1, loadedName);
 		else
-			std::cerr << "Scene open failed for '" << m_openJob.path << "': " << loadError << std::endl;
+			Console::Print("Scene open failed for '" + m_openJob.path + "': " + loadError, Error);
 	}
 
 	m_openJob.pending = false;

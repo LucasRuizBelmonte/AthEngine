@@ -521,37 +521,57 @@ namespace
 #pragma endregion
 
 #pragma region Function Definitions
-size_t Physics2DSystem::CollisionPairKeyHash::operator()(const CollisionPairKey &key) const
+namespace
 {
-	const size_t h1 = std::hash<uint32_t>{}(key.a);
-	const size_t h2 = std::hash<uint32_t>{}(key.b);
-	const size_t h3 = std::hash<uint8_t>{}(key.trigger ? 1u : 0u);
-	return h1 ^ (h2 << 1u) ^ (h3 << 2u);
-}
-
-void Physics2DSystem::SetGravity(const glm::vec2 &gravity)
-{
-	m_gravity = gravity;
-}
-
-glm::vec2 Physics2DSystem::GetGravity() const
-{
-	return m_gravity;
-}
-
-const Physics2DSystem::StepStats &Physics2DSystem::GetLastStepStats() const
-{
-	return m_lastStepStats;
-}
-
-void Physics2DSystem::EmitEvents(events::SceneEventBus &eventBus)
-{
-	for (const auto &kv : m_currentPairs)
+	static Physics2DWorldState &EnsureWorldState(Registry &registry)
 	{
-		const CollisionPairKey &key = kv.first;
-		const CollisionPairState &state = kv.second;
+		return registry.EnsureResource<Physics2DWorldState>();
+	}
 
-		const bool existed = m_previousPairs.find(key) != m_previousPairs.end();
+	static const Physics2DWorldState *TryGetWorldState(const Registry &registry)
+	{
+		if (!registry.HasResource<Physics2DWorldState>())
+			return nullptr;
+		return &registry.GetResource<Physics2DWorldState>();
+	}
+}
+
+void Physics2DSystem::ResetWorldState(Registry &registry) const
+{
+	Physics2DWorldState &world = EnsureWorldState(registry);
+	world.previousPairs.clear();
+	world.currentPairs.clear();
+	world.dynamicEntities.clear();
+	world.colliderEntities.clear();
+	world.lastStepStats = {};
+}
+
+void Physics2DSystem::SetGravity(Registry &registry, const glm::vec2 &gravity) const
+{
+	EnsureWorldState(registry).gravity = gravity;
+}
+
+glm::vec2 Physics2DSystem::GetGravity(const Registry &registry) const
+{
+	const Physics2DWorldState *world = TryGetWorldState(registry);
+	return world ? world->gravity : glm::vec2(0.f, -9.81f);
+}
+
+const Physics2DSystem::StepStats &Physics2DSystem::GetLastStepStats(const Registry &registry) const
+{
+	static const StepStats kEmptyStats{};
+	const Physics2DWorldState *world = TryGetWorldState(registry);
+	return world ? world->lastStepStats : kEmptyStats;
+}
+
+void Physics2DSystem::EmitEvents(events::SceneEventBus &eventBus, Physics2DWorldState &world) const
+{
+	for (const auto &kv : world.currentPairs)
+	{
+		const Physics2DCollisionPairKey &key = kv.first;
+		const Physics2DCollisionPairState &state = kv.second;
+
+		const bool existed = world.previousPairs.find(key) != world.previousPairs.end();
 		const events::PhysicsEventPhase2D phase = existed ? events::PhysicsEventPhase2D::Stay : events::PhysicsEventPhase2D::Enter;
 		if (key.trigger)
 		{
@@ -577,11 +597,11 @@ void Physics2DSystem::EmitEvents(events::SceneEventBus &eventBus)
 		}
 	}
 
-	for (const auto &kv : m_previousPairs)
+	for (const auto &kv : world.previousPairs)
 	{
-		const CollisionPairKey &key = kv.first;
-		const CollisionPairState &state = kv.second;
-		if (m_currentPairs.find(key) != m_currentPairs.end())
+		const Physics2DCollisionPairKey &key = kv.first;
+		const Physics2DCollisionPairState &state = kv.second;
+		if (world.currentPairs.find(key) != world.currentPairs.end())
 			continue;
 
 		if (key.trigger)
@@ -609,23 +629,25 @@ void Physics2DSystem::EmitEvents(events::SceneEventBus &eventBus)
 	}
 }
 
-void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::SceneEventBus &eventBus)
+void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::SceneEventBus &eventBus) const
 {
+	Physics2DWorldState &world = EnsureWorldState(registry);
+
 	eventBus.Clear<events::PhysicsCollisionEvent2D>();
 	eventBus.Clear<events::PhysicsTriggerEvent2D>();
-	m_previousPairs.swap(m_currentPairs);
-	m_currentPairs.clear();
-	m_lastStepStats = {};
+	world.previousPairs.swap(world.currentPairs);
+	world.currentPairs.clear();
+	world.lastStepStats = {};
 
-	IntegrateDynamicBodies(registry, fixedDt, m_gravity, m_dynamicEntities);
+	IntegrateDynamicBodies(registry, fixedDt, world.gravity, world.dynamicEntities);
 
 	std::vector<BodyState> &bodies = g_bodyScratch;
-	BuildBodyStates(registry, m_colliderEntities, bodies);
-	m_lastStepStats.bodyCount = bodies.size();
+	BuildBodyStates(registry, world.colliderEntities, bodies);
+	world.lastStepStats.bodyCount = bodies.size();
 
 	std::vector<std::pair<size_t, size_t>> &broadphasePairs = g_pairScratch;
 	BuildBroadphasePairs(bodies, broadphasePairs);
-	m_lastStepStats.broadphasePairCount = broadphasePairs.size();
+	world.lastStepStats.broadphasePairCount = broadphasePairs.size();
 
 	std::vector<ContactManifold> &manifolds = g_manifoldScratch;
 	manifolds.clear();
@@ -639,15 +661,15 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 		BodyState &b = bodies[pair.second];
 		if (!Physics2DAlgorithms::ShouldCollide(*a.collider, *b.collider))
 			continue;
-		++m_lastStepStats.narrowphasePairCount;
+		++world.lastStepStats.narrowphasePairCount;
 
 		Physics2DAlgorithms::Contact2D contact;
 		if (!Physics2DAlgorithms::TestOverlap(a.shape, b.shape, contact))
 			continue;
-		++m_lastStepStats.contactCount;
+		++world.lastStepStats.contactCount;
 
 		glm::vec2 pairNormal = contact.normal;
-		CollisionPairKey key;
+		Physics2DCollisionPairKey key;
 		key.trigger = a.collider->isTrigger || b.collider->isTrigger;
 		key.a = a.entity;
 		key.b = b.entity;
@@ -657,7 +679,7 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 			pairNormal = -pairNormal;
 		}
 
-		CollisionPairState &pairState = m_currentPairs[key];
+		Physics2DCollisionPairState &pairState = world.currentPairs[key];
 		pairState.normal = pairNormal;
 		pairState.penetration = contact.penetration;
 
@@ -693,6 +715,6 @@ void Physics2DSystem::FixedUpdate(Registry &registry, float fixedDt, events::Sce
 		}
 	}
 
-	EmitEvents(eventBus);
+	EmitEvents(eventBus, world);
 }
 #pragma endregion

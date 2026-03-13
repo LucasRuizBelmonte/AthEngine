@@ -18,6 +18,7 @@
 #include "../systems/Render2DSystem.h"
 #include "../systems/CameraControllerSystem.h"
 #include "../systems/CameraSyncSystem.h"
+#include "../systems/PrimaryCameraSystem.h"
 #include "../systems/GameplayEventProjectionSystem.h"
 #include "../systems/TriggerZoneConsoleSystem.h"
 #include "../events/SceneEventBus.h"
@@ -40,6 +41,7 @@
 #include "../components/Spin.h"
 #include "../components/Sprite.h"
 #include "../components/LightEmitter.h"
+#include "../components/runtime/RuntimeResources.h"
 
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
@@ -190,8 +192,15 @@ private:
 #pragma region Private Implementation
 	void BuildBaseTemplate();
 	void RegisterBuiltinPrefabs();
-	void RefreshRuntimeReferences();
-	Entity ResolvePrimaryCamera();
+	void ResetRuntimeResources();
+	RuntimeSystemSwitches &RuntimeSwitches();
+	const RuntimeSystemSwitches &RuntimeSwitches() const;
+	RuntimeSceneFlags &SceneFlags();
+	const RuntimeSceneFlags &SceneFlags() const;
+	RuntimeSimulationClock &SimulationClock();
+	const RuntimeSimulationClock &SimulationClock() const;
+	Animation2DLibrary &AnimationLibrary();
+	const Animation2DLibrary &AnimationLibrary() const;
 	void ApplySceneDimensionRules();
 	void Remove3DContent();
 	void Remove2DContent();
@@ -207,11 +216,11 @@ private:
 	Render2DSystem m_render2DSystem;
 	CameraControllerSystem m_cameraControllerSystem;
 	CameraSyncSystem m_cameraSyncSystem;
+	PrimaryCameraSystem m_primaryCameraSystem;
 	TriggerZoneConsoleSystem m_triggerZoneConsoleSystem;
 	Physics2DSystem m_physics2DSystem;
 	debugviz::DebugVisualizationSystem m_debugVisualizationSystem;
 	debugviz::DebugVizFrame m_debugVizFrame;
-	Animation2DLibrary m_animation2DLibrary;
 	SpriteAnimationSystem m_spriteAnimationSystem;
 	UIInputSystem m_uiInputSystem;
 	UILayoutSystem m_uiLayoutSystem;
@@ -219,28 +228,13 @@ private:
 	UITransformSystem m_uiTransformSystem;
 	UIRenderSystem m_uiRenderSystem;
 	GameplayEventProjectionSystem m_gameplayEventProjectionSystem;
-	events::SceneEventBus m_eventBus;
 
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
 
-	bool m_sysClearColor = true;
-	bool m_sysCameraController = true;
-	bool m_sysSpin = false;
-	bool m_sysRender = true;
-	bool m_sysRender2D = true;
-	bool m_sysSpriteAnimation = true;
-	bool m_sysTriggerZoneConsole = true;
-	bool m_sysUIRender = true;
-
-	Entity m_camera = kInvalidEntity;
-
 	GLFWwindow *m_window = nullptr;
 	bool m_loaded = false;
 	EditorSceneDimension m_dimension = EditorSceneDimension::Scene3D;
-	bool m_editorInputEnabled = false;
-	float m_fixedSimulationNow = 0.0f;
-	uint64_t m_fixedStepCounter = 0u;
 #pragma endregion
 };
 #pragma endregion

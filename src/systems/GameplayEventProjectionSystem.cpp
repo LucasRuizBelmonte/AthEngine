@@ -1,23 +1,29 @@
 #pragma region Includes
 #include "GameplayEventProjectionSystem.h"
+
+#include "../components/runtime/RuntimeResources.h"
 #pragma endregion
 
 #pragma region Function Definitions
-void GameplayEventProjectionSystem::Reset()
+void GameplayEventProjectionSystem::Reset(Registry &registry) const
 {
-	m_hasProjectedStep = false;
-	m_lastProjectedStep = 0u;
+	GameplayEventProjectionState &state = registry.EnsureResource<GameplayEventProjectionState>();
+	state.hasProjectedStep = false;
+	state.lastProjectedStep = 0u;
 }
 
-void GameplayEventProjectionSystem::Update(events::SceneEventBus &eventBus, uint64_t fixedStepCounter)
+void GameplayEventProjectionSystem::Update(Registry &registry, events::SceneEventBus &eventBus) const
 {
+	RuntimeSimulationClock &clock = registry.EnsureResource<RuntimeSimulationClock>();
+	GameplayEventProjectionState &state = registry.EnsureResource<GameplayEventProjectionState>();
+
 	eventBus.Clear<events::GameplayEvent>();
 
-	if (m_hasProjectedStep && m_lastProjectedStep == fixedStepCounter)
+	if (state.hasProjectedStep && state.lastProjectedStep == clock.fixedStepCounter)
 		return;
 
-	m_hasProjectedStep = true;
-	m_lastProjectedStep = fixedStepCounter;
+	state.hasProjectedStep = true;
+	state.lastProjectedStep = clock.fixedStepCounter;
 
 	const std::vector<events::PhysicsTriggerEvent2D> &triggerEvents = eventBus.Get<events::PhysicsTriggerEvent2D>();
 	for (const events::PhysicsTriggerEvent2D &triggerEvent : triggerEvents)

@@ -56,7 +56,7 @@ RuntimeGameScene::RuntimeGameScene(ShaderManager &shaderManager, TextureManager 
 	  m_textureManager(textureManager),
 	  m_scenePath(std::move(scenePath))
 {
-	RegisterBuiltin2DAnimationClips();
+	ResetRuntimeResources(false);
 }
 
 const char *RuntimeGameScene::GetName() const
@@ -73,17 +73,19 @@ bool RuntimeGameScene::Load()
 {
 	m_loaded = false;
 	m_lastLoadError.clear();
-	m_fixedSimulationNow = 0.0f;
-	m_fixedStepCounter = 0u;
-	m_gameplayEventProjectionSystem.Reset();
-	m_eventBus.ClearAll();
+	ResetRuntimeResources(false);
+	m_gameplayEventProjectionSystem.Reset(m_registry);
+	EventBus().ClearAll();
 
-	if (!LoadRegistryFromDisk(m_lastLoadError))
+	bool is2DScene = false;
+	if (!LoadRegistryFromDisk(is2DScene, m_lastLoadError))
 		return false;
 	if (!BindRuntimeAssets(m_lastLoadError))
 		return false;
 
-	RefreshRuntimeReferences();
+	ResetRuntimeResources(is2DScene);
+	m_gameplayEventProjectionSystem.Reset(m_registry);
+	m_primaryCameraSystem.Reset(m_registry);
 	m_loaded = true;
 	return true;
 }
@@ -114,22 +116,26 @@ void RuntimeGameScene::Update(float dt, float now, const InputState &input)
 	if (!m_loaded)
 		return;
 
-	m_gameplayEventProjectionSystem.Update(m_eventBus, m_fixedStepCounter);
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
+	events::SceneEventBus &eventBus = EventBus();
 
-	if (m_sysClearColor)
+	m_gameplayEventProjectionSystem.Update(m_registry, eventBus);
+
+	if (switches.clearColor)
 		m_clearColorSystem.Update(now);
 
-	const Entity camera = ResolvePrimaryCamera();
-	if (camera != kInvalidEntity && m_sysCameraController && m_window)
+	const Entity camera = m_primaryCameraSystem.Resolve(m_registry);
+	if (camera != kInvalidEntity && switches.cameraController && m_window)
 	{
-		m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, m_is2DScene, input);
-		m_cameraSyncSystem.SyncTransformFromCamera(m_registry, camera, m_is2DScene);
+		m_cameraControllerSystem.Update(m_registry, *m_window, camera, dt, flags.is2DScene, input);
+		m_cameraSyncSystem.SyncTransformFromCamera(m_registry, camera, flags.is2DScene);
 	}
 
 	m_transformSystem.Update(m_registry);
-	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_is2DScene);
-	if (m_sysSpriteAnimation)
-		m_spriteAnimationSystem.Update(m_registry, m_animation2DLibrary, m_textureManager, dt);
+	m_cameraSyncSystem.SyncAllFromTransform(m_registry, flags.is2DScene);
+	if (switches.spriteAnimation)
+		m_spriteAnimationSystem.Update(m_registry, AnimationLibrary(), m_textureManager, dt);
 	m_uiSpriteAssetSyncSystem.Update(m_registry, m_textureManager, m_shaderManager);
 	m_uiInputSystem.Update(m_registry, input, dt);
 }
@@ -139,25 +145,35 @@ void RuntimeGameScene::FixedUpdate(float fixedDt)
 	if (!m_loaded)
 		return;
 
-	m_fixedSimulationNow += fixedDt;
-	if (m_sysSpin)
-		m_spinSystem.Update(m_registry, m_fixedSimulationNow);
+	RuntimeSimulationClock &clock = SimulationClock();
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
 
-	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, m_eventBus);
-	if (m_sysTriggerZoneConsole)
-		m_triggerZoneConsoleSystem.Update(m_registry, m_eventBus);
-	++m_fixedStepCounter;
+	clock.fixedSimulationNow += fixedDt;
+	if (switches.spin)
+		m_spinSystem.Update(m_registry, clock.fixedSimulationNow);
+
+	events::SceneEventBus &eventBus = EventBus();
+	m_physics2DSystem.FixedUpdate(m_registry, fixedDt, eventBus);
+	if (switches.triggerZoneConsole)
+		m_triggerZoneConsoleSystem.Update(m_registry, eventBus);
+	++clock.fixedStepCounter;
 
 	m_transformSystem.Update(m_registry);
-	m_cameraSyncSystem.SyncAllFromTransform(m_registry, m_is2DScene);
+	m_cameraSyncSystem.SyncAllFromTransform(m_registry, flags.is2DScene);
 }
 
 void RuntimeGameScene::Render3D(Renderer &renderer, int framebufferWidth, int framebufferHeight)
 {
-	if (!m_loaded || !m_sysRender || m_is2DScene)
+	if (!m_loaded)
 		return;
 
-	const Entity camera = ResolvePrimaryCamera();
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
+	if (!switches.render3D || flags.is2DScene)
+		return;
+
+	const Entity camera = m_primaryCameraSystem.Resolve(m_registry);
 	if (camera == kInvalidEntity)
 		return;
 
@@ -170,9 +186,12 @@ void RuntimeGameScene::Render2D(Renderer &renderer, int framebufferWidth, int fr
 	if (!m_loaded)
 		return;
 
-	if (m_sysRender2D && m_is2DScene)
+	const RuntimeSystemSwitches &switches = RuntimeSwitches();
+	const RuntimeSceneFlags &flags = SceneFlags();
+
+	if (switches.render2D && flags.is2DScene)
 	{
-		const Entity camera = ResolvePrimaryCamera();
+		const Entity camera = m_primaryCameraSystem.Resolve(m_registry);
 		if (camera != kInvalidEntity)
 		{
 			glDisable(GL_DEPTH_TEST);
@@ -180,7 +199,7 @@ void RuntimeGameScene::Render2D(Renderer &renderer, int framebufferWidth, int fr
 		}
 	}
 
-	if (m_sysUIRender)
+	if (switches.uiRender)
 	{
 		glDisable(GL_DEPTH_TEST);
 		m_uiLayoutSystem.Update(m_registry, framebufferWidth, framebufferHeight);
@@ -189,7 +208,7 @@ void RuntimeGameScene::Render2D(Renderer &renderer, int framebufferWidth, int fr
 	}
 }
 
-bool RuntimeGameScene::LoadRegistryFromDisk(std::string &outError)
+bool RuntimeGameScene::LoadRegistryFromDisk(bool &outIs2DScene, std::string &outError)
 {
 	const std::string resolvedScenePath = AssetPath::ResolveRuntimePath(m_scenePath);
 	if (resolvedScenePath.empty())
@@ -213,7 +232,7 @@ bool RuntimeGameScene::LoadRegistryFromDisk(std::string &outError)
 	if (!AthSceneIO::AthSceneReader::LoadRegistry(m_registry, header.sceneType, sceneName, resolvedScenePath, outError))
 		return false;
 
-	m_is2DScene = (header.sceneType == "Scene2D");
+	outIs2DScene = (header.sceneType == "Scene2D");
 	m_sceneName = sceneName.empty() ? m_scenePath : sceneName;
 	return true;
 }
@@ -366,29 +385,73 @@ void RuntimeGameScene::RegisterBuiltin2DAnimationClips()
 		glm::vec4{0.0f, 0.5f, 0.5f, 1.0f},
 		glm::vec4{0.5f, 0.5f, 1.0f, 1.0f}};
 
-	m_animation2DLibrary.RegisterClip("sample.sprite_sheet.2x2", std::move(sampleClip));
+	AnimationLibrary().RegisterClip("sample.sprite_sheet.2x2", std::move(sampleClip));
 }
 
-void RuntimeGameScene::RefreshRuntimeReferences()
+void RuntimeGameScene::ResetRuntimeResources(bool is2DScene)
 {
-	m_camera = kInvalidEntity;
-	std::vector<Entity> cameras;
-	m_registry.ViewEntities<Camera>(cameras);
-	if (!cameras.empty())
-		m_camera = cameras.front();
+	m_registry.SetResource<RuntimeSystemSwitches>(RuntimeSystemSwitches{});
+	m_registry.SetResource<RuntimeSceneFlags>(RuntimeSceneFlags{});
+	m_registry.SetResource<RuntimeSimulationClock>(RuntimeSimulationClock{});
+	m_registry.SetResource<Animation2DLibrary>(Animation2DLibrary{});
+	m_registry.SetResource<GameplayEventProjectionState>(GameplayEventProjectionState{});
+	m_registry.SetResource<RuntimePrimaryCamera>(RuntimePrimaryCamera{});
+	m_registry.SetResource<events::SceneEventBus>(events::SceneEventBus{});
+	RegisterBuiltin2DAnimationClips();
+
+	SceneFlags().is2DScene = is2DScene;
+	SceneFlags().editorInputEnabled = true;
+
+	m_physics2DSystem.ResetWorldState(m_registry);
 }
 
-Entity RuntimeGameScene::ResolvePrimaryCamera()
+RuntimeSystemSwitches &RuntimeGameScene::RuntimeSwitches()
 {
-	if (m_camera != kInvalidEntity &&
-	    m_registry.IsAlive(m_camera) &&
-	    m_registry.Has<Camera>(m_camera) &&
-	    m_registry.IsComponentEnabled<Camera>(m_camera))
-	{
-		return m_camera;
-	}
+	return m_registry.EnsureResource<RuntimeSystemSwitches>();
+}
 
-	RefreshRuntimeReferences();
-	return m_camera;
+const RuntimeSystemSwitches &RuntimeGameScene::RuntimeSwitches() const
+{
+	return m_registry.GetResource<RuntimeSystemSwitches>();
+}
+
+RuntimeSceneFlags &RuntimeGameScene::SceneFlags()
+{
+	return m_registry.EnsureResource<RuntimeSceneFlags>();
+}
+
+const RuntimeSceneFlags &RuntimeGameScene::SceneFlags() const
+{
+	return m_registry.GetResource<RuntimeSceneFlags>();
+}
+
+RuntimeSimulationClock &RuntimeGameScene::SimulationClock()
+{
+	return m_registry.EnsureResource<RuntimeSimulationClock>();
+}
+
+const RuntimeSimulationClock &RuntimeGameScene::SimulationClock() const
+{
+	return m_registry.GetResource<RuntimeSimulationClock>();
+}
+
+Animation2DLibrary &RuntimeGameScene::AnimationLibrary()
+{
+	return m_registry.EnsureResource<Animation2DLibrary>();
+}
+
+const Animation2DLibrary &RuntimeGameScene::AnimationLibrary() const
+{
+	return m_registry.GetResource<Animation2DLibrary>();
+}
+
+events::SceneEventBus &RuntimeGameScene::EventBus()
+{
+	return m_registry.EnsureResource<events::SceneEventBus>();
+}
+
+const events::SceneEventBus &RuntimeGameScene::EventBus() const
+{
+	return m_registry.GetResource<events::SceneEventBus>();
 }
 #pragma endregion

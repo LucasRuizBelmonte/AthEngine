@@ -16,6 +16,7 @@
 #include "../../systems/Render2DSystem.h"
 #include "../../systems/CameraControllerSystem.h"
 #include "../../systems/CameraSyncSystem.h"
+#include "../../systems/PrimaryCameraSystem.h"
 #include "../../systems/GameplayEventProjectionSystem.h"
 #include "../../systems/TriggerZoneConsoleSystem.h"
 #include "../../events/SceneEventBus.h"
@@ -29,6 +30,7 @@
 #include "../../systems/ui/UIRenderSystem.h"
 
 #include "../../components/Camera.h"
+#include "../../components/runtime/RuntimeResources.h"
 
 #include "../../resources/ShaderManager.h"
 #include "../../resources/TextureManager.h"
@@ -61,13 +63,22 @@ public:
 	void Render2D(Renderer &renderer, int framebufferWidth, int framebufferHeight) override;
 
 private:
-	bool LoadRegistryFromDisk(std::string &outError);
+	bool LoadRegistryFromDisk(bool &outIs2DScene, std::string &outError);
 	bool BindRuntimeAssets(std::string &outError);
 	bool LoadSpriteAssets(Entity entity, std::string &outError);
 	bool LoadMaterialAssets(Entity entity, std::string &outError);
+	void ResetRuntimeResources(bool is2DScene);
 	void RegisterBuiltin2DAnimationClips();
-	void RefreshRuntimeReferences();
-	Entity ResolvePrimaryCamera();
+	RuntimeSystemSwitches &RuntimeSwitches();
+	const RuntimeSystemSwitches &RuntimeSwitches() const;
+	RuntimeSceneFlags &SceneFlags();
+	const RuntimeSceneFlags &SceneFlags() const;
+	RuntimeSimulationClock &SimulationClock();
+	const RuntimeSimulationClock &SimulationClock() const;
+	Animation2DLibrary &AnimationLibrary();
+	const Animation2DLibrary &AnimationLibrary() const;
+	events::SceneEventBus &EventBus();
+	const events::SceneEventBus &EventBus() const;
 
 private:
 	Registry m_registry;
@@ -79,9 +90,9 @@ private:
 	Render2DSystem m_render2DSystem;
 	CameraControllerSystem m_cameraControllerSystem;
 	CameraSyncSystem m_cameraSyncSystem;
+	PrimaryCameraSystem m_primaryCameraSystem;
 	TriggerZoneConsoleSystem m_triggerZoneConsoleSystem;
 	Physics2DSystem m_physics2DSystem;
-	Animation2DLibrary m_animation2DLibrary;
 	SpriteAnimationSystem m_spriteAnimationSystem;
 	UIInputSystem m_uiInputSystem;
 	UILayoutSystem m_uiLayoutSystem;
@@ -89,28 +100,13 @@ private:
 	UITransformSystem m_uiTransformSystem;
 	UIRenderSystem m_uiRenderSystem;
 	GameplayEventProjectionSystem m_gameplayEventProjectionSystem;
-	events::SceneEventBus m_eventBus;
 
 	ShaderManager &m_shaderManager;
 	TextureManager &m_textureManager;
-
-	bool m_sysClearColor = true;
-	bool m_sysCameraController = true;
-	bool m_sysSpin = false;
-	bool m_sysRender = true;
-	bool m_sysRender2D = true;
-	bool m_sysSpriteAnimation = true;
-	bool m_sysTriggerZoneConsole = true;
-	bool m_sysUIRender = true;
-
-	Entity m_camera = kInvalidEntity;
 	std::string m_scenePath;
 	std::string m_sceneName = "RuntimeScene";
 	std::string m_lastLoadError;
-	bool m_is2DScene = false;
 	GLFWwindow *m_window = nullptr;
 	bool m_loaded = false;
-	float m_fixedSimulationNow = 0.0f;
-	uint64_t m_fixedStepCounter = 0u;
 };
 #pragma endregion

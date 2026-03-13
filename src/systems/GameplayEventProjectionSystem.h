@@ -6,20 +6,15 @@
 #pragma once
 
 #pragma region Includes
+#include "../ecs/Registry.h"
 #include "../events/SceneEventBus.h"
-
-#include <cstdint>
 #pragma endregion
 
 #pragma region Declarations
 class GameplayEventProjectionSystem
 {
 public:
-	void Reset();
-	void Update(events::SceneEventBus &eventBus, uint64_t fixedStepCounter);
-
-private:
-	bool m_hasProjectedStep = false;
-	uint64_t m_lastProjectedStep = 0u;
+	void Reset(Registry &registry) const;
+	void Update(Registry &registry, events::SceneEventBus &eventBus) const;
 };
 #pragma endregion

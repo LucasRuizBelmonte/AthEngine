@@ -1,6 +1,7 @@
-﻿#include "EditorModulesInternal.h"
+#include "EditorModulesInternal.h"
 
 #include "../scene/SceneManager.h"
+#include "../utils/Console.h"
 
 #include <imgui.h>
 
@@ -27,9 +28,29 @@ namespace editorui::internal
 		{
 			std::string err;
 			if (scenes.SaveLoadedSceneToFile(ui.selectedScene, ui.savePathBuf, err))
+			{
 				ui.sceneFileStatus = "Scene saved.";
+			}
 			else
-				ui.sceneFileStatus = "Save failed: " + err;
+			{
+				Console::Print("Save failed: " + err, Error);
+				ui.sceneFileStatus.clear();
+			}
+		};
+
+		auto tryOpenScene = [&]()
+		{
+			std::string err;
+			if (scenes.QueueOpenSceneFromFile(ui.openPathBuf, err))
+			{
+				ui.selectedScene = scenes.GetLoadedSceneCount();
+				ui.sceneFileStatus = "Loading scene...";
+			}
+			else
+			{
+				Console::Print("Open failed: " + err, Error);
+				ui.sceneFileStatus.clear();
+			}
 		};
 
 		if (ui.saveScenePopupOpen)
@@ -162,16 +183,7 @@ namespace editorui::internal
 				}
 				if (selected && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 				{
-					std::string err;
-					if (scenes.QueueOpenSceneFromFile(ui.openPathBuf, err))
-					{
-						ui.selectedScene = scenes.GetLoadedSceneCount();
-						ui.sceneFileStatus = "Loading scene...";
-					}
-					else
-					{
-						ui.sceneFileStatus = "Open failed: " + err;
-					}
+					tryOpenScene();
 					ImGui::CloseCurrentPopup();
 				}
 			}
@@ -179,16 +191,7 @@ namespace editorui::internal
 
 			if (ImGui::Button("Open"))
 			{
-				std::string err;
-				if (scenes.QueueOpenSceneFromFile(ui.openPathBuf, err))
-				{
-					ui.selectedScene = scenes.GetLoadedSceneCount();
-					ui.sceneFileStatus = "Loading scene...";
-				}
-				else
-				{
-					ui.sceneFileStatus = "Open failed: " + err;
-				}
+				tryOpenScene();
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::SameLine();

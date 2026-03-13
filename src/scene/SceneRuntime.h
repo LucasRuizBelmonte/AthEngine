@@ -8,6 +8,7 @@
 #pragma region Includes
 #include "AsyncLoader.h"
 #include "IScene.h"
+#include "SceneId.h"
 
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
@@ -22,8 +23,6 @@
 
 #pragma region Declarations
 class Renderer;
-
-enum class SceneId;
 
 class SceneStack
 {

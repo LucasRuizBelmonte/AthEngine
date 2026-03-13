@@ -51,52 +51,79 @@ set_target_properties(fmod::fmod PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${FMOD_INCLUDE_DIR}"
 )
 
-file(GLOB_RECURSE ATH_SOURCES CONFIGURE_DEPENDS
+file(GLOB_RECURSE ATH_ALL_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
-list(FILTER ATH_SOURCES EXCLUDE REGEX ".*/src/thirdparty/imgui_backends/.*\\.cpp$")
-
-add_executable(${PROJECT_NAME} ${ATH_SOURCES})
-
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-    glfw
-    GLEW::GLEW
-    glm::glm
-    imgui::imgui
-    assimp::assimp
-    fmod::fmod
-)
-
-if (WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp psapi)
-endif()
-
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/res/shaders
-    $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader
-)
-
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    ASSET_PATH="${CMAKE_SOURCE_DIR}/res"
-)
+list(FILTER ATH_ALL_SOURCES EXCLUDE REGEX ".*/src/thirdparty/imgui_backends/.*\\.cpp$")
 
 file(GLOB IMGUI_BACKEND_SOURCES
     "${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends/*.cpp"
 )
 
-target_sources(${PROJECT_NAME} PRIVATE ${IMGUI_BACKEND_SOURCES})
+set(ATH_EDITOR_SOURCES ${ATH_ALL_SOURCES})
+list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/runtime_main\\.cpp$")
+list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/app/RuntimeApplication\\.cpp$")
+list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/scene/RuntimeSceneManager\\.cpp$")
+list(FILTER ATH_EDITOR_SOURCES EXCLUDE REGEX ".*/src/scene/scenes/RuntimeDefaultScene\\.cpp$")
 
-target_include_directories(${PROJECT_NAME} PRIVATE
+set(ATH_RUNTIME_SOURCES ${ATH_ALL_SOURCES})
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/editor/.*\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/editor_main\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/app/Application\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/scene/SceneManager\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/scene/SceneRuntime\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/scene/Scene\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/scene/EditorSceneIO\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/scene/scenes/CoreScene\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/debugviz/.*\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/profiler/Profiler\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/tools/SceneValidation\\.cpp$")
+list(FILTER ATH_RUNTIME_SOURCES EXCLUDE REGEX ".*/src/thirdparty/ImGuizmo\\.cpp$")
+
+add_executable(athengine_editor ${ATH_EDITOR_SOURCES})
+add_executable(athengine_runtime ${ATH_RUNTIME_SOURCES})
+
+function(configure_ath_target target_name)
+    target_link_libraries(${target_name}
+        PRIVATE
+        glfw
+        GLEW::GLEW
+        glm::glm
+        assimp::assimp
+        fmod::fmod
+    )
+
+    if (WIN32)
+        target_link_libraries(${target_name} PRIVATE dbghelp psapi)
+    endif()
+
+    add_custom_command(TARGET ${target_name} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/res/shaders
+        $<TARGET_FILE_DIR:${target_name}>/shader
+    )
+
+    add_custom_command(TARGET ${target_name} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FMOD_LIB_DIR}/fmod.dll"
+            "$<TARGET_FILE_DIR:${target_name}>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FMOD_LIB_DIR}/fmodL.dll"
+            "$<TARGET_FILE_DIR:${target_name}>"
+    )
+
+    target_compile_definitions(${target_name} PRIVATE
+        ASSET_PATH="${CMAKE_SOURCE_DIR}/res"
+    )
+endfunction()
+
+configure_ath_target(athengine_editor)
+configure_ath_target(athengine_runtime)
+
+target_link_libraries(athengine_editor PRIVATE imgui::imgui)
+target_sources(athengine_editor PRIVATE ${IMGUI_BACKEND_SOURCES})
+target_include_directories(athengine_editor PRIVATE
     "${CMAKE_SOURCE_DIR}/src/thirdparty/imgui_backends"
 )
-
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${FMOD_LIB_DIR}/fmod.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${FMOD_LIB_DIR}/fmodL.dll"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-)
+target_compile_definitions(athengine_editor PRIVATE ATH_EDITOR_BUILD=1)
+target_compile_definitions(athengine_runtime PRIVATE ATH_RUNTIME_BUILD=1)

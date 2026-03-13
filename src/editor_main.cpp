@@ -2,8 +2,8 @@
 #include "app/CrashHandler.h"
 #include "tools/SceneValidation.h"
 
-#include <cstring>
 #include <cstdio>
+#include <cstring>
 #include <exception>
 
 namespace
@@ -11,8 +11,8 @@ namespace
 	void PrintUsage()
 	{
 		std::printf("Usage:\n");
-		std::printf("  athengine\n");
-		std::printf("  athengine --validate-scene <path-to-scene.athscene>\n");
+		std::printf("  athengine_editor\n");
+		std::printf("  athengine_editor --validate-scene <path-to-scene.athscene>\n");
 	}
 }
 
@@ -53,12 +53,12 @@ int main(int argc, char **argv)
 	}
 	catch (const std::exception &e)
 	{
-		std::fprintf(stderr, "Application exited with exception: %s\n", e.what());
+		std::fprintf(stderr, "Editor exited with exception: %s\n", e.what());
 		return 1;
 	}
 	catch (...)
 	{
-		std::fprintf(stderr, "Application exited with unknown exception.\n");
+		std::fprintf(stderr, "Editor exited with unknown exception.\n");
 		return 1;
 	}
 }

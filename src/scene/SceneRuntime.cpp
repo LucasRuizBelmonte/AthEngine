@@ -2,7 +2,6 @@
 #include "../platform/GL.h"
 #include "SceneRuntime.h"
 
-#include "SceneManager.h"
 #include "IEditorScene.h"
 #include "EditorSceneIO.h"
 #include "Scene.h"

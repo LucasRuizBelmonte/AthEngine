@@ -8,6 +8,7 @@
 #pragma region Includes
 #include "IScene.h"
 #include "SceneRuntime.h"
+#include "SceneId.h"
 
 #include "../resources/ShaderManager.h"
 #include "../resources/TextureManager.h"
@@ -17,12 +18,6 @@
 #pragma endregion
 
 #pragma region Declarations
-enum class SceneId
-{
-    DefaultScene,
-	HudDemoScene
-};
-
 class SceneManager
 {
 public:
